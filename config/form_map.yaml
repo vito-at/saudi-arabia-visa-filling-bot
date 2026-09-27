@@ -1,0 +1,54 @@
+# Карта полей анкеты портала. ШАБЛОН — будет заполнен после того, как вы пришлёте
+# запись `playwright codegen` и скриншоты каждого шага.
+#
+# Почему так: если портал поменяет вёрстку, достаточно поправить селектор здесь,
+# код трогать не нужно.
+#
+# Типы полей (type):
+#   text      — обычное текстовое поле
+#   date      — дата (format — как вводить: "%d/%m/%Y", "%Y-%m-%d" или "picker")
+#   select    — выпадающий список <select>; dictionary — категория из dictionaries.yaml
+#   combobox  — «красивый» выпадающий список (div/ul), option_selector — как найти пункты
+#   radio     — переключатель; options — значение → селектор
+#   checkbox  — галочка
+#   file      — загрузка файла (source: passport | face)
+#
+# source — откуда брать значение:
+#   passport.<поле>   — распознанный паспорт (surname, given_names, passport_number, ...)
+#   trip.<поле>       — данные поездки (arrival_date, departure_date, purpose, ...)
+#   contact.<поле>    — контакты (phone, email, address_ksa, ...)
+#   const:<значение>  — постоянное значение
+#
+# Селекторы: предпочтительно по id/name/label, например "#passportNumber",
+# "input[name='firstName']", "role=textbox[name='First Name']".
+
+portal:
+  start_url: ""              # страница начала новой заявки
+  logged_in_check: ""        # селектор, который есть на странице только после входа
+
+# Признаки капчи / OTP / «вы не робот» — при их появлении программа ставит паузу
+# и ждёт, пока вы пройдёте проверку сами и нажмёте «Продолжить» в Telegram.
+human_checks:
+  - "iframe[src*='recaptcha']"
+  - "iframe[src*='hcaptcha']"
+  - "iframe[title*='challenge']"
+  - "input[autocomplete='one-time-code']"
+  - "text=/OTP|verification code|رمز التحقق/i"
+
+# Где портал показывает ошибки валидации
+validation_errors:
+  - ".error-message"
+  - ".invalid-feedback"
+  - "[role='alert']"
+
+steps:
+  # Пример структуры одного шага — будет заменён реальными данными:
+  - name: "example_personal_info"
+    wait_for: ""               # селектор, по которому понятно, что шаг загрузился
+    fields:
+      - name: surname
+        type: text
+        selector: ""
+        source: passport.surname
+    next_button: ""            # кнопка перехода к следующему шагу
+    final: false               # true — на этом шаге остановиться (проверка/оплата)

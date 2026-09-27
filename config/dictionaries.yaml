@@ -1,0 +1,74 @@
+# Словари для выпадающих списков портала.
+# Формат:  категория -> канонический ключ -> список синонимов (как может быть написано
+# на портале, в паспорте или в сообщении клиента). Регистр и знаки препинания не важны.
+#
+# Когда пришлёте запись codegen и скриншоты, я добавлю сюда ТОЧНЫЕ тексты пунктов
+# с портала. Если бот не смог сопоставить значение — он спросит вас, а вы сможете
+# дописать новый синоним сюда за минуту.
+
+country:
+  UZB: [Uzbekistan, Republic of Uzbekistan, Узбекистан, Республика Узбекистан, O'zbekiston, Ozbekiston, UZ]
+  KAZ: [Kazakhstan, Republic of Kazakhstan, Казахстан, Qazaqstan, KZ]
+  KGZ: [Kyrgyzstan, Kyrgyz Republic, Кыргызстан, Киргизия, KG]
+  TJK: [Tajikistan, Таджикистан, TJ]
+  TKM: [Turkmenistan, Туркменистан, TM]
+  RUS: [Russia, Russian Federation, Россия, Российская Федерация, RU]
+  AZE: [Azerbaijan, Азербайджан, AZ]
+  TUR: [Turkey, Turkiye, Türkiye, Турция, TR]
+  SAU: [Saudi Arabia, Kingdom of Saudi Arabia, KSA, Саудовская Аравия, SA]
+  ARE: [United Arab Emirates, UAE, ОАЭ, AE]
+
+# Города/регионы рождения (Узбекистан). Паспорт пишет по-узбекски, портал может хотеть по-английски.
+birth_place_uz:
+  TASHKENT: [Toshkent, Toshkent shahri, Toshkent sh, Tashkent city, Ташкент, TOSHKENT SHAHAR]
+  TASHKENT_REGION: [Toshkent viloyati, Tashkent region, Ташкентская область]
+  SAMARKAND: [Samarqand, Samarqand viloyati, Samarkand region, Самарканд]
+  BUKHARA: [Buxoro, Buxoro viloyati, Bukhara region, Бухара]
+  ANDIJAN: [Andijon, Andijon viloyati, Andijan region, Андижан]
+  FERGANA: [Farg'ona, Fargona, Farg'ona viloyati, Fergana region, Фергана]
+  NAMANGAN: [Namangan viloyati, Namangan region, Наманган]
+  KASHKADARYA: [Qashqadaryo, Qashqadaryo viloyati, Kashkadarya region, Кашкадарья]
+  SURKHANDARYA: [Surxondaryo, Surxondaryo viloyati, Surkhandarya region, Сурхандарья]
+  KHOREZM: [Xorazm, Xorazm viloyati, Khorezm region, Хорезм]
+  NAVOI: [Navoiy, Navoiy viloyati, Navoi region, Навои]
+  JIZZAKH: [Jizzax, Jizzax viloyati, Jizzakh region, Джизак]
+  SYRDARYA: [Sirdaryo, Sirdaryo viloyati, Syrdarya region, Сырдарья]
+  KARAKALPAKSTAN: [Qoraqalpog'iston, Qoraqalpogiston Respublikasi, Karakalpakstan, Каракалпакстан, Nukus]
+
+marital_status:
+  SINGLE: [Single, Холост, Не замужем, Unmarried, Never married]
+  MARRIED: [Married, Женат, Замужем]
+  DIVORCED: [Divorced, Разведен, Разведена]
+  WIDOWED: [Widowed, Widow, Widower, Вдовец, Вдова]
+
+sex:
+  M: [Male, Мужской, Муж, Erkak]
+  F: [Female, Женский, Жен, Ayol]
+
+profession:
+  EMPLOYEE: [Employee, Private sector employee, Служащий, Работник]
+  BUSINESS: [Businessman, Business owner, Businesswoman, Предприниматель, Бизнесмен]
+  STUDENT: [Student, Студент, Студентка]
+  RETIRED: [Retired, Pensioner, Пенсионер, Пенсионерка]
+  HOUSEWIFE: [Housewife, Homemaker, Домохозяйка]
+  UNEMPLOYED: [Unemployed, Не работает, Безработный]
+  CHILD: [Child, Minor, Ребёнок, Ребенок]
+  DOCTOR: [Doctor, Physician, Врач]
+  TEACHER: [Teacher, Учитель, Преподаватель]
+  ENGINEER: [Engineer, Инженер]
+  DRIVER: [Driver, Водитель]
+
+visit_purpose:
+  TOURISM: [Tourism, Tourist, Туризм, Leisure]
+  UMRAH: [Umrah, Умра]
+  FAMILY: [Visiting family, Visit family and friends, Гости, Посещение родственников]
+  EVENTS: [Events, Мероприятия]
+
+relationship:
+  SPOUSE: [Spouse, Wife, Husband, Жена, Муж, Супруг, Супруга]
+  SON: [Son, Сын]
+  DAUGHTER: [Daughter, Дочь]
+  FATHER: [Father, Отец]
+  MOTHER: [Mother, Мать, Мама]
+  BROTHER: [Brother, Брат]
+  SISTER: [Sister, Сестра]

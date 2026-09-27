@@ -1,0 +1,24 @@
+# Распознавание паспорта
+fastmrz==2.1.2
+PassportEye==2.2.2
+pytesseract>=0.3.10
+opencv-python>=4.9,<5  # в OpenCV 5 удалён детектор лиц Haar
+numpy>=1.26
+Pillow>=10.0
+
+# Claude API (vision)
+anthropic>=1.8.0
+
+# Конфиг, модели данных, безопасность
+python-dotenv>=1.0
+PyYAML>=6.0
+pydantic>=2.6
+cryptography>=42.0
+
+# Следующие этапы: заполнение формы и Telegram-бот
+playwright>=1.45
+python-telegram-bot>=21.0
+rapidfuzz>=3.6
+
+# Тесты
+pytest>=8.0
