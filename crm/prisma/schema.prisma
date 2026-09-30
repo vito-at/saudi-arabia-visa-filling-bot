@@ -252,7 +252,11 @@ model MetaIntegration {
   pageId          String?
   pageTokenEnc    String?
   verifyToken     String?
+  /// Рекламный кабинет (act_XXXX) и отдельный токен Marketing API с правом ads_read — для расходов
   adAccountId     String?
+  adsTokenEnc     String?
+  /// За сколько дней загружать лиды при первой синхронизации (Meta хранит лиды 90 дней)
+  initialDays     Int       @default(30)
   pollIntervalMin Int       @default(5)
   enabled         Boolean   @default(false)
   lastSyncAt      DateTime?
