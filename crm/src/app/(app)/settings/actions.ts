@@ -6,6 +6,8 @@ import type { Role, StatusKind } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { runAction } from "@/lib/actions";
 import { formatNumber } from "@/lib/format";
+import { SPECIAL_STATUS_KINDS } from "@/lib/constants";
+import { getI18n } from "@/i18n/server";
 import { updateUsdRate } from "@/lib/rates";
 import { requireAdmin } from "@/lib/session";
 import { ValidationError } from "@/lib/leads/service";
@@ -19,12 +21,12 @@ export async function saveGeneralAction(formData: FormData) {
   return runAction(async () => {
     await requireAdmin();
     const mode = str(formData.get("distributionMode"));
-    if (mode !== "MANUAL" && mode !== "ROUND_ROBIN") throw new ValidationError("Выберите режим распределения");
+    if (mode !== "MANUAL" && mode !== "ROUND_ROBIN") throw new ValidationError("err.distribution");
     const alert = Number(formData.get("unprocessedAlertMin"));
-    if (!Number.isInteger(alert) || alert < 1 || alert > 10080) throw new ValidationError("Порог — от 1 минуты");
+    if (!Number.isInteger(alert) || alert < 1 || alert > 10080) throw new ValidationError("err.alertMin");
     await prisma.appSettings.update({ where: { id: 1 }, data: { distributionMode: mode, unprocessedAlertMin: alert } });
     revalidateAll();
-    return "Сохранено";
+    return (await getI18n()).t("msg.saved");
   });
 }
 
@@ -33,23 +35,40 @@ export async function saveRateAction(formData: FormData) {
     await requireAdmin();
     const source = str(formData.get("usdRateSource"));
     const side = str(formData.get("usdRateSide"));
-    if (source !== "MANUAL" && source !== "IPAK_YULI") throw new ValidationError("Выберите источник курса");
-    if (side !== "BUY" && side !== "SELL") throw new ValidationError("Выберите курс покупки или продажи");
+    if (source !== "MANUAL" && source !== "IPAK_YULI") throw new ValidationError("err.rateSource");
+    if (side !== "BUY" && side !== "SELL") throw new ValidationError("err.rateSide");
     const data: Parameters<typeof prisma.appSettings.update>[0]["data"] = { usdRateSource: source, usdRateSide: side };
     if (source === "MANUAL") {
       const rate = Number(str(formData.get("usdRate")).replace(/\s/g, "").replace(",", "."));
-      if (!Number.isFinite(rate) || rate < 1000 || rate > 100000) throw new ValidationError("Укажите курс USD→UZS, например 12 700");
+      if (!Number.isFinite(rate) || rate < 1000 || rate > 100000) throw new ValidationError("err.rateValue");
       Object.assign(data, { usdRate: rate, usdRateUpdatedAt: new Date(), usdRateError: null });
     }
     await prisma.appSettings.update({ where: { id: 1 }, data });
     if (source === "IPAK_YULI") {
       const r = await updateUsdRate();
       revalidateAll();
-      if (!r.ok) throw new ValidationError(`Настройки сохранены, но курс получить не удалось: ${"error" in r ? r.error : ""}. Используется последний известный курс.`);
-      return `Курс Ипак Йули Банка: ${formatNumber("rate" in r ? r.rate : 0, 2)} сум`;
+      if (!r.ok) throw new ValidationError("err.rateSavedButFailed", { error: ("error" in r ? r.error : "") ?? "" });
+      const { t, f } = await getI18n();
+      return t("msg.rateIpak", { rate: formatNumber("rate" in r ? r.rate : 0, 2), sum: f.sum });
     }
     revalidateAll();
-    return "Курс сохранён";
+    return (await getI18n()).t("msg.rateSaved");
+  });
+}
+
+/** Установить курс вручную прямо сейчас (в любом режиме); в авто-режиме действует до следующего обновления в 07:00 */
+export async function setUsdRateAction(value: string) {
+  return runAction(async () => {
+    await requireAdmin();
+    const rate = Number(String(value).replace(/\s/g, "").replace(",", "."));
+    if (!Number.isFinite(rate) || rate < 1000 || rate > 100000) throw new ValidationError("err.rateValue");
+    const s = await prisma.appSettings.update({
+      where: { id: 1 },
+      data: { usdRate: rate, usdRateUpdatedAt: new Date(), usdRateError: null },
+    });
+    revalidateAll();
+    const { t, f } = await getI18n();
+    return t(s.usdRateSource === "IPAK_YULI" ? "msg.rateSetAuto" : "msg.rateSet", { rate: formatNumber(rate, 2), sum: f.sum });
   });
 }
 
@@ -58,8 +77,8 @@ export async function refreshRateAction() {
     await requireAdmin();
     const r = await updateUsdRate({ force: true });
     revalidateAll();
-    if (!r.ok) throw new ValidationError(`Не удалось получить курс: ${"error" in r ? r.error : ""}`);
-    return `Курс обновлён: покупка ${formatNumber("buy" in r ? r.buy : 0, 2)}, продажа ${formatNumber("sell" in r ? r.sell : 0, 2)}`;
+    if (!r.ok) throw new ValidationError("err.rateFetch", { error: ("error" in r ? r.error : "") ?? "" });
+    return (await getI18n()).t("msg.rateUpdated", { buy: formatNumber("buy" in r ? r.buy : 0, 2), sell: formatNumber("sell" in r ? r.sell : 0, 2) });
   });
 }
 
@@ -71,14 +90,15 @@ export async function saveStatusAction(input: { id?: string; name: string; color
   return runAction(async () => {
     await requireAdmin();
     const name = input.name.trim();
-    if (!name) throw new ValidationError("Название не может быть пустым");
-    if (!COLOR.test(input.color)) throw new ValidationError("Цвет в формате #RRGGBB");
+    if (!name) throw new ValidationError("err.emptyName");
+    if (!COLOR.test(input.color)) throw new ValidationError("err.color");
     if (input.id) {
       const cur = await prisma.leadStatus.findUniqueOrThrow({ where: { id: input.id } });
+      if (!cur.isSystem && SPECIAL_STATUS_KINDS.includes(input.kind)) throw new ValidationError("err.kindExists");
       // тип системных статусов менять нельзя — на нём держится логика
       await prisma.leadStatus.update({ where: { id: input.id }, data: { name, color: input.color, kind: cur.isSystem ? cur.kind : input.kind } });
     } else {
-      if (["NEW", "WON", "LOST"].includes(input.kind)) throw new ValidationError("Статусы «Новый», «Продано» и «Отказ» уже есть — добавьте промежуточный статус");
+      if (SPECIAL_STATUS_KINDS.includes(input.kind)) throw new ValidationError("err.specialStatusExists");
       const last = await prisma.leadStatus.findFirst({ where: { kind: { notIn: ["WON", "LOST"] } }, orderBy: { order: "desc" } });
       const order = (last?.order ?? 0) + 1;
       // сдвигаем «Продано»/«Отказ» в конец
@@ -106,11 +126,11 @@ export async function deleteStatusAction(id: string, moveTo: string) {
   return runAction(async () => {
     await requireAdmin();
     const s = await prisma.leadStatus.findUniqueOrThrow({ where: { id } });
-    if (s.isSystem) throw new ValidationError("Системный статус удалить нельзя");
+    if (s.isSystem) throw new ValidationError("err.systemStatus");
     const count = await prisma.lead.count({ where: { statusId: id } });
     if (count > 0) {
       const target = await prisma.leadStatus.findUnique({ where: { id: moveTo } });
-      if (!target || target.id === id || target.kind === "WON" || target.kind === "LOST") throw new ValidationError(`В статусе ${count} лидов — выберите, куда их перенести (кроме «Продано» и «Отказ»)`);
+      if (!target || target.id === id || target.kind === "WON" || target.kind === "LOST") throw new ValidationError("err.statusHasLeads", { n: count });
       await prisma.lead.updateMany({ where: { statusId: id }, data: { statusId: target.id } });
     }
     await prisma.leadHistory.updateMany({ where: { toStatusId: id }, data: { toStatusId: null } });
@@ -125,7 +145,7 @@ export async function saveReasonAction(input: { id?: string; name: string; isAct
   return runAction(async () => {
     await requireAdmin();
     const name = input.name.trim();
-    if (!name) throw new ValidationError("Название не может быть пустым");
+    if (!name) throw new ValidationError("err.emptyName");
     if (input.id) await prisma.lossReason.update({ where: { id: input.id }, data: { name, isActive: input.isActive ?? true } });
     else {
       const last = await prisma.lossReason.findFirst({ orderBy: { order: "desc" } });
@@ -156,7 +176,8 @@ export async function deleteReasonAction(id: string) {
     if (used) await prisma.lossReason.update({ where: { id }, data: { isActive: false } });
     else await prisma.lossReason.delete({ where: { id } });
     revalidateAll();
-    return used ? `Причина используется в ${used} лидах — она скрыта из списка, но осталась в отчётах` : "Удалено";
+    const { t } = await getI18n();
+    return used ? t("msg.reasonHidden", { n: used }) : t("msg.deleted");
   });
 }
 
@@ -167,15 +188,15 @@ export async function saveUserAction(input: { id?: string; login: string; name: 
     const admin = await requireAdmin();
     const login = input.login.trim().toLowerCase();
     const name = input.name.trim();
-    if (!/^[a-z0-9._-]{3,32}$/.test(login)) throw new ValidationError("Логин: 3–32 символа, латиница, цифры, . _ -");
-    if (!name) throw new ValidationError("Укажите имя");
-    if (input.role !== "ADMIN" && input.role !== "MANAGER") throw new ValidationError("Выберите роль");
-    if (input.password && input.password.length < 8) throw new ValidationError("Пароль — минимум 8 символов");
+    if (!/^[a-z0-9._-]{3,32}$/.test(login)) throw new ValidationError("err.login");
+    if (!name) throw new ValidationError("err.name");
+    if (input.role !== "ADMIN" && input.role !== "MANAGER") throw new ValidationError("err.role");
+    if (input.password && input.password.length < 8) throw new ValidationError("err.passwordShort");
     const dup = await prisma.user.findFirst({ where: { login, NOT: input.id ? { id: input.id } : undefined } });
-    if (dup) throw new ValidationError("Такой логин уже занят");
+    if (dup) throw new ValidationError("err.loginTaken");
 
     if (input.id) {
-      if (input.id === admin.id && (input.role !== "ADMIN" || !input.isActive)) throw new ValidationError("Нельзя снять права администратора или заблокировать себя");
+      if (input.id === admin.id && (input.role !== "ADMIN" || !input.isActive)) throw new ValidationError("err.selfDemote");
       await prisma.user.update({
         where: { id: input.id },
         data: { login, name, role: input.role, isActive: input.isActive, ...(input.password ? { passwordHash: await bcrypt.hash(input.password, 10) } : {}) },
@@ -185,7 +206,7 @@ export async function saveUserAction(input: { id?: string; login: string; name: 
         await prisma.lead.updateMany({ where: { managerId: input.id, status: { kind: { in: ["NEW"] } } }, data: { managerId: null } });
       }
     } else {
-      if (!input.password) throw new ValidationError("Задайте пароль");
+      if (!input.password) throw new ValidationError("err.passwordRequired");
       await prisma.user.create({ data: { login, name, role: input.role, isActive: input.isActive, passwordHash: await bcrypt.hash(input.password, 10) } });
     }
     revalidateAll();

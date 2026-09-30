@@ -4,7 +4,8 @@ import { KanbanBoard, type KanbanCard } from "@/components/kanban/kanban-board";
 import { KanbanFilters } from "@/components/kanban/kanban-filters";
 import { prisma } from "@/lib/db";
 import { leadScope } from "@/lib/access";
-import { SOURCE_LABELS } from "@/lib/constants";
+import { reasonName, sourceLabel, statusName } from "@/i18n/labels";
+import { getI18n } from "@/i18n/server";
 import { toNum } from "@/lib/money";
 import { getLossReasons, getManagers, getSettings, getStatuses } from "@/lib/refs";
 import { isOverdueNew, sp, type SearchParams } from "@/lib/leads/query";
@@ -17,6 +18,7 @@ const CLOSED_DAYS = 30;
 export default async function KanbanPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const params = await searchParams;
   const user = await requireUser();
+  const { t } = await getI18n();
   const [statuses, reasons, users, settings] = await Promise.all([getStatuses(), getLossReasons(), getManagers(), getSettings()]);
 
   const filters: Prisma.LeadWhereInput[] = [leadScope(user)];
@@ -53,7 +55,8 @@ export default async function KanbanPage({ searchParams }: { searchParams: Promi
       destination: l.destination,
       createdAt: l.createdAt.toISOString(),
       isRepeat: l.isRepeat,
-      source: SOURCE_LABELS[l.source],
+      source: sourceLabel(t, l.source),
+      callbackAt: l.status.kind === "CALLBACK" && l.callbackAt ? l.callbackAt.toISOString() : null,
       overdueMin: isOverdueNew(l, settings.unprocessedAlertMin, now) ? Math.round((now.getTime() - l.createdAt.getTime()) / 60000) : null,
     })),
   );
@@ -61,8 +64,8 @@ export default async function KanbanPage({ searchParams }: { searchParams: Promi
   return (
     <div>
       <PageHeader
-        title="Канбан"
-        description={`Перетаскивайте карточки между статусами. «Продано» и «Отказ» — за последние ${CLOSED_DAYS} дней.`}
+        title={t("kanban.title")}
+        description={t("kanban.description", { days: CLOSED_DAYS })}
         actions={
           <Suspense>
             <KanbanFilters managers={user.role === "ADMIN" ? users.map((u) => ({ id: u.id, name: u.name })) : null} />
@@ -70,9 +73,9 @@ export default async function KanbanPage({ searchParams }: { searchParams: Promi
         }
       />
       <KanbanBoard
-        statuses={columns.map(({ status: s, total }) => ({ id: s.id, name: s.name, color: s.color, kind: s.kind, total }))}
+        statuses={columns.map(({ status: s, total }) => ({ id: s.id, name: statusName(t, s.name), color: s.color, kind: s.kind, total }))}
         cards={cards}
-        reasons={reasons.map((r) => ({ id: r.id, name: r.name }))}
+        reasons={reasons.map((r) => ({ id: r.id, name: reasonName(t, r.name) }))}
         rate={toNum(settings.usdRate)}
       />
     </div>

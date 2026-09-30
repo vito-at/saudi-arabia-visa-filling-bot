@@ -1,13 +1,25 @@
 import type { LeadSource, Prisma, ServiceType } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { normalizePhone } from "@/lib/phone";
-import { formatDate } from "@/lib/format";
+import { formatDate, formatDateTime } from "@/lib/format";
 import { SERVICE_LABELS, SOURCE_LABELS } from "@/lib/constants";
 import { pickNextManager } from "./distribution";
+import type { TKey, TVars } from "@/i18n/core";
 
 type Tx = Prisma.TransactionClient;
 
-export class ValidationError extends Error {}
+/**
+ * Ожидаемая ошибка для пользователя. message — ключ перевода (err.*) или готовый текст;
+ * переводится на язык пользователя в runAction.
+ */
+export class ValidationError extends Error {
+  constructor(
+    message: TKey | string,
+    public vars?: TVars,
+  ) {
+    super(message);
+  }
+}
 
 export interface NewLeadInput {
   source: LeadSource;
@@ -42,8 +54,12 @@ export interface NewLeadInput {
  */
 export async function createLead(input: NewLeadInput, actorId: string | null) {
   if (input.leadgenId) {
-    const dup = await prisma.lead.findUnique({ where: { leadgenId: input.leadgenId }, select: { id: true } });
-    if (dup) return null;
+    const [dup, deleted] = await Promise.all([
+      prisma.lead.findUnique({ where: { leadgenId: input.leadgenId }, select: { id: true } }),
+      prisma.deletedLeadgen.findUnique({ where: { leadgenId: input.leadgenId } }),
+    ]);
+    // удалённый администратором лид Meta не загружаем повторно
+    if (dup || deleted) return null;
   }
   const phone = normalizePhone(input.phone);
   const name = input.name?.trim() || "Без имени";
@@ -52,7 +68,7 @@ export async function createLead(input: NewLeadInput, actorId: string | null) {
     return await prisma.$transaction(async (tx) => {
       const newStatus = await tx.leadStatus.findFirst({ where: { kind: "NEW" }, orderBy: { order: "asc" } });
       const status = newStatus ?? (await tx.leadStatus.findFirst({ orderBy: { order: "asc" } }));
-      if (!status) throw new ValidationError("Не настроены статусы лидов");
+      if (!status) throw new ValidationError("err.noStatuses");
 
       let client = phone ? await tx.client.findUnique({ where: { phone } }) : null;
       let isRepeat = false;
@@ -150,23 +166,26 @@ export interface StatusChange {
   statusId: string;
   lossReasonId?: string | null;
   lossComment?: string | null;
+  /** обязательно для статуса «Перезвонить» */
+  callbackAt?: Date | null;
 }
 
-/** Смена статуса с проверками: «Отказ» требует причину, «Продано» — сделку. */
+/** Смена статуса с проверками: «Отказ» требует причину, «Продано» — сделку, «Перезвонить» — время звонка. */
 export async function changeStatus(leadId: string, change: StatusChange, actor: { id: string; role: string }) {
   return prisma.$transaction(async (tx) => {
     const lead = await tx.lead.findUniqueOrThrow({ where: { id: leadId }, include: { status: true, _count: { select: { deals: true } } } });
     const target = await tx.leadStatus.findUnique({ where: { id: change.statusId } });
-    if (!target) throw new ValidationError("Статус не найден");
-    if (target.id === lead.statusId && target.kind !== "LOST") return lead;
+    if (!target) throw new ValidationError("err.statusNotFound");
+    // «Перезвонить» можно выбрать повторно — это перенос звонка
+    if (target.id === lead.statusId && target.kind !== "LOST" && target.kind !== "CALLBACK") return lead;
 
     const data: Prisma.LeadUncheckedUpdateInput = { statusId: target.id, statusChangedAt: new Date() };
     const history: Prisma.LeadHistoryCreateManyInput[] = [];
 
     if (target.kind === "LOST") {
-      if (!change.lossReasonId) throw new ValidationError("Укажите причину отказа");
+      if (!change.lossReasonId) throw new ValidationError("err.lossReasonRequired");
       const reason = await tx.lossReason.findUnique({ where: { id: change.lossReasonId } });
-      if (!reason) throw new ValidationError("Причина отказа не найдена");
+      if (!reason) throw new ValidationError("err.lossReasonNotFound");
       data.lossReasonId = reason.id;
       data.lossComment = change.lossComment?.trim() || null;
       history.push({ leadId, userId: actor.id, field: "lossReason", oldValue: null, newValue: reason.name + (data.lossComment ? ` — ${data.lossComment}` : "") });
@@ -177,7 +196,18 @@ export async function changeStatus(leadId: string, change: StatusChange, actor: 
     }
 
     if (target.kind === "WON" && lead._count.deals === 0) {
-      throw new ValidationError("Для статуса «Продано» нужно заполнить сделку");
+      throw new ValidationError("err.wonNeedsDeal");
+    }
+
+    let callback: Date | null = null;
+    if (target.kind === "CALLBACK") {
+      if (!change.callbackAt || Number.isNaN(change.callbackAt.getTime())) throw new ValidationError("err.callbackRequired");
+      if (change.callbackAt.getTime() < Date.now() - 60_000) throw new ValidationError("err.callbackPast");
+      callback = change.callbackAt;
+      data.callbackAt = callback;
+      history.push({ leadId, userId: actor.id, field: "callback", oldValue: lead.callbackAt ? formatDateTime(lead.callbackAt) : null, newValue: formatDateTime(callback) });
+    } else if (lead.callbackAt) {
+      data.callbackAt = null;
     }
 
     // менеджер, взявший нераспределённый лид в работу, становится ответственным
@@ -194,6 +224,16 @@ export async function changeStatus(leadId: string, change: StatusChange, actor: 
     const updated = await tx.lead.update({ where: { id: leadId }, data });
     if (history.length) await tx.leadHistory.createMany({ data: history });
     if (lead.status.kind === "NEW" && target.kind !== "NEW") await markFirstResponse(tx, leadId);
+
+    // задача «Перезвонить» — видна в задачах и на дашборде; закрывается при смене статуса
+    const openCallbackTask = await tx.task.findFirst({ where: { leadId, isCallback: true, doneAt: null } });
+    if (callback) {
+      const assigneeId = updated.managerId ?? actor.id;
+      if (openCallbackTask) await tx.task.update({ where: { id: openCallbackTask.id }, data: { dueAt: callback, assigneeId } });
+      else await tx.task.create({ data: { leadId, title: "Перезвонить клиенту", dueAt: callback, assigneeId, createdById: actor.id, isCallback: true } });
+    } else if (openCallbackTask) {
+      await tx.task.updateMany({ where: { leadId, isCallback: true, doneAt: null }, data: { doneAt: new Date() } });
+    }
     return updated;
   });
 }
@@ -202,7 +242,7 @@ export async function changeStatus(leadId: string, change: StatusChange, actor: 
 export async function assignManager(leadIds: string[], managerId: string | null, actorId: string) {
   if (!leadIds.length) return 0;
   const manager = managerId ? await prisma.user.findFirst({ where: { id: managerId, isActive: true } }) : null;
-  if (managerId && !manager) throw new ValidationError("Менеджер не найден");
+  if (managerId && !manager) throw new ValidationError("err.managerNotFound");
   return prisma.$transaction(async (tx) => {
     const leads = await tx.lead.findMany({ where: { id: { in: leadIds } }, include: { manager: { select: { name: true } } } });
     const changed = leads.filter((l) => l.managerId !== managerId);
@@ -228,7 +268,7 @@ export async function assignManager(leadIds: string[], managerId: string | null,
 export async function takeLead(leadId: string, actor: { id: string; role: string }) {
   const lead = await prisma.lead.findUniqueOrThrow({ where: { id: leadId }, include: { status: true } });
   if (lead.managerId && lead.managerId !== actor.id && actor.role !== "ADMIN") {
-    throw new ValidationError("Лид уже взят другим менеджером");
+    throw new ValidationError("err.leadTaken");
   }
   if (lead.managerId !== actor.id) await assignManager([leadId], actor.id, actor.id);
   if (lead.status.kind === "NEW") {
@@ -268,7 +308,7 @@ export async function updateLeadFields(leadId: string, patch: LeadFieldsPatch, a
 
     if (patch.phone !== undefined) {
       const normalized = normalizePhone(patch.phone);
-      if (patch.phone && !normalized) throw new ValidationError("Телефон должен быть узбекским номером: +998XXXXXXXXX");
+      if (patch.phone && !normalized) throw new ValidationError("err.phoneUz");
       patch = { ...patch, phone: normalized };
     }
 
@@ -302,7 +342,7 @@ export async function updateLeadFields(leadId: string, patch: LeadFieldsPatch, a
 
 export async function addComment(leadId: string, authorId: string, text: string) {
   const t = text.trim();
-  if (!t) throw new ValidationError("Комментарий пустой");
+  if (!t) throw new ValidationError("err.commentEmpty");
   return prisma.$transaction(async (tx) => {
     const c = await tx.comment.create({ data: { leadId, authorId, text: t } });
     await markFirstResponse(tx, leadId);
@@ -312,8 +352,27 @@ export async function addComment(leadId: string, authorId: string, text: string)
 
 export async function editComment(commentId: string, authorId: string, text: string) {
   const t = text.trim();
-  if (!t) throw new ValidationError("Комментарий пустой");
+  if (!t) throw new ValidationError("err.commentEmpty");
   const c = await prisma.comment.findUnique({ where: { id: commentId } });
-  if (!c || c.authorId !== authorId) throw new ValidationError("Можно редактировать только свои комментарии");
+  if (!c || c.authorId !== authorId) throw new ValidationError("err.commentNotOwn");
   return prisma.comment.update({ where: { id: commentId }, data: { text: t, editedAt: new Date() } });
+}
+
+/**
+ * Удаление лида вместе с комментариями, историей, задачами и сделками.
+ * Клиент удаляется, если у него не осталось других лидов.
+ * ID лида Meta запоминается, чтобы синхронизация не загрузила его снова.
+ */
+export async function deleteLead(leadId: string) {
+  return prisma.$transaction(async (tx) => {
+    const lead = await tx.lead.findUnique({ where: { id: leadId }, select: { clientId: true, leadgenId: true } });
+    if (!lead) throw new ValidationError("err.leadMissing");
+    if (lead.leadgenId) {
+      await tx.deletedLeadgen.upsert({ where: { leadgenId: lead.leadgenId }, update: {}, create: { leadgenId: lead.leadgenId } });
+    }
+    await tx.lead.delete({ where: { id: leadId } });
+    const rest = await tx.lead.count({ where: { clientId: lead.clientId } });
+    if (rest === 0) await tx.client.delete({ where: { id: lead.clientId } });
+    return { clientDeleted: rest === 0 };
+  });
 }

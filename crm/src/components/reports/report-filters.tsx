@@ -4,12 +4,15 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, NativeSelect } from "@/components/ui/input";
-import { PERIOD_LABELS, type PeriodKey } from "@/lib/period";
+import type { PeriodKey } from "@/lib/period";
+import type { TKey } from "@/i18n/core";
+import { useI18n } from "@/i18n/client";
 import { cn } from "@/lib/utils";
 
 const PERIODS: PeriodKey[] = ["today", "7d", "30d", "month", "prev_month", "quarter", "year", "custom"];
 
 export function ReportFilters({ managers, exportHref, defaultPeriod = "30d" }: { managers: { id: string; name: string }[] | null; exportHref?: string; defaultPeriod?: PeriodKey }) {
+  const { t } = useI18n();
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
@@ -34,21 +37,21 @@ export function ReportFilters({ managers, exportHref, defaultPeriod = "30d" }: {
             onClick={() => set({ period: p, ...(p !== "custom" ? { from: null, to: null } : {}) })}
             className={cn("rounded-md px-2.5 py-1 cursor-pointer whitespace-nowrap", period === p ? "bg-card font-medium shadow-xs" : "text-muted-foreground hover:text-foreground")}
           >
-            {PERIOD_LABELS[p]}
+            {t(`period.${p}` as TKey)}
           </button>
         ))}
       </div>
       {period === "custom" && (
         <>
-          <Input type="date" className="w-40" value={params.get("from") ?? ""} onChange={(e) => set({ from: e.target.value })} aria-label="С даты" />
+          <Input type="date" className="w-40" value={params.get("from") ?? ""} onChange={(e) => set({ from: e.target.value })} aria-label={t("period.from")} />
           <span className="text-muted-foreground">—</span>
-          <Input type="date" className="w-40" value={params.get("to") ?? ""} onChange={(e) => set({ to: e.target.value })} aria-label="По дату" />
+          <Input type="date" className="w-40" value={params.get("to") ?? ""} onChange={(e) => set({ to: e.target.value })} aria-label={t("period.to")} />
         </>
       )}
       {managers && (
         <NativeSelect className="w-52" value={params.get("manager") ?? ""} onChange={(e) => set({ manager: e.target.value })}>
-          <option value="">Все менеджеры</option>
-          <option value="none">— Не назначен —</option>
+          <option value="">{t("common.allManagers")}</option>
+          <option value="none">{t("common.notAssignedOption")}</option>
           {managers.map((m) => (
             <option key={m.id} value={m.id}>
               {m.name}

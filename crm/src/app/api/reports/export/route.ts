@@ -14,6 +14,7 @@ export async function GET(req: NextRequest) {
   const params = Object.fromEntries(req.nextUrl.searchParams.entries());
   const tab = (params.tab in REPORT_TABS ? params.tab : "funnel") as ReportTab;
   const f = await readFilters(params, user);
+  const { t } = f;
 
   let tables: Table[];
   switch (tab) {
@@ -45,9 +46,10 @@ export async function GET(req: NextRequest) {
   }
   const to = new Date(f.period.to.getTime() - 1);
   const buf = await buildWorkbook(tables, {
-    title: `Orient Travel — ${REPORT_TABS[tab]}`,
-    subtitle: `Период ${formatDate(f.period.from)} — ${formatDate(to)}; валюта ${f.currency}; курс 1 USD = ${f.rate} UZS${user.role !== "ADMIN" ? `; менеджер ${user.name}` : ""}`,
+    title: `Orient Travel — ${t(REPORT_TABS[tab])}`,
+    subtitle: `${t("excel.subtitle", { from: formatDate(f.period.from), to: formatDate(to), cur: f.currency, rate: f.rate })}${user.role !== "ADMIN" ? `; ${t("excel.manager", { name: user.name })}` : ""}`,
     currency: f.currency,
+    minutesLabel: t("excel.minutes"),
   });
   const file = `orient-${tab}-${toInputDate(f.period.from)}_${toInputDate(to)}.xlsx`;
   return new NextResponse(new Uint8Array(buf), {

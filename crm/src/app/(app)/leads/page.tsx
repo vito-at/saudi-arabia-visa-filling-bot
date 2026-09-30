@@ -6,9 +6,13 @@ import { LeadsFilters } from "@/components/leads/leads-filters";
 import { LeadsTable, type LeadRow } from "@/components/leads/leads-table";
 import { NewLeadDialog } from "@/components/leads/new-lead-dialog";
 import { SyncNowButton } from "@/components/leads/sync-now-button";
+import { UpcomingCallbacks } from "@/components/callbacks/upcoming-callbacks";
+import { loadCallbacks } from "@/lib/callbacks-data";
 import { prisma } from "@/lib/db";
 import { leadScope } from "@/lib/access";
-import { SOURCE_LABELS } from "@/lib/constants";
+import { SOURCES } from "@/lib/constants";
+import { sourceLabel, statusName } from "@/i18n/labels";
+import { getI18n } from "@/i18n/server";
 import { getAdFilters, getManagers, getSettings, getStatuses } from "@/lib/refs";
 import { buildLeadOrder, buildLeadWhere, isOverdueNew, PAGE_SIZE, sp, type SearchParams } from "@/lib/leads/query";
 import { requireUser } from "@/lib/session";
@@ -17,10 +21,11 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
   const params = await searchParams;
   const user = await requireUser();
   const isAdmin = user.role === "ADMIN";
+  const { t } = await getI18n();
   const page = Math.max(1, Number(sp(params, "page")) || 1);
   const where = { AND: [leadScope(user), buildLeadWhere(params)] };
 
-  const [total, leads, statuses, users, settings, ad, meta] = await Promise.all([
+  const [total, leads, statuses, users, settings, ad, meta, callbacks] = await Promise.all([
     prisma.lead.count({ where }),
     prisma.lead.findMany({
       where,
@@ -34,6 +39,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
     getSettings(),
     getAdFilters(),
     prisma.metaIntegration.findUnique({ where: { id: 1 } }),
+    loadCallbacks(user, { horizonMin: 12 * 60 }),
   ]);
   const managers = users.filter((u) => u.role === "MANAGER" || isAdmin);
   const now = new Date();
@@ -45,14 +51,15 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
       name: l.name,
       phone: l.phone ?? l.phoneRaw,
       createdAt: l.createdAt.toISOString(),
-      source: SOURCE_LABELS[l.source],
-      status: { name: l.status.name, color: l.status.color, kind: l.status.kind },
+      source: sourceLabel(t, l.source),
+      status: { name: statusName(t, l.status.name), color: l.status.color, kind: l.status.kind },
       manager: l.manager?.name ?? null,
       managerId: l.managerId,
       campaign: l.campaignName,
       destination: l.destination,
       isRepeat: l.isRepeat,
       isNew: l.status.kind === "NEW",
+      callbackAt: l.status.kind === "CALLBACK" && l.callbackAt ? l.callbackAt.toISOString() : null,
       overdueMin: overdue ? Math.round((now.getTime() - l.createdAt.getTime()) / 60000) : null,
     };
   });
@@ -60,8 +67,8 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
   return (
     <div>
       <PageHeader
-        title="Лиды"
-        description={isAdmin ? "Все обращения клиентов" : "Ваши лиды и нераспределённые"}
+        title={t("leads.title")}
+        description={isAdmin ? t("leads.subtitleAdmin") : t("leads.subtitleManager")}
         actions={
           <>
             {isAdmin && meta?.enabled && <SyncNowButton />}
@@ -69,13 +76,14 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
           </>
         }
       />
+      <UpcomingCallbacks items={callbacks} />
       <Card>
         <div className="border-b p-4">
           <Suspense>
             <LeadsFilters
-              statuses={statuses.map((s) => ({ id: s.id, name: s.name }))}
+              statuses={statuses.map((s) => ({ id: s.id, name: statusName(t, s.name) }))}
               managers={managers.map((m) => ({ id: m.id, name: m.name }))}
-              sources={Object.entries(SOURCE_LABELS).map(([id, name]) => ({ id, name }))}
+              sources={SOURCES.map((id) => ({ id, name: sourceLabel(t, id) }))}
               campaigns={ad.campaigns}
               forms={ad.forms}
               showManager={isAdmin}

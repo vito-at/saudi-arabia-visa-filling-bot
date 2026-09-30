@@ -1,4 +1,25 @@
 import { prisma } from "./db";
+import { parseInputDateTime, toInputDate } from "./format";
+
+/** Время ежедневного обновления курса и окно повторных попыток (по Ташкенту) */
+export const RATE_UPDATE_HOUR = 7;
+export const RATE_RETRY_UNTIL_HOUR = 12;
+
+/** Сегодняшние 07:00 по Ташкенту */
+export function todayRateTime(now = new Date()): Date {
+  return parseInputDateTime(`${toInputDate(now)}T${String(RATE_UPDATE_HOUR).padStart(2, "0")}:00`)!;
+}
+
+/** Последние наступившие 07:00 по Ташкенту (сегодня, а до 07:00 — вчера) */
+export function lastRateTime(now = new Date()): Date {
+  const today = todayRateTime(now);
+  return now >= today ? today : new Date(today.getTime() - 24 * 60 * 60 * 1000);
+}
+
+/** Курс не обновлялся с последних 07:00 — нужна попытка и уведомление сотрудникам */
+export function isRateStale(updatedAt: Date | null, now = new Date()): boolean {
+  return !updatedAt || updatedAt < lastRateTime(now);
+}
 
 /**
  * Курс USD Ипак Йули Банка из открытых источников (без API):

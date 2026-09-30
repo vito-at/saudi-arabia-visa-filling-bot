@@ -11,6 +11,7 @@ import { ValidationError } from "@/lib/leads/service";
 import { getIntegration, inspectToken, pageClient, readSecrets } from "@/lib/meta/integration";
 import { syncLeads } from "@/lib/meta/sync";
 import { syncSpend } from "@/lib/meta/insights";
+import { getI18n } from "@/i18n/server";
 
 const str = (v: FormDataEntryValue | null) => (typeof v === "string" ? v.trim() : "");
 
@@ -24,14 +25,14 @@ export async function saveIntegrationAction(formData: FormData) {
     const current = await getIntegration();
     const appId = str(formData.get("appId"));
     const pageId = str(formData.get("pageId"));
-    if (appId && !/^\d+$/.test(appId)) throw new ValidationError("App ID — это число");
-    if (pageId && !/^\d+$/.test(pageId)) throw new ValidationError("Page ID — это число");
+    if (appId && !/^\d+$/.test(appId)) throw new ValidationError("err.appId");
+    if (pageId && !/^\d+$/.test(pageId)) throw new ValidationError("err.pageId");
     const adAccountId = str(formData.get("adAccountId")).replace(/^act_/, "");
-    if (adAccountId && !/^\d+$/.test(adAccountId)) throw new ValidationError("ID рекламного кабинета — число (можно с префиксом act_)");
+    if (adAccountId && !/^\d+$/.test(adAccountId)) throw new ValidationError("err.adAccount");
     const poll = Number(formData.get("pollIntervalMin"));
-    if (!Number.isInteger(poll) || poll < 1 || poll > 1440) throw new ValidationError("Интервал опроса — от 1 до 1440 минут");
+    if (!Number.isInteger(poll) || poll < 1 || poll > 1440) throw new ValidationError("err.poll");
     const initialDays = Number(formData.get("initialDays"));
-    if (!Number.isInteger(initialDays) || initialDays < 1 || initialDays > 90) throw new ValidationError("Период первой загрузки — от 1 до 90 дней");
+    if (!Number.isInteger(initialDays) || initialDays < 1 || initialDays > 90) throw new ValidationError("err.initialDays");
 
     const appSecret = str(formData.get("appSecret"));
     const pageToken = str(formData.get("pageToken"));
@@ -57,7 +58,8 @@ export async function saveIntegrationAction(formData: FormData) {
       },
     });
     revalidateAll();
-    return tokenChanged ? "Настройки сохранены, токен обновлён" : "Настройки сохранены";
+    const { t } = await getI18n();
+    return tokenChanged ? t("msg.integrationSavedToken") : t("msg.integrationSaved");
   });
 }
 
@@ -65,17 +67,18 @@ export async function checkTokenAction() {
   return runAction(async () => {
     await requireAdmin();
     const secrets = readSecrets(await getIntegration());
-    if (!secrets) throw new ValidationError("Сначала заполните App ID, App Secret, Page ID и токен");
+    if (!secrets) throw new ValidationError("err.integrationFirst");
     const info = await inspectToken(secrets);
     await prisma.metaIntegration.update({
       where: { id: 1 },
-      data: { tokenValid: info.isValid, tokenError: info.isValid ? null : info.error ?? "Токен недействителен", tokenExpiresAt: info.expiresAt },
+      data: { tokenValid: info.isValid, tokenError: info.isValid ? null : info.error ?? "Invalid OAuth access token", tokenExpiresAt: info.expiresAt },
     });
     revalidateAll();
-    if (!info.isValid) throw new ValidationError(`Токен недействителен: ${info.error ?? "проверьте токен"}`);
-    const parts = [`Токен действителен${info.pageName ? `, страница «${info.pageName}»` : ""}`];
-    parts.push(info.expiresAt ? `истекает ${formatDate(info.expiresAt)}` : "бессрочный");
-    if (info.missingScopes.length) parts.push(`не хватает прав: ${info.missingScopes.join(", ")}`);
+    const { t } = await getI18n();
+    if (!info.isValid) throw new ValidationError("err.tokenInvalid", { error: info.error ?? t("err.checkToken") });
+    const parts = [`${t("msg.tokenValid")}${info.pageName ? `, ${t("msg.tokenPage", { name: info.pageName })}` : ""}`];
+    parts.push(info.expiresAt ? t("msg.tokenExpires", { date: formatDate(info.expiresAt) }) : t("msg.tokenNeverExpires"));
+    if (info.missingScopes.length) parts.push(t("msg.tokenMissingScopes", { scopes: info.missingScopes.join(", ") }));
     return parts.join("; ");
   });
 }
@@ -86,8 +89,9 @@ export async function syncNowAction() {
     const r = await syncLeads("MANUAL");
     revalidateAll();
     if (r.skipped) throw new ValidationError(r.skipped);
-    if (!r.ok) throw new ValidationError(`Ошибка синхронизации: ${r.errors.join("; ")}`);
-    return r.created ? `Загружено новых лидов: ${r.created}` : "Новых лидов нет";
+    if (!r.ok) throw new ValidationError("err.syncFailed", { error: r.errors.join("; ") });
+    const { t } = await getI18n();
+    return r.created ? t("msg.syncCreated", { n: r.created }) : t("msg.syncNone");
   });
 }
 
@@ -95,9 +99,9 @@ export async function subscribeWebhookAction() {
   return runAction(async () => {
     await requireAdmin();
     const secrets = readSecrets(await getIntegration());
-    if (!secrets) throw new ValidationError("Сначала заполните настройки интеграции");
+    if (!secrets) throw new ValidationError("err.integrationSetup");
     await pageClient(secrets).post(`${secrets.pageId}/subscribed_apps`, { subscribed_fields: "leadgen" });
-    return "Страница подписана на события leadgen";
+    return (await getI18n()).t("msg.subscribed");
   });
 }
 
@@ -108,7 +112,7 @@ export async function syncSpendAction() {
     const r = await syncSpend(i.lastSpendSyncAt ? 7 : 90);
     revalidateAll();
     if ("skipped" in r && r.skipped) throw new ValidationError(r.skipped);
-    if (!r.ok) throw new ValidationError(`Ошибка загрузки расходов: ${"error" in r ? r.error : ""}`);
-    return `Загружено строк расходов: ${r.rows}`;
+    if (!r.ok) throw new ValidationError("err.spendFailed", { error: "error" in r ? r.error ?? "" : "" });
+    return (await getI18n()).t("msg.spendRows", { n: r.rows });
   });
 }

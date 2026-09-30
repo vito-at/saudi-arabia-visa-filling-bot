@@ -3,6 +3,7 @@ import { cache } from "react";
 import type { User } from "@prisma/client";
 import { auth } from "@/auth";
 import { prisma } from "./db";
+import type { TKey } from "@/i18n/core";
 
 export type CurrentUser = Pick<User, "id" | "name" | "login" | "role">;
 
@@ -34,8 +35,9 @@ export function isAdmin(user: Pick<User, "role">) {
   return user.role === "ADMIN";
 }
 
+/** Нет доступа; message — ключ перевода (err.*), переводится в runAction */
 export class AccessError extends Error {
-  constructor(message = "Недостаточно прав") {
+  constructor(message: TKey = "err.noAccess") {
     super(message);
   }
 }

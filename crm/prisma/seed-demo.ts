@@ -59,6 +59,7 @@ export async function seedDemo(prisma: PrismaClient, count = 100) {
   const WON = byKind("WON");
   const LOST = byKind("LOST");
   const pipeline = statuses.filter((s) => s.kind !== "WON" && s.kind !== "LOST" && s.kind !== "NEW");
+  let callbacksPlanned = 0;
   const reasonWeights = [18, 10, 14, 12, 8, 4, 5, 12, 9, 3];
 
   await prisma.metaForm.createMany({ data: FORMS.map((f) => ({ ...f, status: "ACTIVE" })) });
@@ -212,8 +213,17 @@ export async function seedDemo(prisma: PrismaClient, count = 100) {
       }
     }
 
-    // задачи: у части лидов в работе — напоминания (есть просроченные и на сегодня)
-    if (manager && final !== WON && final !== LOST && r() < 0.6) {
+    // «Перезвонить»: время звонка и задача; первые два — в ближайшие минуты, чтобы увидеть отсчёт
+    if (final.kind === "CALLBACK") {
+      const offsetMin = callbacksPlanned < 2 ? [4, 9][callbacksPlanned] : int(30, 60 * 48);
+      callbacksPlanned++;
+      const callbackAt = new Date(now + offsetMin * 60_000);
+      await prisma.lead.update({ where: { id: lead.id }, data: { callbackAt } });
+      await prisma.task.create({
+        data: { leadId: lead.id, assigneeId: manager?.id ?? admin.id, createdById: manager?.id ?? admin.id, title: "Перезвонить клиенту", dueAt: callbackAt, isCallback: true },
+      });
+    } else if (manager && final !== WON && final !== LOST && r() < 0.6) {
+      // задачи: у части лидов в работе — напоминания (есть просроченные и на сегодня)
       const offsetH = pick([-26, -3, -1, 2, 5, 30, 50]);
       await prisma.task.create({
         data: { leadId: lead.id, assigneeId: manager.id, createdById: manager.id, title: pick(["Перезвонить", "Отправить предложение", "Уточнить паспортные данные", "Напомнить об оплате"]), dueAt: new Date(now + offsetH * 3600_000) },

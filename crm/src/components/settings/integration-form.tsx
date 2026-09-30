@@ -13,6 +13,7 @@ import {
   syncNowAction,
   syncSpendAction,
 } from "@/app/(app)/settings/integration-actions";
+import { useI18n } from "@/i18n/client";
 
 export interface IntegrationView {
   appId: string;
@@ -29,11 +30,12 @@ export interface IntegrationView {
 }
 
 function useRun() {
+  const { t } = useI18n();
   const [pending, start] = useTransition();
   const run = (fn: () => Promise<ActionResult<string>>) =>
     start(async () => {
       const res = await fn();
-      if (res.ok) toast.success(res.data ?? "Готово");
+      if (res.ok) toast.success(res.data ?? t("common.done"));
       else toast.error(res.error, { duration: 10000 });
     });
   return { pending, run };
@@ -41,9 +43,10 @@ function useRun() {
 
 export function IntegrationForm({ v }: { v: IntegrationView }) {
   const { pending, run } = useRun();
+  const { t } = useI18n();
   const copy = (s: string) => {
     void navigator.clipboard.writeText(s);
-    toast.success("Скопировано");
+    toast.success(t("integ.copied"));
   };
 
   return (
@@ -53,55 +56,55 @@ export function IntegrationForm({ v }: { v: IntegrationView }) {
           <Field label="App ID">
             <Input name="appId" defaultValue={v.appId} placeholder="123456789012345" />
           </Field>
-          <Field label="App Secret" hint={v.hasAppSecret ? "Сохранён (зашифрован). Оставьте пустым, чтобы не менять" : "Meta for Developers → Настройки → Основное"}>
+          <Field label="App Secret" hint={v.hasAppSecret ? t("integ.appSecretSaved") : t("integ.appSecretHint")}>
             <Input name="appSecret" type="password" autoComplete="off" placeholder={v.hasAppSecret ? "••••••••" : ""} />
           </Field>
-          <Field label="Page ID" hint="ID Facebook-страницы, к которой привязаны лид-формы">
+          <Field label="Page ID" hint={t("integ.pageIdHint")}>
             <Input name="pageId" defaultValue={v.pageId} />
           </Field>
-          <Field label="Page Access Token (долгосрочный)" hint={v.pageTokenMask ? `Текущий: ${v.pageTokenMask}. Оставьте пустым, чтобы не менять` : "Права: leads_retrieval, pages_show_list, pages_read_engagement, pages_manage_metadata, ads_read"}>
+          <Field label={t("integ.pageToken")} hint={v.pageTokenMask ? t("integ.pageTokenCurrent", { mask: v.pageTokenMask }) : t("integ.pageTokenHint")}>
             <Input name="pageToken" type="password" autoComplete="off" placeholder={v.pageTokenMask ? "••••••••" : "EAAG…"} />
           </Field>
-          <Field label="Интервал опроса, минут">
+          <Field label={t("integ.poll")}>
             <Input name="pollIntervalMin" type="number" min={1} max={1440} defaultValue={v.pollIntervalMin} />
           </Field>
-          <Field label="Первая загрузка — за сколько дней" hint="Meta хранит лиды 90 дней">
+          <Field label={t("integ.initialDays")} hint={t("integ.initialDaysHint")}>
             <Input name="initialDays" type="number" min={1} max={90} defaultValue={v.initialDays} />
           </Field>
         </div>
 
         <div className="rounded-lg border p-4">
-          <div className="mb-3 text-sm font-semibold">Расходы на рекламу (для стоимости лида и ROI) — необязательно</div>
+          <div className="mb-3 text-sm font-semibold">{t("integ.spendTitle")}</div>
           <div className="grid grid-cols-2 gap-4">
-            <Field label="ID рекламного кабинета" hint="act_XXXXXXXXX из Ads Manager">
+            <Field label={t("integ.adAccount")} hint={t("integ.adAccountHint")}>
               <Input name="adAccountId" defaultValue={v.adAccountId} placeholder="act_1234567890" />
             </Field>
-            <Field label="Токен Marketing API (ads_read)" hint={v.hasAdsToken ? "Сохранён. Оставьте пустым, чтобы не менять" : "Токен системного пользователя. Если пусто — используется Page Token"}>
+            <Field label={t("integ.adsToken")} hint={v.hasAdsToken ? t("integ.adsTokenSaved") : t("integ.adsTokenHint")}>
               <Input name="adsToken" type="password" autoComplete="off" placeholder={v.hasAdsToken ? "••••••••" : ""} />
             </Field>
           </div>
           {v.hasAdsToken && (
             <label className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
-              <input type="checkbox" name="clearAdsToken" /> Удалить сохранённый токен Marketing API
+              <input type="checkbox" name="clearAdsToken" /> {t("integ.clearAdsToken")}
             </label>
           )}
         </div>
 
         <div className="rounded-lg border p-4">
-          <div className="mb-3 text-sm font-semibold">Вебхук (мгновенная доставка лидов, нужен HTTPS)</div>
+          <div className="mb-3 text-sm font-semibold">{t("integ.webhookTitle")}</div>
           <div className="grid grid-cols-2 gap-4">
             <Field label="Callback URL">
               <div className="flex gap-2">
                 <Input readOnly value={v.webhookUrl} />
-                <Button type="button" variant="outline" size="icon" onClick={() => copy(v.webhookUrl)} title="Копировать">
+                <Button type="button" variant="outline" size="icon" onClick={() => copy(v.webhookUrl)} title={t("integ.copy")}>
                   <Copy />
                 </Button>
               </div>
             </Field>
-            <Field label="Verify Token" hint="Укажите его же в настройках вебхука приложения">
+            <Field label="Verify Token" hint={t("integ.verifyHint")}>
               <div className="flex gap-2">
                 <Input name="verifyToken" defaultValue={v.verifyToken} />
-                <Button type="button" variant="outline" size="icon" onClick={() => copy(v.verifyToken)} title="Копировать">
+                <Button type="button" variant="outline" size="icon" onClick={() => copy(v.verifyToken)} title={t("integ.copy")}>
                   <Copy />
                 </Button>
               </div>
@@ -110,27 +113,27 @@ export function IntegrationForm({ v }: { v: IntegrationView }) {
         </div>
 
         <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" name="enabled" defaultChecked={v.enabled} /> Интеграция включена (автоматический опрос по расписанию)
+          <input type="checkbox" name="enabled" defaultChecked={v.enabled} /> {t("integ.enabled")}
         </label>
         <div className="flex gap-2">
           <Button type="submit" disabled={pending}>
-            <CheckCircle2 /> Сохранить
+            <CheckCircle2 /> {t("common.save")}
           </Button>
         </div>
       </form>
 
       <div className="flex flex-wrap gap-2 border-t pt-5">
         <Button variant="outline" disabled={pending} onClick={() => run(checkTokenAction)}>
-          <ShieldCheck /> Проверить токен
+          <ShieldCheck /> {t("integ.checkToken")}
         </Button>
         <Button variant="outline" disabled={pending} onClick={() => run(syncNowAction)}>
-          <RefreshCw className={pending ? "animate-spin" : ""} /> Загрузить лиды сейчас
+          <RefreshCw className={pending ? "animate-spin" : ""} /> {t("integ.syncNow")}
         </Button>
         <Button variant="outline" disabled={pending} onClick={() => run(subscribeWebhookAction)}>
-          <Webhook /> Подписать страницу на вебхук
+          <Webhook /> {t("integ.subscribe")}
         </Button>
         <Button variant="outline" disabled={pending || !v.adAccountId} onClick={() => run(syncSpendAction)}>
-          <Wallet /> Загрузить расходы
+          <Wallet /> {t("integ.syncSpend")}
         </Button>
       </div>
     </div>

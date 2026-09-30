@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Field, Textarea } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/i18n/client";
 
 /** Обязательный выбор причины при переводе в «Отказ» */
 export function LossDialog({
@@ -20,11 +21,12 @@ export function LossDialog({
   onConfirm: (reasonId: string, comment: string) => void;
   pending?: boolean;
 }) {
+  const { t } = useI18n();
   const [reason, setReason] = useState("");
   const [comment, setComment] = useState("");
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent title="Причина отказа" description="Выберите причину — это нужно для отчёта по отказам">
+      <DialogContent title={t("loss.title")} description={t("loss.description")}>
         <div className="grid grid-cols-2 gap-2">
           {reasons.map((r) => (
             <button
@@ -40,15 +42,15 @@ export function LossDialog({
             </button>
           ))}
         </div>
-        <Field label="Комментарий (необязательно)" className="mt-4">
+        <Field label={t("loss.comment")} className="mt-4">
           <Textarea value={comment} onChange={(e) => setComment(e.target.value)} rows={2} />
         </Field>
         <div className="mt-5 flex justify-end gap-2">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Отмена
+            {t("common.cancel")}
           </Button>
           <Button variant="destructive" disabled={!reason || pending} onClick={() => onConfirm(reason, comment)}>
-            Перевести в «Отказ»
+            {t("loss.confirm")}
           </Button>
         </div>
       </DialogContent>

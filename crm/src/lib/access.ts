@@ -24,6 +24,6 @@ export function reportLeadScope(user: CurrentUser, managerId?: string | null): P
 
 export async function getLeadForUser(user: CurrentUser, leadId: string) {
   const lead = await prisma.lead.findFirst({ where: { id: leadId, ...leadScope(user) } });
-  if (!lead) throw new AccessError("Лид не найден или нет доступа");
+  if (!lead) throw new AccessError("err.leadNotFound");
   return lead;
 }

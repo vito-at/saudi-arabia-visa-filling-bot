@@ -11,9 +11,11 @@ import { NativeSelect } from "@/components/ui/input";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { Empty } from "@/components/ui/empty";
 import { cn } from "@/lib/utils";
-import { formatDateTime, formatDuration } from "@/lib/format";
+import { formatDateTime } from "@/lib/format";
 import { prettyPhone } from "@/lib/phone";
 import { assignManagerAction, takeLeadAction } from "@/app/(app)/leads/actions";
+import { CallbackBadge } from "@/components/callbacks/callback-badge";
+import { useI18n } from "@/i18n/client";
 
 export interface LeadRow {
   id: string;
@@ -29,6 +31,7 @@ export interface LeadRow {
   isRepeat: boolean;
   overdueMin: number | null; // сколько минут лид ждёт сверх порога
   isNew: boolean;
+  callbackAt: string | null;
 }
 
 export function LeadsTable({
@@ -42,6 +45,7 @@ export function LeadsTable({
   isAdmin: boolean;
   currentUserId: string;
 }) {
+  const { t, f } = useI18n();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [assignTo, setAssignTo] = useState("");
   const [pending, start] = useTransition();
@@ -82,7 +86,7 @@ export function LeadsTable({
     start(async () => {
       const res = await assignManagerAction([...selected], assignTo === "none" ? null : assignTo);
       if (res.ok) {
-        toast.success(`Назначено лидов: ${res.data ?? 0}`);
+        toast.success(t("leads.assigned", { n: res.data ?? 0 }));
         setSelected(new Set());
         router.refresh();
       } else toast.error(res.error);
@@ -92,7 +96,7 @@ export function LeadsTable({
   function take(id: string) {
     start(async () => {
       const res = await takeLeadAction(id);
-      if (res.ok) toast.success("Лид взят в работу");
+      if (res.ok) toast.success(t("leads.taken"));
       else toast.error(res.error);
     });
   }
@@ -102,11 +106,11 @@ export function LeadsTable({
       {isAdmin && selected.size > 0 && (
         <div className="flex items-center gap-3 border-b bg-sky-50 px-4 py-2 text-sm">
           <span>
-            Выбрано: <b>{selected.size}</b>
+            {t("leads.selected")} <b>{selected.size}</b>
           </span>
           <NativeSelect className="w-56" value={assignTo} onChange={(e) => setAssignTo(e.target.value)}>
-            <option value="">Назначить менеджера…</option>
-            <option value="none">— Снять назначение —</option>
+            <option value="">{t("leads.assignTo")}</option>
+            <option value="none">{t("leads.unassign")}</option>
             {managers.map((m) => (
               <option key={m.id} value={m.id}>
                 {m.name}
@@ -114,10 +118,10 @@ export function LeadsTable({
             ))}
           </NativeSelect>
           <Button size="sm" disabled={!assignTo || pending} onClick={bulkAssign}>
-            Применить
+            {t("common.apply")}
           </Button>
           <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())}>
-            Отменить выбор
+            {t("leads.clearSelection")}
           </Button>
         </div>
       )}
@@ -128,20 +132,20 @@ export function LeadsTable({
               <TH className="w-10">
                 <input
                   type="checkbox"
-                  aria-label="Выбрать все"
+                  aria-label={t("leads.selectAll")}
                   checked={allSelected}
                   onChange={() => setSelected(allSelected ? new Set() : new Set(rows.map((r) => r.id)))}
                 />
               </TH>
             )}
-            <SortTH k="createdAt">Создан</SortTH>
-            <SortTH k="name">Клиент</SortTH>
-            <TH>Телефон</TH>
-            <SortTH k="status">Статус</SortTH>
-            <SortTH k="manager">Менеджер</SortTH>
-            <TH>Источник</TH>
-            <SortTH k="campaign">Кампания</SortTH>
-            <TH>Направление</TH>
+            <SortTH k="createdAt">{t("leads.col.created")}</SortTH>
+            <SortTH k="name">{t("leads.col.client")}</SortTH>
+            <TH>{t("leads.col.phone")}</TH>
+            <SortTH k="status">{t("leads.col.status")}</SortTH>
+            <SortTH k="manager">{t("leads.col.manager")}</SortTH>
+            <TH>{t("leads.col.source")}</TH>
+            <SortTH k="campaign">{t("leads.col.campaign")}</SortTH>
+            <TH>{t("leads.col.destination")}</TH>
             <TH className="w-28" />
           </tr>
         </THead>
@@ -158,14 +162,14 @@ export function LeadsTable({
             >
               {isAdmin && (
                 <TD onClick={(e) => e.stopPropagation()}>
-                  <input type="checkbox" aria-label="Выбрать" checked={selected.has(r.id)} onChange={() => toggle(r.id)} />
+                  <input type="checkbox" aria-label={t("leads.select")} checked={selected.has(r.id)} onChange={() => toggle(r.id)} />
                 </TD>
               )}
               <TD className="whitespace-nowrap text-muted-foreground">
                 <div className={cn(r.overdueMin !== null && "font-medium text-red-700")}>{formatDateTime(r.createdAt)}</div>
                 {r.overdueMin !== null && (
                   <div className="flex items-center gap-1 text-xs text-red-600">
-                    <Flame className="size-3" /> ждёт {formatDuration(r.overdueMin)}
+                    <Flame className="size-3" /> {t("leads.waiting", { time: f.duration(r.overdueMin) })}
                   </div>
                 )}
               </TD>
@@ -173,7 +177,7 @@ export function LeadsTable({
                 <div className={cn("flex items-center gap-1.5", r.isNew && "font-semibold")}>
                   {r.name}
                   {r.isRepeat && (
-                    <span title="Повторное обращение" className="text-amber-600">
+                    <span title={t("leads.repeat")} className="text-amber-600">
                       <Repeat className="size-3.5" />
                     </span>
                   )}
@@ -182,8 +186,9 @@ export function LeadsTable({
               <TD className="whitespace-nowrap">{prettyPhone(r.phone)}</TD>
               <TD>
                 <StatusBadge name={r.status.name} color={r.status.color} />
+                {r.callbackAt && <CallbackBadge at={r.callbackAt} className="mt-1 flex w-fit" />}
               </TD>
-              <TD className="whitespace-nowrap">{r.manager ?? <span className="text-muted-foreground">не назначен</span>}</TD>
+              <TD className="whitespace-nowrap">{r.manager ?? <span className="text-muted-foreground">{t("common.notAssigned")}</span>}</TD>
               <TD className="whitespace-nowrap text-muted-foreground">{r.source}</TD>
               <TD className="max-w-52 truncate text-muted-foreground" title={r.campaign ?? ""}>
                 {r.campaign ?? "—"}
@@ -192,7 +197,7 @@ export function LeadsTable({
               <TD onClick={(e) => e.stopPropagation()} className="text-right">
                 {r.isNew && (!r.managerId || r.managerId === currentUserId) && (
                   <Button size="sm" variant="outline" disabled={pending} onClick={() => take(r.id)}>
-                    Взять
+                    {t("leads.take")}
                   </Button>
                 )}
               </TD>
@@ -200,7 +205,7 @@ export function LeadsTable({
           ))}
         </TBody>
       </Table>
-      {rows.length === 0 && <Empty>Лидов не найдено</Empty>}
+      {rows.length === 0 && <Empty>{t("leads.empty")}</Empty>}
     </div>
   );
 }

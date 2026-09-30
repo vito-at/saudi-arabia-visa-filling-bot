@@ -7,6 +7,7 @@ import { getTasks, tashkentDayBounds } from "@/lib/tasks";
 import { sp, type SearchParams } from "@/lib/leads/query";
 import { requireUser } from "@/lib/session";
 import { cn } from "@/lib/utils";
+import { getI18n } from "@/i18n/server";
 
 function Group({ title, tasks, tone }: { title: string; tasks: TaskItem[]; tone?: string }) {
   if (!tasks.length) return null;
@@ -29,6 +30,7 @@ function Group({ title, tasks, tone }: { title: string; tasks: TaskItem[]; tone?
 export default async function TasksPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const params = await searchParams;
   const user = await requireUser();
+  const { t } = await getI18n();
   const isAdmin = user.role === "ADMIN";
   const scope = sp(params, "scope") === "done" ? "done" : "open";
   const assigneeId = isAdmin ? sp(params, "user") : undefined;
@@ -48,16 +50,16 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
 
   return (
     <div className="max-w-4xl">
-      <PageHeader title="Задачи" description="Напоминания «перезвонить», встречи и другие дела" />
+      <PageHeader title={t("tasks.title")} description={t("tasks.description")} />
       <div className="mb-4 flex items-center gap-3">
         <div className="flex rounded-lg bg-slate-200/60 p-1">
-          {tab("open", "Активные")}
-          {tab("done", "Выполненные")}
+          {tab("open", t("tasks.active"))}
+          {tab("done", t("tasks.completed"))}
         </div>
         {isAdmin && (
           <div className="flex flex-wrap gap-1 text-sm">
             <Link href={`/tasks?scope=${scope}`} className={cn("rounded-md px-2 py-1", !assigneeId ? "bg-primary text-white" : "hover:bg-accent")}>
-              Все
+              {t("common.all")}
             </Link>
             {users.map((u) => (
               <Link key={u.id} href={`/tasks?scope=${scope}&user=${u.id}`} className={cn("rounded-md px-2 py-1", assigneeId === u.id ? "bg-primary text-white" : "hover:bg-accent")}>
@@ -75,13 +77,13 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
       <div className="space-y-5">
         {scope === "open" ? (
           <>
-            <Group title="Просрочено" tone="text-red-700" tasks={tasks.filter((t) => due(t) < now)} />
-            <Group title="Сегодня" tasks={tasks.filter((t) => due(t) >= now && due(t) < end.getTime())} />
-            <Group title="Позже" tasks={tasks.filter((t) => due(t) >= end.getTime())} />
-            {tasks.length === 0 && <p className="text-sm text-muted-foreground">Активных задач нет 🎉</p>}
+            <Group title={t("tasks.overdue")} tone="text-red-700" tasks={tasks.filter((x) => due(x) < now)} />
+            <Group title={t("tasks.today")} tasks={tasks.filter((x) => due(x) >= now && due(x) < end.getTime())} />
+            <Group title={t("tasks.later")} tasks={tasks.filter((x) => due(x) >= end.getTime())} />
+            {tasks.length === 0 && <p className="text-sm text-muted-foreground">{t("tasks.none")}</p>}
           </>
         ) : (
-          <Group title="Выполненные" tasks={tasks} />
+          <Group title={t("tasks.completed")} tasks={tasks} />
         )}
       </div>
     </div>

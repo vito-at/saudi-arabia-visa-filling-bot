@@ -6,7 +6,12 @@ import cron from "node-cron";
 import { prisma } from "../src/lib/db";
 import { syncLeads } from "../src/lib/meta/sync";
 import { syncSpend } from "../src/lib/meta/insights";
-import { updateUsdRate } from "../src/lib/rates";
+import { isRateStale, RATE_RETRY_UNTIL_HOUR, updateUsdRate } from "../src/lib/rates";
+import { i18nFor } from "../src/i18n/instance";
+import type { TKey } from "../src/i18n/core";
+
+// журнал воркера — по-русски
+const { t } = i18nFor("ru");
 
 const log = (...args: unknown[]) => console.log(new Date().toISOString(), ...args);
 let busy = false;
@@ -21,7 +26,7 @@ async function tickLeads() {
     const intervalMs = Math.max(1, i.pollIntervalMin) * 60_000;
     if (i.lastSyncAt && Date.now() - i.lastSyncAt.getTime() < intervalMs - 5_000) return;
     const r = await syncLeads("CRON");
-    if (r.skipped) log("Синхронизация пропущена:", r.skipped);
+    if (r.skipped) log("Синхронизация пропущена:", t(r.skipped as TKey));
     else log(`Синхронизация: форм ${r.formsChecked}, получено ${r.fetched}, новых ${r.created}, дублей ${r.duplicates}`, r.errors.length ? r.errors : "");
   } catch (e) {
     log("Ошибка синхронизации лидов:", e);
@@ -42,10 +47,17 @@ async function tickSpend() {
   }
 }
 
-async function tickRate() {
+/**
+ * Курс USD: каждый день в 07:00 по Ташкенту. Если не получилось — повтор каждые 30 минут до 12:00.
+ * Пока курс за сегодня не обновлён, сотрудники видят уведомление (см. RateNotice).
+ */
+async function tickRate(force = false) {
   try {
+    const s = await prisma.appSettings.findUnique({ where: { id: 1 } });
+    if (!s || s.usdRateSource !== "IPAK_YULI") return;
+    if (!force && !isRateStale(s.usdRateUpdatedAt)) return;
     const r = await updateUsdRate();
-    if (!("skipped" in r && r.skipped)) log("Курс USD:", r);
+    log("Курс USD:", r);
   } catch (e) {
     log("Ошибка обновления курса:", e);
   }
@@ -53,10 +65,12 @@ async function tickRate() {
 
 cron.schedule("* * * * *", tickLeads);
 cron.schedule("17 * * * *", tickSpend);
-cron.schedule("5 */2 * * *", tickRate, { timezone: "Asia/Tashkent" });
+cron.schedule("0 7 * * *", () => tickRate(true), { timezone: "Asia/Tashkent" });
+cron.schedule(`*/30 7-${RATE_RETRY_UNTIL_HOUR - 1} * * *`, () => tickRate(), { timezone: "Asia/Tashkent" });
 
 log("Воркер запущен");
 void tickLeads();
+// при запуске воркера после 07:00 — догоняем пропущенное обновление
 void tickRate();
 
 async function shutdown() {

@@ -2,19 +2,6 @@ import { parseInputDate, toInputDate } from "./format";
 
 export type PeriodKey = "today" | "yesterday" | "7d" | "30d" | "month" | "prev_month" | "quarter" | "year" | "all" | "custom";
 
-export const PERIOD_LABELS: Record<PeriodKey, string> = {
-  today: "Сегодня",
-  yesterday: "Вчера",
-  "7d": "7 дней",
-  "30d": "30 дней",
-  month: "Этот месяц",
-  prev_month: "Прошлый месяц",
-  quarter: "Квартал",
-  year: "Год",
-  all: "Всё время",
-  custom: "Период",
-};
-
 export interface Period {
   key: PeriodKey;
   from: Date; // включительно

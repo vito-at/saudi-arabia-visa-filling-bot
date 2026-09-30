@@ -21,13 +21,13 @@ export interface DealInput {
 function parseDeal(input: DealInput) {
   const amount = Number(String(input.amount).replace(/\s/g, "").replace(",", "."));
   const cost = Number(String(input.cost || "0").replace(/\s/g, "").replace(",", "."));
-  if (!Number.isFinite(amount) || amount <= 0) throw new ValidationError("Укажите сумму продажи");
-  if (!Number.isFinite(cost) || cost < 0) throw new ValidationError("Себестоимость не может быть отрицательной");
-  if (input.currency !== "UZS" && input.currency !== "USD") throw new ValidationError("Выберите валюту");
+  if (!Number.isFinite(amount) || amount <= 0) throw new ValidationError("err.amount");
+  if (!Number.isFinite(cost) || cost < 0) throw new ValidationError("err.costNegative");
+  if (input.currency !== "UZS" && input.currency !== "USD") throw new ValidationError("err.currency");
   const paidAt = parseInputDate(input.paidAt);
-  if (!paidAt) throw new ValidationError("Укажите дату оплаты");
+  if (!paidAt) throw new ValidationError("err.paidAt");
   const product = input.product.trim();
-  if (!product) throw new ValidationError("Опишите продукт");
+  if (!product) throw new ValidationError("err.product");
   return { amount, cost, currency: input.currency, paidAt, product };
 }
 
@@ -63,7 +63,7 @@ export async function createDealAction(leadId: string, input: DealInput, wonStat
 async function getDealForUser(dealId: string) {
   const user = await requireUser();
   const deal = await prisma.deal.findUnique({ where: { id: dealId } });
-  if (!deal) throw new AccessError("Сделка не найдена");
+  if (!deal) throw new AccessError("err.dealNotFound");
   await getLeadForUser(user, deal.leadId);
   return { user, deal };
 }
@@ -91,7 +91,7 @@ export async function updateDealAction(dealId: string, input: DealInput) {
 export async function deleteDealAction(dealId: string) {
   return runAction(async () => {
     const { user, deal } = await getDealForUser(dealId);
-    if (user.role !== "ADMIN") throw new AccessError("Удалять сделки может только администратор");
+    if (user.role !== "ADMIN") throw new AccessError("err.onlyAdminDeals");
     await prisma.$transaction([
       prisma.deal.delete({ where: { id: dealId } }),
       prisma.leadHistory.create({

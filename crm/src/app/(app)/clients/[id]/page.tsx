@@ -7,8 +7,9 @@ import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { Empty } from "@/components/ui/empty";
 import { prisma } from "@/lib/db";
 import { clientScope } from "@/lib/access";
-import { SOURCE_LABELS } from "@/lib/constants";
-import { formatDate, formatDateTime, formatMoney } from "@/lib/format";
+import { sourceLabel, statusName } from "@/i18n/labels";
+import { getI18n } from "@/i18n/server";
+import { formatDate, formatDateTime } from "@/lib/format";
 import { calcProfit, convert, sumDeals, toNum } from "@/lib/money";
 import { prettyPhone } from "@/lib/phone";
 import { getSettings } from "@/lib/refs";
@@ -27,6 +28,7 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
   const { id } = await params;
   const user = await requireUser();
   const isAdmin = user.role === "ADMIN";
+  const { t, f } = await getI18n();
   const client = await prisma.client.findFirst({
     where: { id, ...clientScope(user) },
     include: {
@@ -45,7 +47,7 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
   return (
     <div className="space-y-5">
       <Link href="/clients" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-        <ArrowLeft className="size-4" /> Все клиенты
+        <ArrowLeft className="size-4" /> {t("client.back")}
       </Link>
       <div>
         <h1 className="text-2xl font-semibold">{client.name}</h1>
@@ -57,32 +59,32 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
             </a>
           )}
           {client.email && <span>{client.email}</span>}
-          <span>Клиент с {formatDate(client.createdAt)}</span>
+          <span>{t("client.since", { date: formatDate(client.createdAt) })}</span>
         </div>
       </div>
       <div className="grid grid-cols-5 gap-4">
-        <Stat label="Обращений" value={String(leads.length)} />
-        <Stat label="Сделок" value={String(usd.count)} />
-        <Stat label="Выручка за всё время" value={formatMoney(usd.revenue, "USD")} />
-        <Stat label="Прибыль за всё время" value={formatMoney(usd.profit, "USD")} tone="text-emerald-700" />
-        <Stat label="Прибыль в сумах" value={formatMoney(uzs.profit, "UZS")} tone="text-emerald-700" />
+        <Stat label={t("client.leads")} value={String(leads.length)} />
+        <Stat label={t("client.deals")} value={String(usd.count)} />
+        <Stat label={t("client.revenue")} value={f.money(usd.revenue, "USD")} />
+        <Stat label={t("client.profit")} value={f.money(usd.profit, "USD")} tone="text-emerald-700" />
+        <Stat label={t("client.profitUzs")} value={f.money(uzs.profit, "UZS")} tone="text-emerald-700" />
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Сделки</CardTitle>
-          <span className="text-xs text-muted-foreground">Пересчёт в $ по текущему курсу</span>
+          <CardTitle>{t("client.dealsTitle")}</CardTitle>
+          <span className="text-xs text-muted-foreground">{t("client.dealsNote")}</span>
         </CardHeader>
         <Table>
           <THead>
             <tr>
-              <TH>Дата оплаты</TH>
-              <TH>Продукт</TH>
-              <TH className="text-right">Продажа</TH>
-              <TH className="text-right">Себестоимость</TH>
-              <TH className="text-right">Прибыль</TH>
-              <TH className="text-right">Прибыль, $</TH>
-              <TH>Менеджер</TH>
+              <TH>{t("client.col.paidAt")}</TH>
+              <TH>{t("client.col.product")}</TH>
+              <TH className="text-right">{t("client.col.sale")}</TH>
+              <TH className="text-right">{t("client.col.cost")}</TH>
+              <TH className="text-right">{t("client.col.profit")}</TH>
+              <TH className="text-right">{t("client.col.profitUsd")}</TH>
+              <TH>{t("client.col.manager")}</TH>
             </tr>
           </THead>
           <TBody>
@@ -96,30 +98,30 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
                       {d.product}
                     </Link>
                   </TD>
-                  <TD className="text-right whitespace-nowrap">{formatMoney(toNum(d.amount), d.currency)}</TD>
-                  <TD className="text-right whitespace-nowrap">{formatMoney(toNum(d.cost), d.currency)}</TD>
-                  <TD className="text-right whitespace-nowrap text-emerald-700">{formatMoney(profit, d.currency)}</TD>
-                  <TD className="text-right whitespace-nowrap">{formatMoney(convert(profit, d.currency, "USD", rate), "USD")}</TD>
+                  <TD className="text-right whitespace-nowrap">{f.money(toNum(d.amount), d.currency)}</TD>
+                  <TD className="text-right whitespace-nowrap">{f.money(toNum(d.cost), d.currency)}</TD>
+                  <TD className="text-right whitespace-nowrap text-emerald-700">{f.money(profit, d.currency)}</TD>
+                  <TD className="text-right whitespace-nowrap">{f.money(convert(profit, d.currency, "USD", rate), "USD")}</TD>
                   <TD>{d.manager?.name ?? "—"}</TD>
                 </TR>
               );
             })}
           </TBody>
         </Table>
-        {deals.length === 0 && <Empty>Сделок пока нет</Empty>}
+        {deals.length === 0 && <Empty>{t("client.noDeals")}</Empty>}
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle>Обращения</CardTitle>
+          <CardTitle>{t("client.inquiries")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
           {leads.map((l) => (
             <Link key={l.id} href={`/leads/${l.id}`} className="flex items-center gap-4 rounded-lg border px-3 py-2 text-sm hover:bg-slate-50">
               <span className="w-36 text-muted-foreground">{formatDateTime(l.createdAt)}</span>
-              <StatusBadge name={l.status.name} color={l.status.color} />
-              <span className="flex-1">{l.destination ?? l.campaignName ?? SOURCE_LABELS[l.source]}</span>
-              <span className="text-muted-foreground">{l.manager?.name ?? "не назначен"}</span>
+              <StatusBadge name={statusName(t, l.status.name)} color={l.status.color} />
+              <span className="flex-1">{l.destination ?? l.campaignName ?? sourceLabel(t, l.source)}</span>
+              <span className="text-muted-foreground">{l.manager?.name ?? t("common.notAssigned")}</span>
             </Link>
           ))}
         </CardContent>

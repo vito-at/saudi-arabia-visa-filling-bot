@@ -4,7 +4,7 @@ import type { Table } from "./tables";
 const FORMATS = { int: "# ##0", pct: "0.0%", date: "@", text: "@", minutes: "0", money: "# ##0" } as const;
 
 /** Книга Excel: по листу на каждую таблицу отчёта */
-export async function buildWorkbook(tables: Table[], meta: { title: string; subtitle: string; currency: "UZS" | "USD" }) {
+export async function buildWorkbook(tables: Table[], meta: { title: string; subtitle: string; currency: "UZS" | "USD"; minutesLabel: string }) {
   const wb = new ExcelJS.Workbook();
   wb.creator = "Orient Travel CRM";
   wb.created = new Date();
@@ -21,7 +21,7 @@ export async function buildWorkbook(tables: Table[], meta: { title: string; subt
     const header = ws.getRow(4);
     t.columns.forEach((c, i) => {
       const cell = header.getCell(i + 1);
-      cell.value = c.type === "money" ? `${c.label}, ${meta.currency}` : c.type === "minutes" ? `${c.label}, мин` : c.label;
+      cell.value = c.type === "money" ? `${c.label}, ${meta.currency}` : c.type === "minutes" ? `${c.label}, ${meta.minutesLabel}` : c.label;
       cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
       cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF0E7490" } };
       cell.alignment = { vertical: "middle", wrapText: true };
