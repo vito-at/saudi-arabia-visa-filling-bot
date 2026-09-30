@@ -15,6 +15,7 @@ import {
   assignManager,
   changeStatus,
   createLead,
+  deleteLead,
   editComment,
   takeLead,
   updateLeadFields,
@@ -205,5 +206,19 @@ export async function deleteTaskAction(taskId: string) {
     revalidatePath("/tasks");
     revalidatePath("/");
     if (task.leadId) revalidatePath(`/leads/${task.leadId}`);
+  });
+}
+
+/** Удаление лида — только администратор */
+export async function deleteLeadAction(leadId: string) {
+  return runAction(async () => {
+    const user = await requireUser();
+    if (user.role !== "ADMIN") throw new AccessError("Удалять лиды может только администратор");
+    const r = await deleteLead(leadId);
+    revalidateLeads();
+    revalidatePath("/clients");
+    revalidatePath("/tasks");
+    revalidatePath("/reports");
+    return r;
   });
 }

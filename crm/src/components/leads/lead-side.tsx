@@ -1,14 +1,16 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { NativeSelect } from "@/components/ui/input";
 import { DealDialog } from "@/components/deals/deal-dialog";
 import { formatDate, formatMoney, toInputDate } from "@/lib/format";
 import { calcProfit } from "@/lib/money";
-import { assignManagerAction, takeLeadAction } from "@/app/(app)/leads/actions";
+import { assignManagerAction, deleteLeadAction, takeLeadAction } from "@/app/(app)/leads/actions";
 import { deleteDealAction } from "@/app/(app)/deals/actions";
 
 export function ManagerControl({ leadId, managerId, managers }: { leadId: string; managerId: string | null; managers: { id: string; name: string }[] }) {
@@ -132,5 +134,49 @@ export function DealsPanel({ leadId, deals, rate, canDelete }: { leadId: string;
         />
       )}
     </div>
+  );
+}
+
+/** Удаление лида с подтверждением (кнопка показывается только администратору) */
+export function DeleteLeadButton({ leadId, name, deals, fromMeta }: { leadId: string; name: string; deals: number; fromMeta: boolean }) {
+  const [open, setOpen] = useState(false);
+  const [pending, start] = useTransition();
+  const router = useRouter();
+  return (
+    <>
+      <Button variant="outline" onClick={() => setOpen(true)} className="text-red-600 hover:bg-red-50 hover:text-red-700">
+        <Trash2 /> Удалить
+      </Button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent title="Удалить лид?" description={`«${name}» будет удалён без возможности восстановления.`}>
+          <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+            <li>Вместе с лидом удалятся комментарии, история и задачи{deals ? `, а также сделки (${deals}) — они пропадут из отчётов` : ""}.</li>
+            <li>Если у клиента нет других обращений, клиент тоже будет удалён.</li>
+            {fromMeta && <li>Лид из Meta больше не будет загружаться при синхронизации.</li>}
+          </ul>
+          <p className="mt-3 text-sm text-muted-foreground">Если это спам или нецелевое обращение, можно не удалять, а перевести в «Отказ» с причиной — тогда он останется в отчёте по рекламе.</p>
+          <div className="mt-5 flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setOpen(false)}>
+              Отмена
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={pending}
+              onClick={() =>
+                start(async () => {
+                  const res = await deleteLeadAction(leadId);
+                  if (!res.ok) return void toast.error(res.error);
+                  toast.success(res.data?.clientDeleted ? "Лид и клиент удалены" : "Лид удалён");
+                  setOpen(false);
+                  router.push("/leads");
+                })
+              }
+            >
+              {pending ? "Удаление…" : "Удалить лид"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

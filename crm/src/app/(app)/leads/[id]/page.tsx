@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Comments } from "@/components/leads/comments";
 import { LeadDetailsForm } from "@/components/leads/lead-details-form";
-import { DealsPanel, ManagerControl, TakeButton } from "@/components/leads/lead-side";
+import { DealsPanel, DeleteLeadButton, ManagerControl, TakeButton } from "@/components/leads/lead-side";
 import { StatusControl } from "@/components/leads/status-control";
 import { NewTaskForm, TaskRow } from "@/components/tasks/task-list";
 import { prisma } from "@/lib/db";
@@ -98,7 +98,10 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
               {firstResponse !== null && ` · первая реакция через ${formatDuration(firstResponse)}`}
             </div>
           </div>
-          {lead.status.kind === "NEW" && (!lead.managerId || lead.managerId === user.id) && <TakeButton leadId={lead.id} />}
+          <div className="flex shrink-0 items-center gap-2">
+            {lead.status.kind === "NEW" && (!lead.managerId || lead.managerId === user.id) && <TakeButton leadId={lead.id} />}
+            {isAdmin && <DeleteLeadButton leadId={lead.id} name={lead.name} deals={lead.deals.length} fromMeta={!!lead.leadgenId} />}
+          </div>
         </div>
         <div className="border-t px-5 py-4">
           <StatusControl

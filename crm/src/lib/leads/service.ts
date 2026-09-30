@@ -42,8 +42,12 @@ export interface NewLeadInput {
  */
 export async function createLead(input: NewLeadInput, actorId: string | null) {
   if (input.leadgenId) {
-    const dup = await prisma.lead.findUnique({ where: { leadgenId: input.leadgenId }, select: { id: true } });
-    if (dup) return null;
+    const [dup, deleted] = await Promise.all([
+      prisma.lead.findUnique({ where: { leadgenId: input.leadgenId }, select: { id: true } }),
+      prisma.deletedLeadgen.findUnique({ where: { leadgenId: input.leadgenId } }),
+    ]);
+    // удалённый администратором лид Meta не загружаем повторно
+    if (dup || deleted) return null;
   }
   const phone = normalizePhone(input.phone);
   const name = input.name?.trim() || "Без имени";
@@ -316,4 +320,23 @@ export async function editComment(commentId: string, authorId: string, text: str
   const c = await prisma.comment.findUnique({ where: { id: commentId } });
   if (!c || c.authorId !== authorId) throw new ValidationError("Можно редактировать только свои комментарии");
   return prisma.comment.update({ where: { id: commentId }, data: { text: t, editedAt: new Date() } });
+}
+
+/**
+ * Удаление лида вместе с комментариями, историей, задачами и сделками.
+ * Клиент удаляется, если у него не осталось других лидов.
+ * ID лида Meta запоминается, чтобы синхронизация не загрузила его снова.
+ */
+export async function deleteLead(leadId: string) {
+  return prisma.$transaction(async (tx) => {
+    const lead = await tx.lead.findUnique({ where: { id: leadId }, select: { clientId: true, leadgenId: true } });
+    if (!lead) throw new ValidationError("Лид не найден");
+    if (lead.leadgenId) {
+      await tx.deletedLeadgen.upsert({ where: { leadgenId: lead.leadgenId }, update: {}, create: { leadgenId: lead.leadgenId } });
+    }
+    await tx.lead.delete({ where: { id: leadId } });
+    const rest = await tx.lead.count({ where: { clientId: lead.clientId } });
+    if (rest === 0) await tx.client.delete({ where: { id: lead.clientId } });
+    return { clientDeleted: rest === 0 };
+  });
 }

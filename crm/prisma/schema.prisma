@@ -266,6 +266,12 @@ model MetaIntegration {
   tokenExpiresAt  DateTime?
 }
 
+/// Лиды Meta, удалённые администратором: не загружаем их повторно при синхронизации
+model DeletedLeadgen {
+  leadgenId String   @id
+  deletedAt DateTime @default(now())
+}
+
 model MetaForm {
   id         String    @id
   name       String
