@@ -33,6 +33,7 @@ export const CURRENCY_LABELS: Record<Currency, string> = { UZS: "UZS (сум)", 
 export const STATUS_KIND_LABELS: Record<StatusKind, string> = {
   NEW: "Новый (входящий)",
   IN_PROGRESS: "В работе",
+  CALLBACK: "Перезвонить (с датой звонка)",
   WON: "Продажа",
   LOST: "Отказ",
   OTHER: "Промежуточный",
@@ -42,6 +43,7 @@ export const DEFAULT_STATUSES: { name: string; color: string; kind: StatusKind; 
   { name: "Новый", color: "#3b82f6", kind: "NEW", isSystem: true },
   { name: "Взят в работу", color: "#6366f1", kind: "IN_PROGRESS" },
   { name: "Не дозвонились", color: "#f59e0b", kind: "OTHER" },
+  { name: "Перезвонить", color: "#fa6500", kind: "CALLBACK", isSystem: true },
   { name: "Консультация", color: "#06b6d4", kind: "OTHER" },
   { name: "Отправлено предложение", color: "#8b5cf6", kind: "OTHER" },
   { name: "Ожидает оплату", color: "#ec4899", kind: "OTHER" },
@@ -79,4 +81,11 @@ export const FIELD_LABELS: Record<string, string> = {
   source: "Источник",
   created: "Лид создан",
   deal: "Сделка",
+  callback: "Перезвонить",
 };
+
+/** Статусы с особой логикой: их нельзя добавить повторно или удалить */
+export const SPECIAL_STATUS_KINDS: StatusKind[] = ["NEW", "CALLBACK", "WON", "LOST"];
+
+/** За сколько минут до звонка напоминать менеджеру */
+export const CALLBACK_REMIND_MIN = 10;

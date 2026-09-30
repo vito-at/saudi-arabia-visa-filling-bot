@@ -43,6 +43,8 @@ enum Currency {
 enum StatusKind {
   NEW
   IN_PROGRESS
+  /// «Перезвонить»: при выборе обязательно указать дату и время звонка
+  CALLBACK
   WON
   LOST
   OTHER
@@ -152,6 +154,9 @@ model Lead {
   lossReasonId String?
   lossComment  String?
 
+  /// Когда перезвонить (для статуса «Перезвонить»)
+  callbackAt DateTime?
+
   metaCreatedAt   DateTime?
   createdAt       DateTime  @default(now())
   assignedAt      DateTime?
@@ -174,6 +179,7 @@ model Lead {
   @@index([phone])
   @@index([campaignId])
   @@index([clientId])
+  @@index([callbackAt])
 }
 
 model Comment {
@@ -216,6 +222,8 @@ model Task {
   title       String
   dueAt       DateTime
   doneAt      DateTime?
+  /// Задача создана статусом «Перезвонить» и закрывается при смене статуса
+  isCallback  Boolean   @default(false)
   createdAt   DateTime  @default(now())
 
   lead      Lead? @relation(fields: [leadId], references: [id], onDelete: Cascade)

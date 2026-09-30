@@ -6,6 +6,7 @@ import type { Role, StatusKind } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { runAction } from "@/lib/actions";
 import { formatNumber } from "@/lib/format";
+import { SPECIAL_STATUS_KINDS } from "@/lib/constants";
 import { updateUsdRate } from "@/lib/rates";
 import { requireAdmin } from "@/lib/session";
 import { ValidationError } from "@/lib/leads/service";
@@ -75,10 +76,11 @@ export async function saveStatusAction(input: { id?: string; name: string; color
     if (!COLOR.test(input.color)) throw new ValidationError("Цвет в формате #RRGGBB");
     if (input.id) {
       const cur = await prisma.leadStatus.findUniqueOrThrow({ where: { id: input.id } });
+      if (!cur.isSystem && SPECIAL_STATUS_KINDS.includes(input.kind)) throw new ValidationError("Этот тип статуса уже есть — выберите «Промежуточный» или «В работе»");
       // тип системных статусов менять нельзя — на нём держится логика
       await prisma.leadStatus.update({ where: { id: input.id }, data: { name, color: input.color, kind: cur.isSystem ? cur.kind : input.kind } });
     } else {
-      if (["NEW", "WON", "LOST"].includes(input.kind)) throw new ValidationError("Статусы «Новый», «Продано» и «Отказ» уже есть — добавьте промежуточный статус");
+      if (SPECIAL_STATUS_KINDS.includes(input.kind)) throw new ValidationError("Статусы «Новый», «Перезвонить», «Продано» и «Отказ» уже есть — добавьте промежуточный статус");
       const last = await prisma.leadStatus.findFirst({ where: { kind: { notIn: ["WON", "LOST"] } }, orderBy: { order: "desc" } });
       const order = (last?.order ?? 0) + 1;
       // сдвигаем «Продано»/«Отказ» в конец

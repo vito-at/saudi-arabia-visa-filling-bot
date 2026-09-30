@@ -6,6 +6,8 @@ import { LeadsFilters } from "@/components/leads/leads-filters";
 import { LeadsTable, type LeadRow } from "@/components/leads/leads-table";
 import { NewLeadDialog } from "@/components/leads/new-lead-dialog";
 import { SyncNowButton } from "@/components/leads/sync-now-button";
+import { UpcomingCallbacks } from "@/components/callbacks/upcoming-callbacks";
+import { loadCallbacks } from "@/lib/callbacks-data";
 import { prisma } from "@/lib/db";
 import { leadScope } from "@/lib/access";
 import { SOURCE_LABELS } from "@/lib/constants";
@@ -20,7 +22,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
   const page = Math.max(1, Number(sp(params, "page")) || 1);
   const where = { AND: [leadScope(user), buildLeadWhere(params)] };
 
-  const [total, leads, statuses, users, settings, ad, meta] = await Promise.all([
+  const [total, leads, statuses, users, settings, ad, meta, callbacks] = await Promise.all([
     prisma.lead.count({ where }),
     prisma.lead.findMany({
       where,
@@ -34,6 +36,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
     getSettings(),
     getAdFilters(),
     prisma.metaIntegration.findUnique({ where: { id: 1 } }),
+    loadCallbacks(user, { horizonMin: 12 * 60 }),
   ]);
   const managers = users.filter((u) => u.role === "MANAGER" || isAdmin);
   const now = new Date();
@@ -53,6 +56,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
       destination: l.destination,
       isRepeat: l.isRepeat,
       isNew: l.status.kind === "NEW",
+      callbackAt: l.status.kind === "CALLBACK" && l.callbackAt ? l.callbackAt.toISOString() : null,
       overdueMin: overdue ? Math.round((now.getTime() - l.createdAt.getTime()) / 60000) : null,
     };
   });
@@ -69,6 +73,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
           </>
         }
       />
+      <UpcomingCallbacks items={callbacks} />
       <Card>
         <div className="border-b p-4">
           <Suspense>

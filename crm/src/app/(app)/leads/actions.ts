@@ -109,12 +109,33 @@ export async function updateLeadAction(leadId: string, formData: FormData) {
   });
 }
 
-export async function changeStatusAction(leadId: string, statusId: string, lossReasonId?: string | null, lossComment?: string | null) {
+export async function changeStatusAction(
+  leadId: string,
+  statusId: string,
+  extra: { lossReasonId?: string | null; lossComment?: string | null; callbackAt?: string | null } = {},
+) {
   return runAction(async () => {
     const user = await requireUser();
     await getLeadForUser(user, leadId);
-    await changeStatus(leadId, { statusId, lossReasonId, lossComment }, user);
+    const callbackAt = extra.callbackAt ? parseInputDateTime(extra.callbackAt) : null;
+    if (extra.callbackAt && !callbackAt) throw new ValidationError("Некорректные дата и время звонка");
+    await changeStatus(leadId, { statusId, lossReasonId: extra.lossReasonId, lossComment: extra.lossComment, callbackAt }, user);
     revalidateLeads(leadId);
+    revalidatePath("/tasks");
+  });
+}
+
+/** «Отложить» звонок на N минут от текущего момента */
+export async function snoozeCallbackAction(leadId: string, minutes: number) {
+  return runAction(async () => {
+    const user = await requireUser();
+    const lead = await getLeadForUser(user, leadId);
+    const status = await prisma.leadStatus.findUniqueOrThrow({ where: { id: lead.statusId } });
+    if (status.kind !== "CALLBACK") throw new ValidationError("Лид уже не в статусе «Перезвонить»");
+    const m = Math.min(Math.max(Math.round(minutes), 1), 24 * 60);
+    await changeStatus(leadId, { statusId: lead.statusId, callbackAt: new Date(Date.now() + m * 60_000) }, user);
+    revalidateLeads(leadId);
+    revalidatePath("/tasks");
   });
 }
 

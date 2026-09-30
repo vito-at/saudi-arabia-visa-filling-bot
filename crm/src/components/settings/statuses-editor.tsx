@@ -4,11 +4,11 @@ import { useState } from "react";
 import { ArrowDown, ArrowUp, Lock, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, NativeSelect } from "@/components/ui/input";
-import { STATUS_KIND_LABELS } from "@/lib/constants";
+import { SPECIAL_STATUS_KINDS, STATUS_KIND_LABELS } from "@/lib/constants";
 import { deleteStatusAction, moveStatusAction, saveStatusAction } from "@/app/(app)/settings/actions";
 import { useRun } from "./use-run";
 
-type Kind = "NEW" | "IN_PROGRESS" | "WON" | "LOST" | "OTHER";
+type Kind = "NEW" | "IN_PROGRESS" | "CALLBACK" | "WON" | "LOST" | "OTHER";
 export interface StatusView {
   id: string;
   name: string;
@@ -41,7 +41,7 @@ function Row({ s, all, first, last }: { s: StatusView; all: StatusView[]; first:
         <Input value={name} onChange={(e) => setName(e.target.value)} className="flex-1" />
         <NativeSelect value={kind} onChange={(e) => setKind(e.target.value as Kind)} disabled={s.isSystem} className="w-48">
           {(Object.keys(STATUS_KIND_LABELS) as Kind[])
-            .filter((k) => s.isSystem || !["NEW", "WON", "LOST"].includes(k))
+            .filter((k) => s.isSystem || !SPECIAL_STATUS_KINDS.includes(k))
             .map((k) => (
               <option key={k} value={k}>
                 {STATUS_KIND_LABELS[k]}
@@ -101,7 +101,7 @@ export function StatusesEditor({ statuses }: { statuses: StatusView[] }) {
         </Button>
       </div>
       <p className="pt-2 text-xs text-muted-foreground">
-        Порядок статусов определяет колонки канбана и шаги воронки. «Новый», «Продано» и «Отказ» — системные: их можно переименовать и перекрасить, но не удалить.
+        Порядок статусов определяет колонки канбана и шаги воронки. «Новый», «Перезвонить», «Продано» и «Отказ» — системные: их можно переименовать и перекрасить, но не удалить.
       </p>
     </div>
   );

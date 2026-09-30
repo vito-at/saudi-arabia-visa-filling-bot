@@ -110,6 +110,7 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
             statuses={statuses.map((s) => ({ id: s.id, name: s.name, color: s.color, kind: s.kind }))}
             reasons={reasons.map((r) => ({ id: r.id, name: r.name }))}
             rate={rate}
+            callbackAt={lead.callbackAt?.toISOString() ?? null}
           />
           {lead.status.kind === "LOST" && lead.lossReason && (
             <div className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">
@@ -188,7 +189,7 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
               <ol className="relative space-y-3 border-l pl-5">
                 {lead.history.map((h) => (
                   <li key={h.id} className="text-sm">
-                    <span className="absolute -left-1.5 mt-1.5 size-3 rounded-full border-2 border-white bg-slate-300" />
+                    <span className="absolute -left-1.5 mt-1.5 size-3 rounded-full border-2 border-card bg-slate-300" />
                     <div className="text-xs text-muted-foreground">
                       {formatDateTime(h.createdAt)} · {h.user?.name ?? "Система"}
                     </div>

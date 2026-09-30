@@ -54,6 +54,7 @@ export default async function KanbanPage({ searchParams }: { searchParams: Promi
       createdAt: l.createdAt.toISOString(),
       isRepeat: l.isRepeat,
       source: SOURCE_LABELS[l.source],
+      callbackAt: l.status.kind === "CALLBACK" && l.callbackAt ? l.callbackAt.toISOString() : null,
       overdueMin: isOverdueNew(l, settings.unprocessedAlertMin, now) ? Math.round((now.getTime() - l.createdAt.getTime()) / 60000) : null,
     })),
   );

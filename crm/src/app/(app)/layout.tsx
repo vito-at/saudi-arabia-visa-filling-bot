@@ -2,6 +2,10 @@ import Link from "next/link";
 import { AlertTriangle } from "lucide-react";
 import { signOut } from "@/auth";
 import { Sidebar } from "@/components/layout/sidebar";
+import { CallbackReminders } from "@/components/callbacks/callback-reminders";
+import { RateNotice } from "@/components/layout/rate-notice";
+import { formatDate, formatNumber, toInputDate } from "@/lib/format";
+import { isRateStale } from "@/lib/rates";
 import { prisma } from "@/lib/db";
 import { leadScope } from "@/lib/access";
 import { requireUser } from "@/lib/session";
@@ -9,11 +13,13 @@ import { requireUser } from "@/lib/session";
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
 
-  const [newLeads, tasks, meta] = await Promise.all([
+  const [newLeads, tasks, meta, settings] = await Promise.all([
     prisma.lead.count({ where: { ...leadScope(user), status: { kind: "NEW" } } }),
     prisma.task.count({ where: { assigneeId: user.id, doneAt: null, dueAt: { lt: endOfDayTashkent() } } }),
     prisma.metaIntegration.findUnique({ where: { id: 1 } }),
+    prisma.appSettings.findUnique({ where: { id: 1 } }),
   ]);
+  const rateStale = settings?.usdRateSource === "IPAK_YULI" && isRateStale(settings.usdRateUpdatedAt) && !!settings.usdRateError;
 
   async function logout() {
     "use server";
@@ -44,6 +50,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         )}
         <div className="mx-auto max-w-[1600px] px-8 py-6">{children}</div>
       </main>
+      <CallbackReminders />
+      {rateStale && settings && (
+        <RateNotice
+          day={toInputDate(new Date())}
+          rate={formatNumber(Number(settings.usdRate), 2)}
+          since={settings.usdRateUpdatedAt ? formatDate(settings.usdRateUpdatedAt) : "неизвестной даты"}
+          isAdmin={user.role === "ADMIN"}
+        />
+      )}
     </div>
   );
 }

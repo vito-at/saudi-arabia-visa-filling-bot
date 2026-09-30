@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 import { formatDateTime, formatDuration } from "@/lib/format";
 import { prettyPhone } from "@/lib/phone";
 import { assignManagerAction, takeLeadAction } from "@/app/(app)/leads/actions";
+import { CallbackBadge } from "@/components/callbacks/callback-badge";
 
 export interface LeadRow {
   id: string;
@@ -29,6 +30,7 @@ export interface LeadRow {
   isRepeat: boolean;
   overdueMin: number | null; // сколько минут лид ждёт сверх порога
   isNew: boolean;
+  callbackAt: string | null;
 }
 
 export function LeadsTable({
@@ -182,6 +184,7 @@ export function LeadsTable({
               <TD className="whitespace-nowrap">{prettyPhone(r.phone)}</TD>
               <TD>
                 <StatusBadge name={r.status.name} color={r.status.color} />
+                {r.callbackAt && <CallbackBadge at={r.callbackAt} className="mt-1 flex w-fit" />}
               </TD>
               <TD className="whitespace-nowrap">{r.manager ?? <span className="text-muted-foreground">не назначен</span>}</TD>
               <TD className="whitespace-nowrap text-muted-foreground">{r.source}</TD>

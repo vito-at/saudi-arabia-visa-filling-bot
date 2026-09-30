@@ -1,7 +1,7 @@
 import type { LeadSource, Prisma, ServiceType } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { normalizePhone } from "@/lib/phone";
-import { formatDate } from "@/lib/format";
+import { formatDate, formatDateTime } from "@/lib/format";
 import { SERVICE_LABELS, SOURCE_LABELS } from "@/lib/constants";
 import { pickNextManager } from "./distribution";
 
@@ -154,15 +154,18 @@ export interface StatusChange {
   statusId: string;
   lossReasonId?: string | null;
   lossComment?: string | null;
+  /** обязательно для статуса «Перезвонить» */
+  callbackAt?: Date | null;
 }
 
-/** Смена статуса с проверками: «Отказ» требует причину, «Продано» — сделку. */
+/** Смена статуса с проверками: «Отказ» требует причину, «Продано» — сделку, «Перезвонить» — время звонка. */
 export async function changeStatus(leadId: string, change: StatusChange, actor: { id: string; role: string }) {
   return prisma.$transaction(async (tx) => {
     const lead = await tx.lead.findUniqueOrThrow({ where: { id: leadId }, include: { status: true, _count: { select: { deals: true } } } });
     const target = await tx.leadStatus.findUnique({ where: { id: change.statusId } });
     if (!target) throw new ValidationError("Статус не найден");
-    if (target.id === lead.statusId && target.kind !== "LOST") return lead;
+    // «Перезвонить» можно выбрать повторно — это перенос звонка
+    if (target.id === lead.statusId && target.kind !== "LOST" && target.kind !== "CALLBACK") return lead;
 
     const data: Prisma.LeadUncheckedUpdateInput = { statusId: target.id, statusChangedAt: new Date() };
     const history: Prisma.LeadHistoryCreateManyInput[] = [];
@@ -184,6 +187,17 @@ export async function changeStatus(leadId: string, change: StatusChange, actor: 
       throw new ValidationError("Для статуса «Продано» нужно заполнить сделку");
     }
 
+    let callback: Date | null = null;
+    if (target.kind === "CALLBACK") {
+      if (!change.callbackAt || Number.isNaN(change.callbackAt.getTime())) throw new ValidationError("Укажите дату и время звонка");
+      if (change.callbackAt.getTime() < Date.now() - 60_000) throw new ValidationError("Время звонка уже прошло — выберите время в будущем");
+      callback = change.callbackAt;
+      data.callbackAt = callback;
+      history.push({ leadId, userId: actor.id, field: "callback", oldValue: lead.callbackAt ? formatDateTime(lead.callbackAt) : null, newValue: formatDateTime(callback) });
+    } else if (lead.callbackAt) {
+      data.callbackAt = null;
+    }
+
     // менеджер, взявший нераспределённый лид в работу, становится ответственным
     if (!lead.managerId && actor.role === "MANAGER") {
       data.managerId = actor.id;
@@ -198,6 +212,16 @@ export async function changeStatus(leadId: string, change: StatusChange, actor: 
     const updated = await tx.lead.update({ where: { id: leadId }, data });
     if (history.length) await tx.leadHistory.createMany({ data: history });
     if (lead.status.kind === "NEW" && target.kind !== "NEW") await markFirstResponse(tx, leadId);
+
+    // задача «Перезвонить» — видна в задачах и на дашборде; закрывается при смене статуса
+    const openCallbackTask = await tx.task.findFirst({ where: { leadId, isCallback: true, doneAt: null } });
+    if (callback) {
+      const assigneeId = updated.managerId ?? actor.id;
+      if (openCallbackTask) await tx.task.update({ where: { id: openCallbackTask.id }, data: { dueAt: callback, assigneeId } });
+      else await tx.task.create({ data: { leadId, title: "Перезвонить клиенту", dueAt: callback, assigneeId, createdById: actor.id, isCallback: true } });
+    } else if (openCallbackTask) {
+      await tx.task.updateMany({ where: { leadId, isCallback: true, doneAt: null }, data: { doneAt: new Date() } });
+    }
     return updated;
   });
 }
