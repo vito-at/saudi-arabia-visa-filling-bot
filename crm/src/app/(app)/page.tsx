@@ -1,4 +1,13 @@
 import Link from "next/link";
+import { Suspense } from "react";
+import { KpiTile } from "@/components/dashboard/kpi-tile";
+import { CountBars, MoneyBars } from "@/components/reports/charts";
+import { ReportFilters } from "@/components/reports/report-filters";
+import { formatDate, formatMoneyRound as formatMoney, formatNumber, formatPercent } from "@/lib/format";
+import { getManagers } from "@/lib/refs";
+import { readFilters } from "@/lib/reports/data";
+import { dashboardData } from "@/lib/reports/tables";
+import type { SearchParams } from "@/lib/leads/query";
 import { Flame } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,9 +20,14 @@ import { getSettings } from "@/lib/refs";
 import { getUrgentTasks } from "@/lib/tasks";
 import { requireUser } from "@/lib/session";
 
-export default async function DashboardPage() {
+export default async function DashboardPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
+  const params = await searchParams;
   const user = await requireUser();
-  const [tasks, settings, newLeads] = await Promise.all([
+  const f = await readFilters({ period: "month", ...params }, user);
+  const cur = f.currency;
+  const [d, managers, tasks, settings, newLeads] = await Promise.all([
+    dashboardData(f),
+    user.role === "ADMIN" ? getManagers() : Promise.resolve(null),
     getUrgentTasks(user),
     getSettings(),
     prisma.lead.findMany({
@@ -27,7 +41,39 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-5">
-      <PageHeader title="Дашборд" description={`Здравствуйте, ${user.name}!`} />
+      <PageHeader
+        title="Дашборд"
+        description={`${formatDate(f.period.from)} — ${formatDate(new Date(f.period.to.getTime() - 1))} · сравнение с ${formatDate(d.prev.from)} — ${formatDate(new Date(d.prev.to.getTime() - 1))}${user.role !== "ADMIN" ? " · ваши показатели" : ""}`}
+      />
+      <Suspense>
+        <ReportFilters managers={managers?.map((m) => ({ id: m.id, name: m.name })) ?? null} exportHref="/api/reports/export?tab=dashboard" defaultPeriod="month" />
+      </Suspense>
+      <div className="grid grid-cols-6 gap-4">
+        <KpiTile label="Лидов" value={formatNumber(d.cur.leads)} delta={d.deltas.leads} prev={formatNumber(d.was.leads)} />
+        <KpiTile label="Продаж" value={formatNumber(d.cur.sales)} delta={d.deltas.sales} prev={formatNumber(d.was.sales)} />
+        <KpiTile label="Конверсия в продажу" value={formatPercent(d.cur.conversion)} delta={d.deltas.conversion} prev={formatPercent(d.was.conversion)} />
+        <KpiTile label="Выручка" value={formatMoney(d.cur.revenue, cur)} delta={d.deltas.revenue} prev={formatMoney(d.was.revenue, cur)} />
+        <KpiTile label="Прибыль" value={formatMoney(d.cur.profit, cur)} delta={d.deltas.profit} prev={formatMoney(d.was.profit, cur)} />
+        <KpiTile label="Средний чек" value={formatMoney(d.cur.avgCheck, cur)} delta={d.deltas.avgCheck} prev={formatMoney(d.was.avgCheck, cur)} />
+      </div>
+      <div className="grid grid-cols-2 gap-5">
+        <Card>
+          <CardHeader>
+            <CardTitle>Лиды {d.bucket === 7 ? "по неделям" : "по дням"}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <CountBars label="Лидов" data={d.leadSeries.points.map((p) => ({ x: formatDate(p.start).slice(0, 5), value: p.value }))} />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Выручка и прибыль {d.bucket === 7 ? "по неделям" : "по дням"}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <MoneyBars currency={cur} data={d.money.map((p) => ({ x: formatDate(p.start).slice(0, 5), revenue: p.revenue, profit: p.profit }))} />
+          </CardContent>
+        </Card>
+      </div>
       <div className="grid grid-cols-2 gap-5">
         <Card>
           <CardHeader>

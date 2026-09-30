@@ -45,6 +45,12 @@ export function formatMoney(n: number | null | undefined, currency: "UZS" | "USD
   return currency === "USD" ? `$${formatNumber(n, 2)}` : `${formatNumber(Math.round(n))} сум`;
 }
 
+/** Сумма без копеек — для плиток и подписей графиков */
+export function formatMoneyRound(n: number | null | undefined, currency: "UZS" | "USD" = "UZS"): string {
+  if (n === null || n === undefined || Number.isNaN(n)) return "—";
+  return currency === "USD" ? `$${formatNumber(Math.round(n))}` : `${formatNumber(Math.round(n))} сум`;
+}
+
 export function formatPercent(n: number | null | undefined, digits = 1): string {
   if (n === null || n === undefined || !Number.isFinite(n)) return "—";
   return `${formatNumber(n * 100, digits)}%`;
