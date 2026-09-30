@@ -100,7 +100,7 @@ jobs:
             -e ENCRYPTION_KEY=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef \
             orient-crm:ci
           for i in $(seq 1 60); do curl -sf -o /dev/null http://localhost:3000/login && break; sleep 2; done
-          curl -sf http://localhost:3000/login | grep -q "Вход в систему"
+          curl -sf http://localhost:3000/login | grep -q 'name="login"'
           docker exec app npm run db:seed
           docker run --rm --network crm-ci -e DATABASE_URL="postgresql://crm:crm@db:5432/crm?schema=public" orient-crm:ci \
             sh -c 'timeout 15 npm run worker; test $? -eq 124'

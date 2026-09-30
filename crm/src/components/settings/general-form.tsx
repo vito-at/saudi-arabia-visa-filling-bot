@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, Input, NativeSelect } from "@/components/ui/input";
 import { formatDateTime, formatNumber } from "@/lib/format";
-import { refreshRateAction, saveGeneralAction, saveRateAction } from "@/app/(app)/settings/actions";
+import { refreshRateAction, saveGeneralAction, saveRateAction, setUsdRateAction } from "@/app/(app)/settings/actions";
 import { useRun } from "./use-run";
 
 export interface GeneralView {
@@ -24,6 +24,7 @@ export interface GeneralView {
 export function GeneralForm({ v }: { v: GeneralView }) {
   const { pending, run } = useRun();
   const [source, setSource] = useState(v.usdRateSource);
+  const [manualRate, setManualRate] = useState(String(v.usdRate));
   return (
     <div className="space-y-5">
       <Card>
@@ -70,7 +71,30 @@ export function GeneralForm({ v }: { v: GeneralView }) {
               <b>Не удалось получить курс автоматически</b>, используется последний известный. {v.usdRateError}
             </div>
           )}
-          <form action={(fd) => run(() => saveRateAction(fd))} className="grid grid-cols-3 gap-4">
+          <div className="mb-5 rounded-lg border bg-secondary/50 p-4">
+            <div className="mb-2 text-sm font-semibold">Установить курс вручную</div>
+            <form
+              className="flex items-end gap-3"
+              onSubmit={(e) => {
+                e.preventDefault();
+                run(() => setUsdRateAction(manualRate));
+              }}
+            >
+              <Field label="Сум за 1 $" className="w-48">
+                <Input value={manualRate} onChange={(e) => setManualRate(e.target.value)} inputMode="decimal" />
+              </Field>
+              <Button type="submit" disabled={pending}>
+                Установить курс
+              </Button>
+            </form>
+            <p className="mt-2 text-xs text-muted-foreground">
+              {source === "IPAK_YULI"
+                ? "Курс применяется сразу ко всем отчётам и действует до следующего автоматического обновления (в ближайшие 07:00). Пригодится, если сайт банка не ответил."
+                : "Курс применяется сразу ко всем отчётам."}
+            </p>
+          </div>
+          <div className="mb-2 text-sm font-semibold">Источник курса</div>
+          <form action={(fd) => run(() => saveRateAction(fd))} className="grid grid-cols-2 gap-4">
             <Field label="Источник">
               <NativeSelect name="usdRateSource" value={source} onChange={(e) => setSource(e.target.value as "MANUAL" | "IPAK_YULI")}>
                 <option value="IPAK_YULI">Ипак Йули Банк (автоматически)</option>
@@ -84,10 +108,8 @@ export function GeneralForm({ v }: { v: GeneralView }) {
               </NativeSelect>
               {source === "MANUAL" && <input type="hidden" name="usdRateSide" value={v.usdRateSide} />}
             </Field>
-            <Field label="Курс, сум за 1 $">
-              <Input name="usdRate" defaultValue={String(v.usdRate)} disabled={source !== "MANUAL"} inputMode="decimal" />
-            </Field>
-            <div className="col-span-3 flex gap-2">
+            <input type="hidden" name="usdRate" value={manualRate} />
+            <div className="col-span-2 flex gap-2">
               <Button type="submit" disabled={pending}>
                 Сохранить
               </Button>

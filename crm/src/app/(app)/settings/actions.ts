@@ -54,6 +54,23 @@ export async function saveRateAction(formData: FormData) {
   });
 }
 
+/** Установить курс вручную прямо сейчас (в любом режиме); в авто-режиме действует до следующего обновления в 07:00 */
+export async function setUsdRateAction(value: string) {
+  return runAction(async () => {
+    await requireAdmin();
+    const rate = Number(String(value).replace(/\s/g, "").replace(",", "."));
+    if (!Number.isFinite(rate) || rate < 1000 || rate > 100000) throw new ValidationError("Укажите курс USD→UZS, например 12 700");
+    const s = await prisma.appSettings.update({
+      where: { id: 1 },
+      data: { usdRate: rate, usdRateUpdatedAt: new Date(), usdRateError: null },
+    });
+    revalidateAll();
+    return s.usdRateSource === "IPAK_YULI"
+      ? `Курс ${formatNumber(rate, 2)} сум установлен. В ближайшие 07:00 он обновится автоматически с сайта банка`
+      : `Курс ${formatNumber(rate, 2)} сум установлен`;
+  });
+}
+
 export async function refreshRateAction() {
   return runAction(async () => {
     await requireAdmin();
