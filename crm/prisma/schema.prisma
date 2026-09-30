@@ -1,0 +1,313 @@
+generator client {
+  provider = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+}
+
+enum LeadSource {
+  META_FB
+  META_IG
+  CALL
+  INSTAGRAM_DIRECT
+  TELEGRAM
+  WALK_IN
+  OTHER
+}
+
+enum ServiceType {
+  FLIGHTS
+  OUTBOUND_TOUR
+  INBOUND_TOUR
+  UMRAH
+  VISA
+  MEDICAL
+  OTHER
+}
+
+enum Currency {
+  UZS
+  USD
+}
+
+/// Тип статуса — от него зависит логика (сделка, причина отказа, подсветка новых),
+/// поэтому статусы можно свободно переименовывать.
+enum StatusKind {
+  NEW
+  IN_PROGRESS
+  WON
+  LOST
+  OTHER
+}
+
+enum SyncTrigger {
+  CRON
+  MANUAL
+  WEBHOOK
+}
+
+enum RateSource {
+  MANUAL
+  IPAK_YULI
+}
+
+/// Какой курс Ипак Йули Банка брать: покупки или продажи
+enum RateSide {
+  BUY
+  SELL
+}
+
+enum DistributionMode {
+  MANUAL
+  ROUND_ROBIN
+}
+
+model User {
+  id             String    @id @default(cuid())
+  login          String    @unique
+  passwordHash   String
+  name           String
+  role           Role      @default(MANAGER)
+  isActive       Boolean   @default(true)
+  lastAssignedAt DateTime?
+  createdAt      DateTime  @default(now())
+
+  leads         Lead[]        @relation("LeadManager")
+  deals         Deal[]
+  comments      Comment[]
+  history       LeadHistory[]
+  tasks         Task[]        @relation("TaskAssignee")
+  createdTasks  Task[]        @relation("TaskCreator")
+}
+
+model LeadStatus {
+  id       String     @id @default(cuid())
+  name     String
+  color    String     @default("#64748b")
+  order    Int
+  kind     StatusKind @default(OTHER)
+  isSystem Boolean    @default(false)
+
+  leads Lead[]
+}
+
+model LossReason {
+  id       String  @id @default(cuid())
+  name     String
+  order    Int
+  isActive Boolean @default(true)
+
+  leads Lead[]
+}
+
+model Client {
+  id        String   @id @default(cuid())
+  name      String
+  phone     String?  @unique
+  email     String?
+  createdAt DateTime @default(now())
+
+  leads Lead[]
+  deals Deal[]
+}
+
+model Lead {
+  id          String       @id @default(cuid())
+  leadgenId   String?      @unique
+  source      LeadSource
+  name        String
+  phone       String?
+  phoneRaw    String?
+  email       String?
+  clientId    String
+  isRepeat    Boolean      @default(false)
+  statusId    String
+  managerId   String?
+  serviceType ServiceType?
+  destination String?
+  travelFrom  DateTime?
+  travelTo    DateTime?
+  travelers   Int?
+  /// Кастомные ответы формы: [{ key, label, value }]
+  formAnswers Json?
+
+  formId       String?
+  formName     String?
+  campaignId   String?
+  campaignName String?
+  adsetId      String?
+  adsetName    String?
+  adId         String?
+  adName       String?
+  platform     String?
+
+  lossReasonId String?
+  lossComment  String?
+
+  metaCreatedAt   DateTime?
+  createdAt       DateTime  @default(now())
+  assignedAt      DateTime?
+  firstResponseAt DateTime?
+  statusChangedAt DateTime  @default(now())
+
+  client     Client      @relation(fields: [clientId], references: [id])
+  status     LeadStatus  @relation(fields: [statusId], references: [id])
+  manager    User?       @relation("LeadManager", fields: [managerId], references: [id])
+  lossReason LossReason? @relation(fields: [lossReasonId], references: [id])
+
+  comments Comment[]
+  history  LeadHistory[]
+  tasks    Task[]
+  deals    Deal[]
+
+  @@index([statusId])
+  @@index([managerId])
+  @@index([createdAt])
+  @@index([phone])
+  @@index([campaignId])
+  @@index([clientId])
+}
+
+model Comment {
+  id        String    @id @default(cuid())
+  leadId    String
+  authorId  String
+  text      String
+  createdAt DateTime  @default(now())
+  editedAt  DateTime?
+
+  lead   Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  author User @relation(fields: [authorId], references: [id])
+
+  @@index([leadId])
+}
+
+model LeadHistory {
+  id         String   @id @default(cuid())
+  leadId     String
+  /// null — действие системы (синхронизация, автораспределение)
+  userId     String?
+  field      String
+  oldValue   String?
+  newValue   String?
+  toStatusId String?
+  createdAt  DateTime @default(now())
+
+  lead Lead  @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([leadId])
+  @@index([toStatusId])
+}
+
+model Task {
+  id          String    @id @default(cuid())
+  leadId      String?
+  assigneeId  String
+  createdById String
+  title       String
+  dueAt       DateTime
+  doneAt      DateTime?
+  createdAt   DateTime  @default(now())
+
+  lead      Lead? @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  assignee  User  @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  createdBy User  @relation("TaskCreator", fields: [createdById], references: [id])
+
+  @@index([assigneeId, doneAt, dueAt])
+}
+
+model Deal {
+  id        String   @id @default(cuid())
+  leadId    String
+  clientId  String
+  managerId String?
+  amount    Decimal  @db.Decimal(18, 2)
+  cost      Decimal  @db.Decimal(18, 2)
+  currency  Currency
+  paidAt    DateTime
+  product   String
+  createdAt DateTime @default(now())
+
+  lead    Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  client  Client @relation(fields: [clientId], references: [id])
+  manager User?  @relation(fields: [managerId], references: [id])
+
+  @@index([paidAt])
+  @@index([clientId])
+}
+
+model MetaIntegration {
+  id              Int       @id @default(1)
+  appId           String?
+  appSecretEnc    String?
+  pageId          String?
+  pageTokenEnc    String?
+  verifyToken     String?
+  /// Рекламный кабинет (act_XXXX) и отдельный токен Marketing API с правом ads_read — для расходов
+  adAccountId     String?
+  adsTokenEnc     String?
+  /// За сколько дней загружать лиды при первой синхронизации (Meta хранит лиды 90 дней)
+  initialDays     Int       @default(30)
+  pollIntervalMin Int       @default(5)
+  enabled         Boolean   @default(false)
+  lastSyncAt      DateTime?
+  lastSpendSyncAt DateTime?
+  tokenValid      Boolean   @default(true)
+  tokenError      String?
+  tokenExpiresAt  DateTime?
+}
+
+model MetaForm {
+  id         String    @id
+  name       String
+  status     String?
+  lastLeadAt DateTime?
+}
+
+model SyncLog {
+  id           String      @id @default(cuid())
+  trigger      SyncTrigger
+  startedAt    DateTime    @default(now())
+  finishedAt   DateTime?
+  formsChecked Int         @default(0)
+  fetched      Int         @default(0)
+  created      Int         @default(0)
+  duplicates   Int         @default(0)
+  ok           Boolean     @default(true)
+  error        String?
+
+  @@index([startedAt])
+}
+
+model AdSpend {
+  id         String   @id @default(cuid())
+  date       DateTime @db.Date
+  campaignId String
+  adsetId    String   @default("")
+  adId       String   @default("")
+  spend      Decimal  @db.Decimal(18, 2)
+  currency   String
+
+  @@unique([date, campaignId, adsetId, adId])
+}
+
+model AppSettings {
+  id                  Int              @id @default(1)
+  distributionMode    DistributionMode @default(MANUAL)
+  unprocessedAlertMin Int              @default(15)
+  /// Текущий курс USD→UZS — по нему пересчитываются все отчёты
+  usdRate             Decimal          @default(12800) @db.Decimal(12, 2)
+  usdRateSource       RateSource       @default(IPAK_YULI)
+  usdRateSide         RateSide         @default(SELL)
+  usdRateUpdatedAt    DateTime?
+  usdRateError        String?
+}

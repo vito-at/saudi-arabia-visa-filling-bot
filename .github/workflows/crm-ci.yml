@@ -1,0 +1,109 @@
+name: CRM CI
+
+on:
+  push:
+    paths:
+      - "crm/**"
+      - ".github/workflows/crm-ci.yml"
+  pull_request:
+    paths:
+      - "crm/**"
+      - ".github/workflows/crm-ci.yml"
+
+concurrency:
+  group: crm-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: crm
+
+jobs:
+  checks:
+    name: Типы, линтер, тесты, сборка, миграции
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: crm
+          POSTGRES_PASSWORD: crm
+          POSTGRES_DB: crm
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U crm"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://crm:crm@localhost:5432/crm?schema=public
+      AUTH_SECRET: ci-secret-not-for-production-0123456789
+      ENCRYPTION_KEY: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: crm/package-lock.json
+      - name: Установка зависимостей
+        run: npm ci
+      - name: Проверка типов
+        run: npm run typecheck
+      - name: Линтер
+        run: npm run lint
+      - name: Тесты
+        run: npm test
+      - name: Миграции на чистой базе
+        run: npx prisma migrate deploy
+      - name: Схема совпадает с миграциями
+        run: |
+          PGPASSWORD=crm psql -h localhost -U crm -d crm -c "CREATE DATABASE crm_shadow"
+          npx prisma migrate diff --from-migrations prisma/migrations --to-schema-datamodel prisma/schema.prisma \
+            --shadow-database-url "postgresql://crm:crm@localhost:5432/crm_shadow" --exit-code
+      - name: Seed с демо-данными
+        run: npm run db:seed
+      - name: Production-сборка
+        run: npm run build
+
+  docker:
+    name: Сборка Docker-образа
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Проверка docker-compose.yml
+        run: |
+          cp .env.example .env
+          docker compose --profile https config --quiet
+      - name: Сборка образа
+        uses: docker/build-push-action@v6
+        with:
+          context: crm
+          push: false
+          load: true
+          tags: orient-crm:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Образ запускается и отдаёт страницу входа
+        run: |
+          docker network create crm-ci
+          docker run -d --name db --network crm-ci -e POSTGRES_USER=crm -e POSTGRES_PASSWORD=crm -e POSTGRES_DB=crm postgres:16-alpine
+          for i in $(seq 1 30); do docker exec db pg_isready -U crm && break; sleep 1; done
+          docker run -d --name app --network crm-ci -p 3000:3000 \
+            -e DATABASE_URL="postgresql://crm:crm@db:5432/crm?schema=public" \
+            -e AUTH_SECRET=ci-secret-not-for-production-0123456789 -e AUTH_TRUST_HOST=true \
+            -e ENCRYPTION_KEY=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef \
+            orient-crm:ci
+          for i in $(seq 1 60); do curl -sf -o /dev/null http://localhost:3000/login && break; sleep 2; done
+          curl -sf http://localhost:3000/login | grep -q "Вход в систему"
+          docker exec app npm run db:seed
+          docker run --rm --network crm-ci -e DATABASE_URL="postgresql://crm:crm@db:5432/crm?schema=public" orient-crm:ci \
+            sh -c 'timeout 15 npm run worker; test $? -eq 124'
+      - name: Логи при ошибке
+        if: failure()
+        run: docker logs app || true

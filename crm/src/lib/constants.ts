@@ -1,0 +1,82 @@
+import type { Currency, LeadSource, Role, ServiceType, StatusKind } from "@prisma/client";
+
+export const SOURCE_LABELS: Record<LeadSource, string> = {
+  META_FB: "Facebook (реклама)",
+  META_IG: "Instagram (реклама)",
+  CALL: "Звонок",
+  INSTAGRAM_DIRECT: "Instagram Direct",
+  TELEGRAM: "Telegram",
+  WALK_IN: "Визит в офис",
+  OTHER: "Другое",
+};
+
+/** Источники, которые можно выбрать при ручном создании лида */
+export const MANUAL_SOURCES: LeadSource[] = ["CALL", "INSTAGRAM_DIRECT", "TELEGRAM", "WALK_IN", "OTHER"];
+
+export const SERVICE_LABELS: Record<ServiceType, string> = {
+  FLIGHTS: "Авиабилеты",
+  OUTBOUND_TOUR: "Выездной тур",
+  INBOUND_TOUR: "Въездной тур",
+  UMRAH: "Умра",
+  VISA: "Визовая поддержка",
+  MEDICAL: "Медицинский туризм",
+  OTHER: "Другое",
+};
+
+export const ROLE_LABELS: Record<Role, string> = {
+  ADMIN: "Администратор",
+  MANAGER: "Менеджер",
+};
+
+export const CURRENCY_LABELS: Record<Currency, string> = { UZS: "UZS (сум)", USD: "USD ($)" };
+
+export const STATUS_KIND_LABELS: Record<StatusKind, string> = {
+  NEW: "Новый (входящий)",
+  IN_PROGRESS: "В работе",
+  WON: "Продажа",
+  LOST: "Отказ",
+  OTHER: "Промежуточный",
+};
+
+export const DEFAULT_STATUSES: { name: string; color: string; kind: StatusKind; isSystem?: boolean }[] = [
+  { name: "Новый", color: "#3b82f6", kind: "NEW", isSystem: true },
+  { name: "Взят в работу", color: "#6366f1", kind: "IN_PROGRESS" },
+  { name: "Не дозвонились", color: "#f59e0b", kind: "OTHER" },
+  { name: "Консультация", color: "#06b6d4", kind: "OTHER" },
+  { name: "Отправлено предложение", color: "#8b5cf6", kind: "OTHER" },
+  { name: "Ожидает оплату", color: "#ec4899", kind: "OTHER" },
+  { name: "Продано", color: "#16a34a", kind: "WON", isSystem: true },
+  { name: "Отказ", color: "#dc2626", kind: "LOST", isSystem: true },
+];
+
+export const DEFAULT_LOSS_REASONS = [
+  "Дорого",
+  "Купил у конкурентов",
+  "Передумал / отложил поездку",
+  "Не дозвонились / не отвечает",
+  "Не устроили даты",
+  "Нет мест",
+  "Отказ в визе",
+  "Просто интересовался",
+  "Некачественный лид / спам",
+  "Другое",
+];
+
+/** Поля лида, изменения которых пишутся в историю */
+export const FIELD_LABELS: Record<string, string> = {
+  status: "Статус",
+  manager: "Менеджер",
+  name: "Имя",
+  phone: "Телефон",
+  email: "Email",
+  serviceType: "Тип услуги",
+  destination: "Направление",
+  travelFrom: "Дата поездки с",
+  travelTo: "Дата поездки по",
+  travelers: "Кол-во туристов",
+  lossReason: "Причина отказа",
+  lossComment: "Комментарий к отказу",
+  source: "Источник",
+  created: "Лид создан",
+  deal: "Сделка",
+};
