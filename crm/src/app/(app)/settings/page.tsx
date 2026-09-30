@@ -3,6 +3,13 @@ import { AlertTriangle } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { IntegrationForm } from "@/components/settings/integration-form";
+import { GeneralForm } from "@/components/settings/general-form";
+import { StatusesEditor } from "@/components/settings/statuses-editor";
+import { ReasonsEditor } from "@/components/settings/reasons-editor";
+import { UsersEditor } from "@/components/settings/users-editor";
+import { toNum } from "@/lib/money";
+import { rateSources } from "@/lib/rates";
+import { getSettings } from "@/lib/refs";
 import { SyncLogTable } from "@/components/settings/sync-log";
 import { prisma } from "@/lib/db";
 import { decrypt, maskSecret } from "@/lib/crypto";
@@ -45,7 +52,10 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
       </div>
       {active === "integration" && <IntegrationTab />}
       {active === "sync" && <SyncTab />}
-      {!["integration", "sync"].includes(active) && <p className="text-sm text-muted-foreground">Раздел в разработке</p>}
+      {active === "general" && <GeneralTab />}
+      {active === "statuses" && <StatusesTab />}
+      {active === "reasons" && <ReasonsTab />}
+      {active === "users" && <UsersTab />}
     </div>
   );
 }
@@ -108,6 +118,72 @@ async function SyncTab() {
         <CardTitle>Последние 100 синхронизаций</CardTitle>
       </CardHeader>
       <SyncLogTable logs={logs} />
+    </Card>
+  );
+}
+
+async function GeneralTab() {
+  const [s, managersCount] = await Promise.all([getSettings(), prisma.user.count({ where: { role: "MANAGER", isActive: true } })]);
+  return (
+    <GeneralForm
+      v={{
+        distributionMode: s.distributionMode,
+        unprocessedAlertMin: s.unprocessedAlertMin,
+        usdRate: toNum(s.usdRate),
+        usdRateSource: s.usdRateSource,
+        usdRateSide: s.usdRateSide,
+        usdRateUpdatedAt: s.usdRateUpdatedAt?.toISOString() ?? null,
+        usdRateError: s.usdRateError,
+        managersCount,
+        rateSources: rateSources(),
+      }}
+    />
+  );
+}
+
+async function StatusesTab() {
+  const statuses = await prisma.leadStatus.findMany({ orderBy: { order: "asc" }, include: { _count: { select: { leads: true } } } });
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Статусы лидов</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <StatusesEditor statuses={statuses.map((s) => ({ id: s.id, name: s.name, color: s.color, kind: s.kind, isSystem: s.isSystem, leads: s._count.leads }))} />
+      </CardContent>
+    </Card>
+  );
+}
+
+async function ReasonsTab() {
+  const reasons = await prisma.lossReason.findMany({ orderBy: { order: "asc" }, include: { _count: { select: { leads: true } } } });
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Причины отказа</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <ReasonsEditor reasons={reasons.map((r) => ({ id: r.id, name: r.name, isActive: r.isActive, leads: r._count.leads }))} />
+      </CardContent>
+    </Card>
+  );
+}
+
+async function UsersTab() {
+  const users = await prisma.user.findMany({
+    orderBy: [{ isActive: "desc" }, { role: "asc" }, { name: "asc" }],
+    include: { _count: { select: { leads: { where: { status: { kind: { notIn: ["WON", "LOST"] } } } } } } },
+  });
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Пользователи и роли</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <UsersEditor
+          users={users.map((u) => ({ id: u.id, login: u.login, name: u.name, role: u.role, isActive: u.isActive, createdAt: u.createdAt.toISOString(), activeLeads: u._count.leads }))}
+        />
+      </CardContent>
     </Card>
   );
 }
