@@ -5,7 +5,8 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Search, X } from "lucide-react";
 import { Input, NativeSelect } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { PERIOD_LABELS } from "@/lib/period";
+import type { TKey } from "@/i18n/core";
+import { useI18n } from "@/i18n/client";
 
 type Opt = { id: string; name: string };
 
@@ -24,6 +25,7 @@ export function LeadsFilters({
   forms: Opt[];
   showManager: boolean;
 }) {
+  const { t } = useI18n();
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
@@ -70,18 +72,18 @@ export function LeadsFilters({
     <div className="flex flex-wrap items-center gap-2">
       <div className="relative w-72">
         <Search className="pointer-events-none absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
-        <Input className="pl-8" placeholder="Поиск по имени или телефону" value={q} onChange={(e) => setQ(e.target.value)} />
+        <Input className="pl-8" placeholder={t("leads.search")} value={q} onChange={(e) => setQ(e.target.value)} />
       </div>
-      {sel("status", "Все статусы", statuses)}
-      {showManager && sel("manager", "Все менеджеры", managers, [{ id: "none", name: "— Не назначен —" }])}
-      {sel("source", "Все источники", sources)}
-      {campaigns.length > 0 && sel("campaign", "Все кампании", campaigns)}
-      {forms.length > 0 && sel("form", "Все формы", forms)}
+      {sel("status", t("leads.allStatuses"), statuses)}
+      {showManager && sel("manager", t("common.allManagers"), managers, [{ id: "none", name: t("common.notAssignedOption") }])}
+      {sel("source", t("leads.allSources"), sources)}
+      {campaigns.length > 0 && sel("campaign", t("leads.allCampaigns"), campaigns)}
+      {forms.length > 0 && sel("form", t("leads.allForms"), forms)}
       <NativeSelect className="w-auto" value={period} onChange={(e) => update({ period: e.target.value || null, from: null, to: null })}>
-        <option value="">За всё время</option>
+        <option value="">{t("period.allTime")}</option>
         {(["today", "yesterday", "7d", "30d", "month", "prev_month", "custom"] as const).map((k) => (
           <option key={k} value={k}>
-            {PERIOD_LABELS[k]}
+            {t(`period.${k}` as TKey)}
           </option>
         ))}
       </NativeSelect>
@@ -101,7 +103,7 @@ export function LeadsFilters({
             router.push(pathname);
           }}
         >
-          <X /> Сбросить
+          <X /> {t("common.reset")}
         </Button>
       )}
     </div>

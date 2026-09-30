@@ -20,7 +20,7 @@ const ymd = (d: Date) => d.toISOString().slice(0, 10);
 export async function syncSpend(days = 7, fetchFn?: FetchFn) {
   const integration = await getIntegration();
   const secrets = readSecrets(integration);
-  if (!integration.adAccountId || !secrets) return { ok: false, rows: 0, skipped: "Не указан рекламный кабинет" };
+  if (!integration.adAccountId || !secrets) return { ok: false, rows: 0, skipped: "err.noAdAccount" };
   const account = integration.adAccountId.startsWith("act_") ? integration.adAccountId : `act_${integration.adAccountId}`;
   const client = new GraphClient(secrets.adsToken || secrets.pageToken, fetchFn);
   const until = new Date();

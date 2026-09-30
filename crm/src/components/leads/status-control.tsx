@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { formatDateTime } from "@/lib/format";
+import { useI18n } from "@/i18n/client";
 import { changeStatusAction } from "@/app/(app)/leads/actions";
 import { LossDialog } from "./loss-dialog";
 import { DealDialog, type DealDialogProps } from "@/components/deals/deal-dialog";
@@ -17,6 +18,7 @@ type Status = { id: string; name: string; color: string; kind: string };
  * Используется и в карточке, и на канбане.
  */
 export function useStatusChanger({ reasons, rate }: { reasons: { id: string; name: string }[]; rate: number }) {
+  const { t } = useI18n();
   const [pending, start] = useTransition();
   const [loss, setLoss] = useState<{ leadId: string; statusId: string; onDone?: (ok: boolean) => void } | null>(null);
   const [deal, setDeal] = useState<{ leadId: string; statusId: string; onDone?: (ok: boolean) => void } | null>(null);
@@ -29,7 +31,7 @@ export function useStatusChanger({ reasons, rate }: { reasons: { id: string; nam
     start(async () => {
       const res = await changeStatusAction(leadId, status.id);
       if (!res.ok) toast.error(res.error);
-      else toast.success(`Статус: ${status.name}`);
+      else toast.success(t("status.changed", { name: status.name }));
       onDone?.(res.ok);
     });
   }
@@ -52,7 +54,7 @@ export function useStatusChanger({ reasons, rate }: { reasons: { id: string; nam
             if (!loss) return;
             const res = await changeStatusAction(loss.leadId, loss.statusId, { lossReasonId: reasonId, lossComment: comment });
             if (!res.ok) return void toast.error(res.error);
-            toast.success("Лид переведён в «Отказ»");
+            toast.success(t("status.lostDone"));
             loss.onDone?.(true);
             setLoss(null);
           })
@@ -73,7 +75,7 @@ export function useStatusChanger({ reasons, rate }: { reasons: { id: string; nam
             start(async () => {
               const res = await changeStatusAction(callback.leadId, callback.statusId, { callbackAt: at });
               if (!res.ok) return void toast.error(res.error);
-              toast.success("Звонок запланирован, менеджер получит напоминание");
+              toast.success(t("status.callbackSet"));
               callback.onDone?.(true);
               setCallback(null);
             })
@@ -120,6 +122,7 @@ export function StatusControl({
   callbackAt?: string | null;
 }) {
   const { change, pending, dialogs } = useStatusChanger({ reasons, rate });
+  const { t } = useI18n();
   return (
     <>
       <div className="flex flex-wrap gap-1.5">
@@ -133,7 +136,7 @@ export function StatusControl({
               onClick={() => change(leadId, s, undefined, s.kind === "CALLBACK" ? callbackAt : undefined)}
               className="rounded-full border px-3 py-1 text-xs font-medium transition-colors cursor-pointer disabled:cursor-default"
               style={active ? { backgroundColor: s.color, borderColor: s.color, color: "#fff" } : { color: s.color, borderColor: `${s.color}55` }}
-              title={active ? "Текущий статус" : `Перевести в «${s.name}»`}
+              title={active ? t("status.current") : t("status.moveTo", { name: s.name })}
             >
               {s.name}
             </button>
@@ -143,11 +146,11 @@ export function StatusControl({
       {current.kind === "CALLBACK" && callbackAt && (
         <div className="mt-3 flex items-center gap-3 rounded-lg bg-accent px-3 py-2 text-sm">
           <span>
-            Перезвонить: <b>{formatDateTime(callbackAt)}</b>
+            {t("status.callbackAt")} <b>{formatDateTime(callbackAt)}</b>
           </span>
           <CallbackBadge at={callbackAt} />
           <Button size="sm" variant="outline" className="ml-auto" disabled={pending} onClick={() => change(leadId, current, undefined, callbackAt)}>
-            Перенести звонок
+            {t("status.reschedule")}
           </Button>
         </div>
       )}

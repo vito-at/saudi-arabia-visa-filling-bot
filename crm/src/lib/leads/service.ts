@@ -4,10 +4,22 @@ import { normalizePhone } from "@/lib/phone";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { SERVICE_LABELS, SOURCE_LABELS } from "@/lib/constants";
 import { pickNextManager } from "./distribution";
+import type { TKey, TVars } from "@/i18n/core";
 
 type Tx = Prisma.TransactionClient;
 
-export class ValidationError extends Error {}
+/**
+ * Ожидаемая ошибка для пользователя. message — ключ перевода (err.*) или готовый текст;
+ * переводится на язык пользователя в runAction.
+ */
+export class ValidationError extends Error {
+  constructor(
+    message: TKey | string,
+    public vars?: TVars,
+  ) {
+    super(message);
+  }
+}
 
 export interface NewLeadInput {
   source: LeadSource;
@@ -56,7 +68,7 @@ export async function createLead(input: NewLeadInput, actorId: string | null) {
     return await prisma.$transaction(async (tx) => {
       const newStatus = await tx.leadStatus.findFirst({ where: { kind: "NEW" }, orderBy: { order: "asc" } });
       const status = newStatus ?? (await tx.leadStatus.findFirst({ orderBy: { order: "asc" } }));
-      if (!status) throw new ValidationError("Не настроены статусы лидов");
+      if (!status) throw new ValidationError("err.noStatuses");
 
       let client = phone ? await tx.client.findUnique({ where: { phone } }) : null;
       let isRepeat = false;
@@ -163,7 +175,7 @@ export async function changeStatus(leadId: string, change: StatusChange, actor: 
   return prisma.$transaction(async (tx) => {
     const lead = await tx.lead.findUniqueOrThrow({ where: { id: leadId }, include: { status: true, _count: { select: { deals: true } } } });
     const target = await tx.leadStatus.findUnique({ where: { id: change.statusId } });
-    if (!target) throw new ValidationError("Статус не найден");
+    if (!target) throw new ValidationError("err.statusNotFound");
     // «Перезвонить» можно выбрать повторно — это перенос звонка
     if (target.id === lead.statusId && target.kind !== "LOST" && target.kind !== "CALLBACK") return lead;
 
@@ -171,9 +183,9 @@ export async function changeStatus(leadId: string, change: StatusChange, actor: 
     const history: Prisma.LeadHistoryCreateManyInput[] = [];
 
     if (target.kind === "LOST") {
-      if (!change.lossReasonId) throw new ValidationError("Укажите причину отказа");
+      if (!change.lossReasonId) throw new ValidationError("err.lossReasonRequired");
       const reason = await tx.lossReason.findUnique({ where: { id: change.lossReasonId } });
-      if (!reason) throw new ValidationError("Причина отказа не найдена");
+      if (!reason) throw new ValidationError("err.lossReasonNotFound");
       data.lossReasonId = reason.id;
       data.lossComment = change.lossComment?.trim() || null;
       history.push({ leadId, userId: actor.id, field: "lossReason", oldValue: null, newValue: reason.name + (data.lossComment ? ` — ${data.lossComment}` : "") });
@@ -184,13 +196,13 @@ export async function changeStatus(leadId: string, change: StatusChange, actor: 
     }
 
     if (target.kind === "WON" && lead._count.deals === 0) {
-      throw new ValidationError("Для статуса «Продано» нужно заполнить сделку");
+      throw new ValidationError("err.wonNeedsDeal");
     }
 
     let callback: Date | null = null;
     if (target.kind === "CALLBACK") {
-      if (!change.callbackAt || Number.isNaN(change.callbackAt.getTime())) throw new ValidationError("Укажите дату и время звонка");
-      if (change.callbackAt.getTime() < Date.now() - 60_000) throw new ValidationError("Время звонка уже прошло — выберите время в будущем");
+      if (!change.callbackAt || Number.isNaN(change.callbackAt.getTime())) throw new ValidationError("err.callbackRequired");
+      if (change.callbackAt.getTime() < Date.now() - 60_000) throw new ValidationError("err.callbackPast");
       callback = change.callbackAt;
       data.callbackAt = callback;
       history.push({ leadId, userId: actor.id, field: "callback", oldValue: lead.callbackAt ? formatDateTime(lead.callbackAt) : null, newValue: formatDateTime(callback) });
@@ -230,7 +242,7 @@ export async function changeStatus(leadId: string, change: StatusChange, actor: 
 export async function assignManager(leadIds: string[], managerId: string | null, actorId: string) {
   if (!leadIds.length) return 0;
   const manager = managerId ? await prisma.user.findFirst({ where: { id: managerId, isActive: true } }) : null;
-  if (managerId && !manager) throw new ValidationError("Менеджер не найден");
+  if (managerId && !manager) throw new ValidationError("err.managerNotFound");
   return prisma.$transaction(async (tx) => {
     const leads = await tx.lead.findMany({ where: { id: { in: leadIds } }, include: { manager: { select: { name: true } } } });
     const changed = leads.filter((l) => l.managerId !== managerId);
@@ -256,7 +268,7 @@ export async function assignManager(leadIds: string[], managerId: string | null,
 export async function takeLead(leadId: string, actor: { id: string; role: string }) {
   const lead = await prisma.lead.findUniqueOrThrow({ where: { id: leadId }, include: { status: true } });
   if (lead.managerId && lead.managerId !== actor.id && actor.role !== "ADMIN") {
-    throw new ValidationError("Лид уже взят другим менеджером");
+    throw new ValidationError("err.leadTaken");
   }
   if (lead.managerId !== actor.id) await assignManager([leadId], actor.id, actor.id);
   if (lead.status.kind === "NEW") {
@@ -296,7 +308,7 @@ export async function updateLeadFields(leadId: string, patch: LeadFieldsPatch, a
 
     if (patch.phone !== undefined) {
       const normalized = normalizePhone(patch.phone);
-      if (patch.phone && !normalized) throw new ValidationError("Телефон должен быть узбекским номером: +998XXXXXXXXX");
+      if (patch.phone && !normalized) throw new ValidationError("err.phoneUz");
       patch = { ...patch, phone: normalized };
     }
 
@@ -330,7 +342,7 @@ export async function updateLeadFields(leadId: string, patch: LeadFieldsPatch, a
 
 export async function addComment(leadId: string, authorId: string, text: string) {
   const t = text.trim();
-  if (!t) throw new ValidationError("Комментарий пустой");
+  if (!t) throw new ValidationError("err.commentEmpty");
   return prisma.$transaction(async (tx) => {
     const c = await tx.comment.create({ data: { leadId, authorId, text: t } });
     await markFirstResponse(tx, leadId);
@@ -340,9 +352,9 @@ export async function addComment(leadId: string, authorId: string, text: string)
 
 export async function editComment(commentId: string, authorId: string, text: string) {
   const t = text.trim();
-  if (!t) throw new ValidationError("Комментарий пустой");
+  if (!t) throw new ValidationError("err.commentEmpty");
   const c = await prisma.comment.findUnique({ where: { id: commentId } });
-  if (!c || c.authorId !== authorId) throw new ValidationError("Можно редактировать только свои комментарии");
+  if (!c || c.authorId !== authorId) throw new ValidationError("err.commentNotOwn");
   return prisma.comment.update({ where: { id: commentId }, data: { text: t, editedAt: new Date() } });
 }
 
@@ -354,7 +366,7 @@ export async function editComment(commentId: string, authorId: string, text: str
 export async function deleteLead(leadId: string) {
   return prisma.$transaction(async (tx) => {
     const lead = await tx.lead.findUnique({ where: { id: leadId }, select: { clientId: true, leadgenId: true } });
-    if (!lead) throw new ValidationError("Лид не найден");
+    if (!lead) throw new ValidationError("err.leadMissing");
     if (lead.leadgenId) {
       await tx.deletedLeadgen.upsert({ where: { leadgenId: lead.leadgenId }, update: {}, create: { leadgenId: lead.leadgenId } });
     }

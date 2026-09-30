@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Moon, Sun } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { THEME_COOKIE, type Theme } from "@/lib/theme";
+import { useI18n } from "@/i18n/client";
 
 function currentTheme(): Theme {
   return typeof document !== "undefined" && document.documentElement.classList.contains("dark") ? "dark" : "light";
@@ -11,6 +12,7 @@ function currentTheme(): Theme {
 
 /** Переключатель «День / Ночь»; выбор хранится в cookie на год */
 export function ThemeToggle({ className }: { className?: string }) {
+  const { t } = useI18n();
   const [theme, setTheme] = useState<Theme>("light");
   useEffect(() => setTheme(currentTheme()), []);
 
@@ -22,11 +24,11 @@ export function ThemeToggle({ className }: { className?: string }) {
   }
 
   return (
-    <div className={cn("flex rounded-lg bg-sidebar-hover p-1 text-xs", className)} role="radiogroup" aria-label="Тема оформления">
+    <div className={cn("flex rounded-lg bg-sidebar-hover p-1 text-xs", className)} role="radiogroup" aria-label={t("nav.theme")}>
       {(
         [
-          ["light", "День", Sun],
-          ["dark", "Ночь", Moon],
+          ["light", t("nav.day"), Sun],
+          ["dark", t("nav.night"), Moon],
         ] as const
       ).map(([value, label, Icon]) => (
         <button

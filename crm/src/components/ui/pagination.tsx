@@ -2,8 +2,10 @@ import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { formatNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { getI18n } from "@/i18n/server";
 
-export function Pagination({ page, pageSize, total, params, basePath }: { page: number; pageSize: number; total: number; params: Record<string, string | string[] | undefined>; basePath: string }) {
+export async function Pagination({ page, pageSize, total, params, basePath }: { page: number; pageSize: number; total: number; params: Record<string, string | string[] | undefined>; basePath: string }) {
+  const { t } = await getI18n();
   const pages = Math.max(1, Math.ceil(total / pageSize));
   const href = (p: number) => {
     const q = new URLSearchParams();
@@ -17,11 +19,11 @@ export function Pagination({ page, pageSize, total, params, basePath }: { page: 
   return (
     <div className="flex items-center justify-between px-4 py-3 text-sm text-muted-foreground">
       <span>
-        {formatNumber(from)}–{formatNumber(to)} из {formatNumber(total)}
+        {t("pagination.range", { from: formatNumber(from), to: formatNumber(to), total: formatNumber(total) })}
       </span>
       <div className="flex items-center gap-1">
         {page > 1 ? (
-          <Link className={btn} href={href(page - 1)} aria-label="Назад">
+          <Link className={btn} href={href(page - 1)} aria-label={t("common.back")}>
             <ChevronLeft className="size-4" />
           </Link>
         ) : (
@@ -33,7 +35,7 @@ export function Pagination({ page, pageSize, total, params, basePath }: { page: 
           {page} / {pages}
         </span>
         {page < pages ? (
-          <Link className={btn} href={href(page + 1)} aria-label="Вперёд">
+          <Link className={btn} href={href(page + 1)} aria-label={t("common.forward")}>
             <ChevronRight className="size-4" />
           </Link>
         ) : (

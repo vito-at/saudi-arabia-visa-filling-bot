@@ -7,9 +7,11 @@ import { callbackState } from "@/lib/callback";
 import type { CallbackItem } from "@/lib/callbacks-data";
 import { CallbackCard } from "./callback-list";
 import { useNow } from "./use-now";
+import { useI18n } from "@/i18n/client";
 
 /** Блок над таблицей лидов: звонки, до которых осталось 10 минут и меньше */
 export function UpcomingCallbacks({ items }: { items: CallbackItem[] }) {
+  const { t } = useI18n();
   const now = useNow(15_000);
   const router = useRouter();
   // раз в минуту подтягиваем свежие данные (новые назначенные звонки, смена статусов)
@@ -23,7 +25,7 @@ export function UpcomingCallbacks({ items }: { items: CallbackItem[] }) {
   return (
     <div className="mb-4 rounded-xl border border-brand/40 bg-accent p-4">
       <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-primary">
-        <PhoneCall className="size-4" /> Скоро звонок · {visible.length}
+        <PhoneCall className="size-4" /> {t("callback.soonTitle", { n: visible.length })}
       </div>
       <div className="grid grid-cols-3 gap-3">
         {visible.map((i) => (

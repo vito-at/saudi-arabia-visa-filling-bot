@@ -36,7 +36,7 @@ function parseTravelers(v: FormDataEntryValue | null): number | null {
   const s = str(v);
   if (!s) return null;
   const n = Number(s);
-  if (!Number.isInteger(n) || n < 1 || n > 500) throw new ValidationError("Количество туристов — целое число от 1");
+  if (!Number.isInteger(n) || n < 1 || n > 500) throw new ValidationError("err.travelers");
   return n;
 }
 
@@ -50,12 +50,12 @@ export async function createLeadAction(formData: FormData) {
   return runAction(async () => {
     const user = await requireUser();
     const source = str(formData.get("source")) as LeadSource;
-    if (!MANUAL_SOURCES.includes(source)) throw new ValidationError("Выберите источник");
+    if (!MANUAL_SOURCES.includes(source)) throw new ValidationError("err.source");
     const name = str(formData.get("name"));
-    if (!name) throw new ValidationError("Укажите имя");
+    if (!name) throw new ValidationError("err.name");
     const phoneRaw = str(formData.get("phone"));
-    if (!phoneRaw) throw new ValidationError("Укажите телефон");
-    if (!normalizePhone(phoneRaw)) throw new ValidationError("Телефон должен быть узбекским номером: +998XXXXXXXXX");
+    if (!phoneRaw) throw new ValidationError("err.phone");
+    if (!normalizePhone(phoneRaw)) throw new ValidationError("err.phoneUz");
 
     let managerId = str(formData.get("managerId"));
     if (user.role === "MANAGER") managerId = managerId === "none" ? null : user.id;
@@ -87,10 +87,10 @@ export async function updateLeadAction(leadId: string, formData: FormData) {
     const user = await requireUser();
     await getLeadForUser(user, leadId);
     const name = str(formData.get("name"));
-    if (!name) throw new ValidationError("Укажите имя");
+    if (!name) throw new ValidationError("err.name");
     const travelFrom = parseInputDate(str(formData.get("travelFrom")));
     const travelTo = parseInputDate(str(formData.get("travelTo")));
-    if (travelFrom && travelTo && travelTo < travelFrom) throw new ValidationError("Дата окончания поездки раньше даты начала");
+    if (travelFrom && travelTo && travelTo < travelFrom) throw new ValidationError("err.travelDates");
     await updateLeadFields(
       leadId,
       {
@@ -118,7 +118,7 @@ export async function changeStatusAction(
     const user = await requireUser();
     await getLeadForUser(user, leadId);
     const callbackAt = extra.callbackAt ? parseInputDateTime(extra.callbackAt) : null;
-    if (extra.callbackAt && !callbackAt) throw new ValidationError("Некорректные дата и время звонка");
+    if (extra.callbackAt && !callbackAt) throw new ValidationError("err.callbackInvalid");
     await changeStatus(leadId, { statusId, lossReasonId: extra.lossReasonId, lossComment: extra.lossComment, callbackAt }, user);
     revalidateLeads(leadId);
     revalidatePath("/tasks");
@@ -131,7 +131,7 @@ export async function snoozeCallbackAction(leadId: string, minutes: number) {
     const user = await requireUser();
     const lead = await getLeadForUser(user, leadId);
     const status = await prisma.leadStatus.findUniqueOrThrow({ where: { id: lead.statusId } });
-    if (status.kind !== "CALLBACK") throw new ValidationError("Лид уже не в статусе «Перезвонить»");
+    if (status.kind !== "CALLBACK") throw new ValidationError("err.notCallback");
     const m = Math.min(Math.max(Math.round(minutes), 1), 24 * 60);
     await changeStatus(leadId, { statusId: lead.statusId, callbackAt: new Date(Date.now() + m * 60_000) }, user);
     revalidateLeads(leadId);
@@ -153,7 +153,7 @@ export async function assignManagerAction(leadIds: string[], managerId: string |
     const user = await requireUser();
     if (user.role !== "ADMIN") {
       // менеджер может назначить только себя на свои/нераспределённые лиды
-      if (managerId !== user.id) throw new AccessError("Назначать менеджеров может только администратор");
+      if (managerId !== user.id) throw new AccessError("err.onlyAdminAssign");
       for (const id of leadIds) {
         const lead = await getLeadForUser(user, id);
         if (lead.managerId && lead.managerId !== user.id) throw new AccessError();
@@ -186,9 +186,9 @@ export async function createTaskAction(input: { leadId?: string | null; title: s
   return runAction(async () => {
     const user = await requireUser();
     const title = input.title.trim();
-    if (!title) throw new ValidationError("Опишите задачу");
+    if (!title) throw new ValidationError("err.taskTitle");
     const dueAt = parseInputDateTime(input.dueAt);
-    if (!dueAt) throw new ValidationError("Укажите дату и время");
+    if (!dueAt) throw new ValidationError("err.dateTime");
     let assigneeId = user.id;
     if (input.leadId) {
       const lead = await getLeadForUser(user, input.leadId);
@@ -206,7 +206,7 @@ export async function createTaskAction(input: { leadId?: string | null; title: s
 async function getTaskForUser(taskId: string) {
   const user = await requireUser();
   const task = await prisma.task.findUnique({ where: { id: taskId } });
-  if (!task || (user.role !== "ADMIN" && task.assigneeId !== user.id && task.createdById !== user.id)) throw new AccessError("Задача не найдена");
+  if (!task || (user.role !== "ADMIN" && task.assigneeId !== user.id && task.createdById !== user.id)) throw new AccessError("err.taskNotFound");
   return task;
 }
 
@@ -234,7 +234,7 @@ export async function deleteTaskAction(taskId: string) {
 export async function deleteLeadAction(leadId: string) {
   return runAction(async () => {
     const user = await requireUser();
-    if (user.role !== "ADMIN") throw new AccessError("Удалять лиды может только администратор");
+    if (user.role !== "ADMIN") throw new AccessError("err.onlyAdminLeads");
     const r = await deleteLead(leadId);
     revalidateLeads();
     revalidatePath("/clients");

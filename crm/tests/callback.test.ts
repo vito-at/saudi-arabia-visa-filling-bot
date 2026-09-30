@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { callbackLabel, callbackState } from "@/lib/callback";
 import { isRateStale, todayRateTime } from "@/lib/rates";
+import { createT } from "@/i18n/core";
+import { MESSAGES } from "@/i18n/messages";
+
+const tRu = createT(MESSAGES.ru);
+const tUz = createT(MESSAGES.uz);
+const tEn = createT(MESSAGES.en);
 
 describe("напоминание о повторном звонке", () => {
   const at = new Date("2026-10-01T15:30:00+05:00");
@@ -14,12 +20,15 @@ describe("напоминание о повторном звонке", () => {
     expect(callbackState(at, min(10))).toEqual({ remind: true, due: false, minutesLeft: 10 });
     expect(callbackState(at, min(7.2))).toEqual({ remind: true, due: false, minutesLeft: 8 });
     expect(callbackState(at, min(0.3))).toEqual({ remind: true, due: false, minutesLeft: 1 });
-    expect(callbackLabel(callbackState(at, min(3)))).toBe("через 3 мин");
+    expect(callbackLabel(callbackState(at, min(3)), tRu)).toBe("через 3 мин");
+    expect(callbackLabel(callbackState(at, min(3)), tEn)).toBe("in 3 min");
+    expect(callbackLabel(callbackState(at, min(3)), tUz)).toBe("3 daqiqadan so‘ng");
   });
   it("время наступило — «Пора позвонить», без пометки о просрочке", () => {
     expect(callbackState(at, min(0))).toEqual({ remind: true, due: true, minutesLeft: 0 });
     expect(callbackState(at, min(-45))).toEqual({ remind: true, due: true, minutesLeft: 0 });
-    expect(callbackLabel(callbackState(at, min(-45)))).toBe("Пора позвонить");
+    expect(callbackLabel(callbackState(at, min(-45)), tRu)).toBe("Пора позвонить");
+    expect(callbackLabel(callbackState(at, min(-45)), tEn)).toBe("Time to call");
   });
 });
 

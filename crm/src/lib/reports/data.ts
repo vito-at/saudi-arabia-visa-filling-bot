@@ -5,6 +5,9 @@ import { previousPeriod, resolvePeriod, type Period } from "@/lib/period";
 import { getSettings } from "@/lib/refs";
 import type { CurrentUser } from "@/lib/session";
 import { sp, type SearchParams } from "@/lib/leads/query";
+import { getI18n } from "@/i18n/server";
+import type { TFunction } from "@/i18n/core";
+import type { Locale } from "@/i18n/config";
 import type { Money, RDeal, RLead } from "./calc";
 
 export interface ReportFilters {
@@ -12,11 +15,17 @@ export interface ReportFilters {
   currency: Currency;
   managerId: string | null; // для менеджера — всегда он сам
   rate: number;
+  /** перевод подписей отчёта на язык пользователя */
+  t: TFunction;
+  locale: Locale;
 }
 
 export async function readFilters(params: SearchParams, user: CurrentUser): Promise<ReportFilters> {
   const settings = await getSettings();
+  const { t, locale } = await getI18n();
   return {
+    t,
+    locale,
     period: resolvePeriod(sp(params, "period") ?? "30d", sp(params, "from"), sp(params, "to")),
     currency: sp(params, "cur") === "UZS" ? "UZS" : "USD",
     managerId: user.role === "ADMIN" ? sp(params, "manager") ?? null : user.id,

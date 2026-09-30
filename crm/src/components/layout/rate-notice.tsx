@@ -2,12 +2,14 @@
 
 import { useEffect } from "react";
 import { toast } from "sonner";
+import { useI18n } from "@/i18n/client";
 
 /**
  * Небольшое уведомление всем сотрудникам: курс USD за сегодня не обновился.
  * Показывается один раз в день каждому пользователю (закрытие запоминается в браузере).
  */
-export function RateNotice({ day, rate, since, isAdmin }: { day: string; rate: string; since: string; isAdmin: boolean }) {
+export function RateNotice({ day, rate, since, isAdmin }: { day: string; rate: string; since: string | null; isAdmin: boolean }) {
+  const { t, f } = useI18n();
   useEffect(() => {
     const key = `rate-notice-${day}`;
     try {
@@ -23,14 +25,14 @@ export function RateNotice({ day, rate, since, isAdmin }: { day: string; rate: s
       }
     };
     // постоянный id: повторный вызов не создаёт дубликат
-    toast.warning("Курс доллара сегодня не обновился", {
+    toast.warning(t("rateNotice.title"), {
       id: key,
-      description: `Используется курс ${rate} сум от ${since}.${isAdmin ? " Можно ввести курс вручную в настройках." : ""}`,
+      description: `${t("rateNotice.text", { rate, sum: f.sum, since: since ?? t("common.unknownDate") })}${isAdmin ? ` ${t("rateNotice.adminHint")}` : ""}`,
       duration: Infinity,
-      action: isAdmin ? { label: "Настройки", onClick: () => (remember(), (window.location.href = "/settings?tab=general")) } : { label: "Понятно", onClick: remember },
+      action: isAdmin ? { label: t("nav.settings"), onClick: () => (remember(), (window.location.href = "/settings?tab=general")) } : { label: t("common.gotIt"), onClick: remember },
       // закрытие крестиком — «прочитано» до завтра
       onDismiss: remember,
     });
-  }, [day, rate, since, isAdmin]);
+  }, [day, rate, since, isAdmin, t, f.sum]);
   return null;
 }

@@ -13,6 +13,7 @@ import type { AdLevel } from "@/lib/reports/calc";
 import { sp, type SearchParams } from "@/lib/leads/query";
 import { requireUser } from "@/lib/session";
 import { cn } from "@/lib/utils";
+import { formatters } from "@/i18n/core";
 
 export default async function ReportsPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const params = await searchParams;
@@ -21,6 +22,8 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
   const tabParam = sp(params, "tab") as ReportTab | undefined;
   const tab: ReportTab = tabParam && tabParam in REPORT_TABS && tabParam !== "dashboard" ? tabParam : "funnel";
   const f = await readFilters(params, user);
+  const { t } = f;
+  const sum = formatters(f.locale).sum;
   const managers = isAdmin ? (await getManagers()).map((m) => ({ id: m.id, name: m.name })) : null;
   const level = (sp(params, "level") as AdLevel) in AD_LEVELS ? (sp(params, "level") as AdLevel) : "campaign";
 
@@ -31,18 +34,18 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
   return (
     <div>
       <PageHeader
-        title="Отчёты"
+        title={t("reports.title")}
         description={
           <>
-            {formatDate(f.period.from)} — {formatDate(new Date(f.period.to.getTime() - 1))} · суммы в {f.currency} по курсу 1 $ = {formatNumber(f.rate, 2)} сум
-            {!isAdmin && " · только ваши данные"}
+            {t("reports.subtitle", { from: formatDate(f.period.from), to: formatDate(new Date(f.period.to.getTime() - 1)), cur: f.currency, rate: formatNumber(f.rate, 2), sum })}
+            {!isAdmin && ` · ${t("reports.ownOnly")}`}
           </>
         }
       />
       <div className="mb-4 flex gap-1 border-b">
-        {(Object.keys(REPORT_TABS) as ReportTab[]).filter((t) => t !== "dashboard").map((t) => (
-          <Link key={t} href={tabHref(t)} className={cn("-mb-px border-b-2 px-3 py-2 text-sm", tab === t ? "border-primary font-medium text-primary" : "border-transparent text-muted-foreground hover:text-foreground")}>
-            {REPORT_TABS[t]}
+        {(Object.keys(REPORT_TABS) as ReportTab[]).filter((tb) => tb !== "dashboard").map((tb) => (
+          <Link key={tb} href={tabHref(tb)} className={cn("-mb-px border-b-2 px-3 py-2 text-sm", tab === tb ? "border-primary font-medium text-primary" : "border-transparent text-muted-foreground hover:text-foreground")}>
+            {t(REPORT_TABS[tb])}
           </Link>
         ))}
       </div>
@@ -70,7 +73,7 @@ async function ClientsReport({ f }: { f: F }) {
     <Card>
       <CardHeader>
         <CardTitle>{table.title}</CardTitle>
-        <span className="text-xs text-muted-foreground">{table.note} Нажмите на клиента, чтобы увидеть все его сделки.</span>
+        <span className="text-xs text-muted-foreground">{table.note} {f.t("reports.clientsHint")}</span>
       </CardHeader>
       <ReportTable table={table} currency={f.currency} linkPrefix="/clients/" />
     </Card>
@@ -83,15 +86,15 @@ async function FunnelReport({ f }: { f: F }) {
     <div className="grid grid-cols-[1.2fr_1fr] gap-5">
       <Card>
         <CardHeader>
-          <CardTitle>Сколько лидов дошло до каждого этапа</CardTitle>
+          <CardTitle>{f.t("reports.funnelTitle")}</CardTitle>
         </CardHeader>
         <CardContent>
-          {funnel.total ? <FunnelBars data={funnel.steps.map((s) => ({ name: s.name, count: s.count, ofTotal: s.ofTotal }))} /> : <p className="text-sm text-muted-foreground">Нет лидов за период</p>}
+          {funnel.total ? <FunnelBars data={funnel.steps.map((s) => ({ name: s.name, count: s.count, ofTotal: s.ofTotal }))} /> : <p className="text-sm text-muted-foreground">{f.t("reports.noLeads")}</p>}
         </CardContent>
       </Card>
       <Card>
         <CardHeader>
-          <CardTitle>Таблица</CardTitle>
+          <CardTitle>{f.t("reports.table")}</CardTitle>
         </CardHeader>
         <ReportTable table={table} currency={f.currency} />
         <p className="px-5 py-3 text-xs text-muted-foreground">{table.note}</p>
@@ -107,13 +110,13 @@ async function LossesReport({ f, isAdmin }: { f: F; isAdmin: boolean }) {
       <div className="grid grid-cols-[1.3fr_1fr] gap-5">
         <Card>
           <CardHeader>
-            <CardTitle>Причины отказов · всего {t.total}</CardTitle>
+            <CardTitle>{f.t("reports.lossesTitle", { n: t.total })}</CardTitle>
           </CardHeader>
-          <CardContent>{t.total ? <LossPie data={t.rows} /> : <p className="text-sm text-muted-foreground">Отказов за период нет</p>}</CardContent>
+          <CardContent>{t.total ? <LossPie data={t.rows} /> : <p className="text-sm text-muted-foreground">{f.t("reports.noLosses")}</p>}</CardContent>
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle>Таблица</CardTitle>
+            <CardTitle>{f.t("reports.table")}</CardTitle>
           </CardHeader>
           <ReportTable table={t.main} currency={f.currency} />
         </Card>
@@ -144,7 +147,7 @@ async function AdsReport({ f, level, tabHref }: { f: F; level: AdLevel; tabHref:
         <div className="flex rounded-lg bg-slate-200/60 p-1 text-sm">
           {(Object.keys(AD_LEVELS) as AdLevel[]).map((l) => (
             <Link key={l} href={`${tabHref}&level=${l}`} className={cn("rounded-md px-3 py-1", level === l ? "bg-card font-medium shadow-xs" : "text-muted-foreground")}>
-              {AD_LEVELS[l]}
+              {f.t(AD_LEVELS[l])}
             </Link>
           ))}
         </div>
@@ -161,7 +164,7 @@ async function ManagersReport({ f }: { f: F }) {
     <div className="space-y-5">
       <Card>
         <CardHeader>
-          <CardTitle>Показатели менеджеров</CardTitle>
+          <CardTitle>{f.t("reports.managersTitle")}</CardTitle>
         </CardHeader>
         <ReportTable table={table} currency={f.currency} />
         <p className="px-5 py-3 text-xs text-muted-foreground">{table.note}</p>
@@ -169,10 +172,10 @@ async function ManagersReport({ f }: { f: F }) {
       {rows.length > 1 && (
         <Card>
           <CardHeader>
-            <CardTitle>Прибыль по менеджерам</CardTitle>
+            <CardTitle>{f.t("reports.profitByManager")}</CardTitle>
           </CardHeader>
           <CardContent>
-            <HBars data={rows.map((r) => ({ name: r.name, value: r.profit }))} currency={f.currency} label="Прибыль" />
+            <HBars data={rows.map((r) => ({ name: r.name, value: r.profit }))} currency={f.currency} label={f.t("reports.profit")} />
           </CardContent>
         </Card>
       )}
@@ -193,10 +196,10 @@ async function ServicesReport({ f }: { f: F }) {
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle>Прибыль по типам услуг</CardTitle>
+            <CardTitle>{f.t("reports.profitByService")}</CardTitle>
           </CardHeader>
           <CardContent>
-            <HBars data={t.servicesRows.filter((r) => r.profit !== 0).map((r) => ({ name: r.name, value: r.profit }))} currency={f.currency} label="Прибыль" />
+            <HBars data={t.servicesRows.filter((r) => r.profit !== 0).map((r) => ({ name: r.name, value: r.profit }))} currency={f.currency} label={f.t("reports.profit")} />
           </CardContent>
         </Card>
       </div>

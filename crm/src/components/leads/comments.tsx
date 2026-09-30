@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
 import { formatDateTime } from "@/lib/format";
 import { addCommentAction, editCommentAction } from "@/app/(app)/leads/actions";
+import { useI18n } from "@/i18n/client";
 
 export interface CommentItem {
   id: string;
@@ -18,6 +19,7 @@ export interface CommentItem {
 }
 
 function CommentView({ c, mine }: { c: CommentItem; mine: boolean }) {
+  const { t } = useI18n();
   const [edit, setEdit] = useState(false);
   const [text, setText] = useState(c.text);
   const [pending, start] = useTransition();
@@ -30,9 +32,9 @@ function CommentView({ c, mine }: { c: CommentItem; mine: boolean }) {
         <div className="flex items-baseline gap-2 text-xs text-muted-foreground">
           <span className="font-medium text-foreground">{c.author}</span>
           <span>{formatDateTime(c.createdAt)}</span>
-          {c.editedAt && <span title={formatDateTime(c.editedAt)}>(изменён)</span>}
+          {c.editedAt && <span title={formatDateTime(c.editedAt)}>{t("comments.edited")}</span>}
           {mine && !edit && (
-            <button className="ml-auto opacity-0 group-hover:opacity-100 cursor-pointer" onClick={() => setEdit(true)} title="Редактировать">
+            <button className="ml-auto opacity-0 group-hover:opacity-100 cursor-pointer" onClick={() => setEdit(true)} title={t("common.edit")}>
               <Pencil className="size-3.5" />
             </button>
           )}
@@ -52,10 +54,10 @@ function CommentView({ c, mine }: { c: CommentItem; mine: boolean }) {
                   })
                 }
               >
-                Сохранить
+                {t("common.save")}
               </Button>
               <Button size="sm" variant="ghost" onClick={() => (setEdit(false), setText(c.text))}>
-                Отмена
+                {t("common.cancel")}
               </Button>
             </div>
           </div>
@@ -68,12 +70,13 @@ function CommentView({ c, mine }: { c: CommentItem; mine: boolean }) {
 }
 
 export function Comments({ leadId, comments, currentUserId }: { leadId: string; comments: CommentItem[]; currentUserId: string }) {
+  const { t } = useI18n();
   const [text, setText] = useState("");
   const [pending, start] = useTransition();
   return (
     <div className="space-y-4">
       <div className="space-y-2">
-        <Textarea placeholder="Написать комментарий…" value={text} onChange={(e) => setText(e.target.value)} rows={2} />
+        <Textarea placeholder={t("comments.placeholder")} value={text} onChange={(e) => setText(e.target.value)} rows={2} />
         <div className="flex justify-end">
           <Button
             size="sm"
@@ -86,7 +89,7 @@ export function Comments({ leadId, comments, currentUserId }: { leadId: string; 
               })
             }
           >
-            Добавить
+            {t("common.add")}
           </Button>
         </div>
       </div>
@@ -94,7 +97,7 @@ export function Comments({ leadId, comments, currentUserId }: { leadId: string; 
         {comments.map((c) => (
           <CommentView key={c.id} c={c} mine={c.authorId === currentUserId} />
         ))}
-        {comments.length === 0 && <p className="text-sm text-muted-foreground">Комментариев пока нет</p>}
+        {comments.length === 0 && <p className="text-sm text-muted-foreground">{t("comments.empty")}</p>}
       </div>
     </div>
   );

@@ -10,8 +10,9 @@ import { StatusControl } from "@/components/leads/status-control";
 import { NewTaskForm, TaskRow } from "@/components/tasks/task-list";
 import { prisma } from "@/lib/db";
 import { leadScope } from "@/lib/access";
-import { FIELD_LABELS, SOURCE_LABELS } from "@/lib/constants";
-import { formatDateTime, formatDuration, formatMoney, toInputDate } from "@/lib/format";
+import { fieldLabel, historyValue, reasonName, sourceLabel, statusName } from "@/i18n/labels";
+import { getI18n } from "@/i18n/server";
+import { formatDateTime, toInputDate } from "@/lib/format";
 import { sumDeals, toNum } from "@/lib/money";
 import { prettyPhone, telegramLink, whatsappLink } from "@/lib/phone";
 import { getLossReasons, getManagers, getSettings, getStatuses } from "@/lib/refs";
@@ -24,6 +25,7 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
   const { id } = await params;
   const user = await requireUser();
   const isAdmin = user.role === "ADMIN";
+  const { t, f } = await getI18n();
   const lead = await prisma.lead.findFirst({
     where: { id, ...leadScope(user) },
     include: {
@@ -52,7 +54,7 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
   return (
     <div className="space-y-5">
       <Link href="/leads" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-        <ArrowLeft className="size-4" /> Все лиды
+        <ArrowLeft className="size-4" /> {t("lead.back")}
       </Link>
 
       <Card className={overdue ? "border-red-300" : undefined}>
@@ -62,12 +64,12 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
               <h1 className="text-2xl font-semibold">{lead.name}</h1>
               {lead.isRepeat && (
                 <Badge className="border-amber-300 bg-amber-50 text-amber-800">
-                  <Repeat className="size-3" /> Повторное обращение
+                  <Repeat className="size-3" /> {t("leads.repeat")}
                 </Badge>
               )}
               {overdue && (
                 <Badge className="border-red-300 bg-red-50 text-red-700">
-                  <Flame className="size-3" /> Не взят в работу {formatDuration((Date.now() - lead.createdAt.getTime()) / 60000)}
+                  <Flame className="size-3" /> {t("lead.notTaken", { time: f.duration((Date.now() - lead.createdAt.getTime()) / 60000) })}
                 </Badge>
               )}
             </div>
@@ -94,8 +96,8 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
               )}
             </div>
             <div className="text-xs text-muted-foreground">
-              {SOURCE_LABELS[lead.source]} · создан {formatDateTime(lead.createdAt)}
-              {firstResponse !== null && ` · первая реакция через ${formatDuration(firstResponse)}`}
+              {sourceLabel(t, lead.source)} · {t("lead.createdAt", { date: formatDateTime(lead.createdAt) })}
+              {firstResponse !== null && ` · ${t("lead.firstResponse", { time: f.duration(firstResponse) })}`}
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-2">
@@ -106,15 +108,15 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
         <div className="border-t px-5 py-4">
           <StatusControl
             leadId={lead.id}
-            current={{ id: lead.status.id, name: lead.status.name, color: lead.status.color, kind: lead.status.kind }}
-            statuses={statuses.map((s) => ({ id: s.id, name: s.name, color: s.color, kind: s.kind }))}
-            reasons={reasons.map((r) => ({ id: r.id, name: r.name }))}
+            current={{ id: lead.status.id, name: statusName(t, lead.status.name), color: lead.status.color, kind: lead.status.kind }}
+            statuses={statuses.map((s) => ({ id: s.id, name: statusName(t, s.name), color: s.color, kind: s.kind }))}
+            reasons={reasons.map((r) => ({ id: r.id, name: reasonName(t, r.name) }))}
             rate={rate}
             callbackAt={lead.callbackAt?.toISOString() ?? null}
           />
           {lead.status.kind === "LOST" && lead.lossReason && (
             <div className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">
-              Причина отказа: <b>{lead.lossReason.name}</b>
+              {t("lead.lossReason")} <b>{reasonName(t, lead.lossReason.name)}</b>
               {lead.lossComment && <span> — {lead.lossComment}</span>}
             </div>
           )}
@@ -125,7 +127,7 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
         <div className="space-y-5">
           <Card>
             <CardHeader>
-              <CardTitle>Данные клиента и поездки</CardTitle>
+              <CardTitle>{t("lead.details")}</CardTitle>
             </CardHeader>
             <CardContent>
               <LeadDetailsForm
@@ -148,7 +150,7 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
           {answers.length > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle>Ответы из формы{lead.formName ? ` «${lead.formName}»` : ""}</CardTitle>
+                <CardTitle>{lead.formName ? t("lead.formAnswersNamed", { name: lead.formName }) : t("lead.formAnswers")}</CardTitle>
               </CardHeader>
               <CardContent className="divide-y">
                 {answers.map((a) => (
@@ -163,7 +165,7 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
 
           <Card>
             <CardHeader>
-              <CardTitle>Комментарии</CardTitle>
+              <CardTitle>{t("lead.comments")}</CardTitle>
             </CardHeader>
             <CardContent>
               <Comments
@@ -183,7 +185,7 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
 
           <Card>
             <CardHeader>
-              <CardTitle>История изменений</CardTitle>
+              <CardTitle>{t("lead.history")}</CardTitle>
             </CardHeader>
             <CardContent>
               <ol className="relative space-y-3 border-l pl-5">
@@ -191,17 +193,17 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
                   <li key={h.id} className="text-sm">
                     <span className="absolute -left-1.5 mt-1.5 size-3 rounded-full border-2 border-card bg-slate-300" />
                     <div className="text-xs text-muted-foreground">
-                      {formatDateTime(h.createdAt)} · {h.user?.name ?? "Система"}
+                      {formatDateTime(h.createdAt)} · {h.user?.name ?? t("history.system")}
                     </div>
                     <div>
-                      <span className="text-muted-foreground">{FIELD_LABELS[h.field] ?? h.field}: </span>
+                      <span className="text-muted-foreground">{fieldLabel(t, h.field)}: </span>
                       {h.field === "created" ? (
-                        <span>{h.newValue}</span>
+                        <span>{historyValue(t, h.newValue)}</span>
                       ) : (
                         <>
-                          {h.oldValue && <span className="text-muted-foreground line-through">{h.oldValue}</span>}
+                          {h.oldValue && <span className="text-muted-foreground line-through">{historyValue(t, h.oldValue)}</span>}
                           {h.oldValue && " → "}
-                          <span className="font-medium">{h.newValue ?? "—"}</span>
+                          <span className="font-medium">{historyValue(t, h.newValue) ?? "—"}</span>
                         </>
                       )}
                     </div>
@@ -215,27 +217,27 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
         <div className="space-y-5">
           <Card>
             <CardHeader>
-              <CardTitle>Ответственный</CardTitle>
+              <CardTitle>{t("lead.owner")}</CardTitle>
             </CardHeader>
             <CardContent>
               {isAdmin ? (
                 <ManagerControl leadId={lead.id} managerId={lead.managerId} managers={users.map((u) => ({ id: u.id, name: u.name }))} />
               ) : (
-                <div className="text-sm">{lead.manager?.name ?? "Не назначен"}</div>
+                <div className="text-sm">{lead.manager?.name ?? t("lead.ownerNone")}</div>
               )}
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
-              <CardTitle>Задачи и напоминания</CardTitle>
+              <CardTitle>{t("lead.tasks")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               <NewTaskForm leadId={lead.id} assignees={isAdmin ? users.map((u) => ({ id: u.id, name: u.name })) : undefined} />
-              {lead.tasks.map((t) => (
+              {lead.tasks.map((task) => (
                 <TaskRow
-                  key={t.id}
-                  t={{ id: t.id, title: t.title, dueAt: t.dueAt.toISOString(), doneAt: t.doneAt?.toISOString() ?? null, assignee: t.assignee.name }}
+                  key={task.id}
+                  t={{ id: task.id, title: task.title, dueAt: task.dueAt.toISOString(), doneAt: task.doneAt?.toISOString() ?? null, assignee: task.assignee.name, isCallback: task.isCallback }}
                 />
               ))}
             </CardContent>
@@ -243,7 +245,7 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
 
           <Card>
             <CardHeader>
-              <CardTitle>Сделки</CardTitle>
+              <CardTitle>{t("lead.deals")}</CardTitle>
             </CardHeader>
             <CardContent>
               <DealsPanel
@@ -265,35 +267,35 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
 
           <Card>
             <CardHeader>
-              <CardTitle>Клиент</CardTitle>
+              <CardTitle>{t("lead.client")}</CardTitle>
               <Link href={`/clients/${lead.clientId}`} className="text-xs text-primary hover:underline">
-                Открыть
+                {t("common.open")}
               </Link>
             </CardHeader>
             <CardContent className="space-y-1 text-sm">
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Обращений</span>
+                <span className="text-muted-foreground">{t("lead.clientLeads")}</span>
                 <span>{lead.client.leads.length}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Сделок</span>
+                <span className="text-muted-foreground">{t("lead.clientDeals")}</span>
                 <span>{clientTotals.count}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Выручка за всё время</span>
-                <span className="font-medium">{formatMoney(clientTotals.revenue, "USD")}</span>
+                <span className="text-muted-foreground">{t("lead.clientRevenue")}</span>
+                <span className="font-medium">{f.money(clientTotals.revenue, "USD")}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Прибыль за всё время</span>
-                <span className="font-medium text-emerald-700">{formatMoney(clientTotals.profit, "USD")}</span>
+                <span className="text-muted-foreground">{t("lead.clientProfit")}</span>
+                <span className="font-medium text-emerald-700">{f.money(clientTotals.profit, "USD")}</span>
               </div>
               {otherLeads.length > 0 && (
                 <div className="pt-2">
-                  <div className="mb-1 text-xs text-muted-foreground">Другие обращения</div>
+                  <div className="mb-1 text-xs text-muted-foreground">{t("lead.otherLeads")}</div>
                   {otherLeads.map((l) => (
                     <Link key={l.id} href={`/leads/${l.id}`} className="flex justify-between py-0.5 text-xs hover:underline">
                       <span>{formatDateTime(l.createdAt)}</span>
-                      <span style={{ color: l.status.color }}>{l.status.name}</span>
+                      <span style={{ color: l.status.color }}>{statusName(t, l.status.name)}</span>
                     </Link>
                   ))}
                 </div>
@@ -304,16 +306,16 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
           {(lead.campaignName || lead.formName || lead.adName) && (
             <Card>
               <CardHeader>
-                <CardTitle>Реклама</CardTitle>
+                <CardTitle>{t("lead.ads")}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-1.5 text-sm">
                 {[
-                  ["Платформа", lead.platform === "ig" ? "Instagram" : lead.platform === "fb" ? "Facebook" : lead.platform],
-                  ["Кампания", lead.campaignName],
-                  ["Группа объявлений", lead.adsetName],
-                  ["Объявление", lead.adName],
-                  ["Форма", lead.formName],
-                  ["Дата заявки", lead.metaCreatedAt ? formatDateTime(lead.metaCreatedAt) : null],
+                  [t("lead.ad.platform"), lead.platform === "ig" ? "Instagram" : lead.platform === "fb" ? "Facebook" : lead.platform],
+                  [t("lead.ad.campaign"), lead.campaignName],
+                  [t("lead.ad.adset"), lead.adsetName],
+                  [t("lead.ad.ad"), lead.adName],
+                  [t("lead.ad.form"), lead.formName],
+                  [t("lead.ad.date"), lead.metaCreatedAt ? formatDateTime(lead.metaCreatedAt) : null],
                   ["Lead ID", lead.leadgenId],
                 ].map(([k, v]) =>
                   v ? (

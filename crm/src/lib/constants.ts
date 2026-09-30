@@ -1,5 +1,11 @@
 import type { Currency, LeadSource, Role, ServiceType, StatusKind } from "@prisma/client";
 
+// Русские подписи ниже — канонический текст для записей в истории изменений (хранится в БД).
+// В интерфейсе подписи берутся из словарей i18n (см. src/i18n/labels.ts).
+
+export const SOURCES: LeadSource[] = ["META_FB", "META_IG", "CALL", "INSTAGRAM_DIRECT", "TELEGRAM", "WALK_IN", "OTHER"];
+export const SERVICE_TYPES: ServiceType[] = ["FLIGHTS", "OUTBOUND_TOUR", "INBOUND_TOUR", "UMRAH", "VISA", "MEDICAL", "OTHER"];
+
 export const SOURCE_LABELS: Record<LeadSource, string> = {
   META_FB: "Facebook (реклама)",
   META_IG: "Instagram (реклама)",

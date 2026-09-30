@@ -4,12 +4,14 @@ import * as React from "react";
 import { Dialog as D } from "radix-ui";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/i18n/client";
 
 export const Dialog = D.Root;
 export const DialogTrigger = D.Trigger;
 export const DialogClose = D.Close;
 
 export function DialogContent({ className, children, title, description, ...props }: React.ComponentProps<typeof D.Content> & { title: string; description?: string }) {
+  const { t } = useI18n();
   return (
     <D.Portal>
       <D.Overlay className="fixed inset-0 z-50 bg-[var(--overlay)] data-[state=open]:animate-in" />
@@ -27,7 +29,7 @@ export function DialogContent({ className, children, title, description, ...prop
         {children}
         <D.Close className="absolute right-4 top-4 rounded-sm opacity-60 hover:opacity-100 cursor-pointer">
           <X className="size-4" />
-          <span className="sr-only">Закрыть</span>
+          <span className="sr-only">{t("common.close")}</span>
         </D.Close>
       </D.Content>
     </D.Portal>

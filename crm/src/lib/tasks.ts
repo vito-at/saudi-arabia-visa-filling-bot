@@ -13,7 +13,7 @@ const include = { assignee: { select: { name: true } }, lead: { select: { id: tr
 type TaskWithRel = Awaited<ReturnType<typeof prisma.task.findMany<{ include: typeof include }>>>[number];
 
 export function toTaskItem(t: TaskWithRel): TaskItem {
-  return { id: t.id, title: t.title, dueAt: t.dueAt.toISOString(), doneAt: t.doneAt?.toISOString() ?? null, assignee: t.assignee.name, lead: t.lead };
+  return { id: t.id, title: t.title, dueAt: t.dueAt.toISOString(), doneAt: t.doneAt?.toISOString() ?? null, assignee: t.assignee.name, lead: t.lead, isCallback: t.isCallback };
 }
 
 /** Просроченные и сегодняшние задачи пользователя (админ может смотреть всех) */

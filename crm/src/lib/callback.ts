@@ -1,4 +1,5 @@
 import { CALLBACK_REMIND_MIN } from "./constants";
+import type { TFunction } from "@/i18n/core";
 
 export interface CallbackState {
   /** пора показывать напоминание (за 10 минут и позже) */
@@ -18,6 +19,6 @@ export function callbackState(callbackAt: Date | string | number, now: number = 
 }
 
 /** Подпись для отсчёта: «через 7 мин» / «Пора позвонить» */
-export function callbackLabel(s: CallbackState): string {
-  return s.due ? "Пора позвонить" : `через ${s.minutesLeft} мин`;
+export function callbackLabel(s: CallbackState, t: TFunction): string {
+  return s.due ? t("callback.due") : t("callback.in", { n: s.minutesLeft });
 }

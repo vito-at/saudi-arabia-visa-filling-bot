@@ -156,7 +156,11 @@ export interface LossRow {
   share: number | null;
 }
 
-export function calcLossReasons(leads: Pick<RLead, "statusKind" | "lossReasonId">[], reasons: { id: string; name: string }[]): { rows: LossRow[]; total: number } {
+export function calcLossReasons(
+  leads: Pick<RLead, "statusKind" | "lossReasonId">[],
+  reasons: { id: string; name: string }[],
+  noReasonLabel = "Причина не указана",
+): { rows: LossRow[]; total: number } {
   const lost = leads.filter((l) => l.statusKind === "LOST");
   const counts = new Map<string, number>();
   for (const l of lost) {
@@ -165,7 +169,7 @@ export function calcLossReasons(leads: Pick<RLead, "statusKind" | "lossReasonId"
   }
   const names = new Map(reasons.map((r) => [r.id, r.name]));
   const rows = [...counts.entries()]
-    .map(([reasonId, count]) => ({ reasonId, name: names.get(reasonId) ?? "Причина не указана", count, share: safeDiv(count, lost.length) }))
+    .map(([reasonId, count]) => ({ reasonId, name: names.get(reasonId) ?? noReasonLabel, count, share: safeDiv(count, lost.length) }))
     .sort((a, b) => b.count - a.count);
   return { rows, total: lost.length };
 }

@@ -7,6 +7,7 @@ import { callbackState } from "@/lib/callback";
 import type { CallbackItem } from "@/lib/callbacks-data";
 import { CallbackCard } from "./callback-list";
 import { useNow } from "./use-now";
+import { useI18n } from "@/i18n/client";
 
 /**
  * Всплывающие напоминания о звонках на любой странице CRM.
@@ -14,6 +15,7 @@ import { useNow } from "./use-now";
  * Когда время звонка наступает — дополнительно системное уведомление браузера (если разрешено).
  */
 export function CallbackReminders() {
+  const { t } = useI18n();
   const [items, setItems] = useState<CallbackItem[]>([]);
   const [collapsed, setCollapsed] = useState(false);
   const [permission, setPermission] = useState<NotificationPermission | "unsupported">("unsupported");
@@ -56,24 +58,24 @@ export function CallbackReminders() {
       if (callbackState(i.callbackAt, now).due && !notified.current.has(key)) {
         notified.current.add(key);
         try {
-          new Notification("Пора позвонить", { body: `${i.name}${i.phone ? ` · ${i.phone}` : ""}`, icon: "/icon.png", tag: key });
+          new Notification(t("callback.due"), { body: `${i.name}${i.phone ? ` · ${i.phone}` : ""}`, icon: "/icon.png", tag: key });
         } catch {
           /* некоторые браузеры запрещают уведомления без service worker */
         }
       }
     }
-  }, [visible, now, permission]);
+  }, [visible, now, permission, t]);
 
   if (!visible.length) return null;
 
   return (
-    <div className="fixed bottom-5 right-5 z-40 w-[380px] space-y-2" role="region" aria-label="Напоминания о звонках">
+    <div className="fixed bottom-5 right-5 z-40 w-[380px] space-y-2" role="region" aria-label={t("callback.region")}>
       <button
         onClick={() => setCollapsed(!collapsed)}
         className="ml-auto flex items-center gap-2 rounded-full bg-brand px-3 py-1.5 text-xs font-semibold text-white shadow-lg cursor-pointer"
       >
         <BellRing className={dueCount ? "size-4 animate-bounce" : "size-4"} />
-        {dueCount ? `Пора позвонить: ${dueCount}` : `Скоро звонок: ${visible.length}`}
+        {dueCount ? t("callback.dueCount", { n: dueCount }) : t("callback.soonCount", { n: visible.length })}
         {collapsed ? <ChevronUp className="size-3.5" /> : <ChevronDown className="size-3.5" />}
       </button>
       {!collapsed && (
@@ -81,13 +83,13 @@ export function CallbackReminders() {
           {visible.slice(0, 3).map((i) => (
             <CallbackCard key={i.id} item={i} now={now} onChanged={load} compact />
           ))}
-          {visible.length > 3 && <div className="text-right text-xs text-muted-foreground">и ещё {visible.length - 3} — см. раздел «Лиды»</div>}
+          {visible.length > 3 && <div className="text-right text-xs text-muted-foreground">{t("callback.more", { n: visible.length - 3 })}</div>}
           {permission === "default" && (
             <button
               className="block w-full rounded-lg border border-dashed bg-card px-3 py-2 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
               onClick={async () => setPermission(await Notification.requestPermission())}
             >
-              Включить уведомления браузера, чтобы не пропустить звонок в другой вкладке
+              {t("callback.enableNotifications")}
             </button>
           )}
         </>

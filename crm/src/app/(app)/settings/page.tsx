@@ -19,26 +19,29 @@ import { getIntegration } from "@/lib/meta/integration";
 import { sp, type SearchParams } from "@/lib/leads/query";
 import { requireAdmin } from "@/lib/session";
 import { cn } from "@/lib/utils";
+import type { TKey } from "@/i18n/core";
+import { getI18n } from "@/i18n/server";
 
 const TABS = {
-  general: "Общие",
-  statuses: "Статусы",
-  reasons: "Причины отказа",
-  users: "Пользователи",
-  integration: "Интеграция с Meta",
-  sync: "Журнал синхронизаций",
-} as const;
+  general: "settings.tab.general",
+  statuses: "settings.tab.statuses",
+  reasons: "settings.tab.reasons",
+  users: "settings.tab.users",
+  integration: "settings.tab.integration",
+  sync: "settings.tab.sync",
+} as const satisfies Record<string, TKey>;
 type Tab = keyof typeof TABS;
 
 export default async function SettingsPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   await requireAdmin();
+  const { t } = await getI18n();
   const params = await searchParams;
   const tab = (sp(params, "tab") ?? "general") as Tab;
   const active: Tab = tab in TABS ? tab : "general";
 
   return (
     <div className="max-w-5xl">
-      <PageHeader title="Настройки" />
+      <PageHeader title={t("settings.title")} />
       <div className="mb-5 flex gap-1 border-b">
         {(Object.keys(TABS) as Tab[]).map((k) => (
           <Link
@@ -46,7 +49,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
             href={`/settings?tab=${k}`}
             className={cn("-mb-px border-b-2 px-3 py-2 text-sm", active === k ? "border-primary font-medium text-primary" : "border-transparent text-muted-foreground hover:text-foreground")}
           >
-            {TABS[k]}
+            {t(TABS[k])}
           </Link>
         ))}
       </div>
@@ -61,13 +64,14 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
 }
 
 async function IntegrationTab() {
+  const { t } = await getI18n();
   const i = await getIntegration();
   const base = (process.env.APP_URL || "http://localhost:3000").replace(/\/$/, "");
   let pageTokenMask = "";
   try {
     pageTokenMask = maskSecret(decrypt(i.pageTokenEnc));
   } catch {
-    pageTokenMask = "не удаётся расшифровать — проверьте ENCRYPTION_KEY";
+    pageTokenMask = t("settings.decryptFailed");
   }
   return (
     <div className="space-y-5">
@@ -75,7 +79,7 @@ async function IntegrationTab() {
         <div className="flex gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">
           <AlertTriangle className="size-5 shrink-0" />
           <div>
-            <b>Токен недействителен.</b> {i.tokenError} Сгенерируйте новый долгосрочный Page Access Token (см. README) и вставьте его ниже.
+            <b>{t("settings.tokenInvalid")}</b> {i.tokenError} {t("settings.tokenInvalidHint")}
           </div>
         </div>
       )}
@@ -84,8 +88,8 @@ async function IntegrationTab() {
           <CardTitle>Meta Lead Ads</CardTitle>
           <div className="text-xs text-muted-foreground">
             Graph API {GRAPH_VERSION}
-            {i.lastSyncAt && ` · последняя синхронизация ${formatDateTime(i.lastSyncAt)}`}
-            {i.tokenExpiresAt && ` · токен до ${formatDate(i.tokenExpiresAt)}`}
+            {i.lastSyncAt && ` · ${t("settings.lastSync", { date: formatDateTime(i.lastSyncAt) })}`}
+            {i.tokenExpiresAt && ` · ${t("settings.tokenUntil", { date: formatDate(i.tokenExpiresAt) })}`}
           </div>
         </CardHeader>
         <CardContent>
@@ -111,11 +115,12 @@ async function IntegrationTab() {
 }
 
 async function SyncTab() {
+  const { t } = await getI18n();
   const logs = await prisma.syncLog.findMany({ orderBy: { startedAt: "desc" }, take: 100 });
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Последние 100 синхронизаций</CardTitle>
+        <CardTitle>{t("settings.last100")}</CardTitle>
       </CardHeader>
       <SyncLogTable logs={logs} />
     </Card>
@@ -142,11 +147,12 @@ async function GeneralTab() {
 }
 
 async function StatusesTab() {
+  const { t } = await getI18n();
   const statuses = await prisma.leadStatus.findMany({ orderBy: { order: "asc" }, include: { _count: { select: { leads: true } } } });
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Статусы лидов</CardTitle>
+        <CardTitle>{t("settings.statusesTitle")}</CardTitle>
       </CardHeader>
       <CardContent>
         <StatusesEditor statuses={statuses.map((s) => ({ id: s.id, name: s.name, color: s.color, kind: s.kind, isSystem: s.isSystem, leads: s._count.leads }))} />
@@ -156,11 +162,12 @@ async function StatusesTab() {
 }
 
 async function ReasonsTab() {
+  const { t } = await getI18n();
   const reasons = await prisma.lossReason.findMany({ orderBy: { order: "asc" }, include: { _count: { select: { leads: true } } } });
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Причины отказа</CardTitle>
+        <CardTitle>{t("settings.reasonsTitle")}</CardTitle>
       </CardHeader>
       <CardContent>
         <ReasonsEditor reasons={reasons.map((r) => ({ id: r.id, name: r.name, isActive: r.isActive, leads: r._count.leads }))} />
@@ -170,6 +177,7 @@ async function ReasonsTab() {
 }
 
 async function UsersTab() {
+  const { t } = await getI18n();
   const users = await prisma.user.findMany({
     orderBy: [{ isActive: "desc" }, { role: "asc" }, { name: "asc" }],
     include: { _count: { select: { leads: { where: { status: { kind: { notIn: ["WON", "LOST"] } } } } } } },
@@ -177,7 +185,7 @@ async function UsersTab() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Пользователи и роли</CardTitle>
+        <CardTitle>{t("settings.usersTitle")}</CardTitle>
       </CardHeader>
       <CardContent>
         <UsersEditor

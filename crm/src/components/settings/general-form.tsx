@@ -8,6 +8,7 @@ import { Field, Input, NativeSelect } from "@/components/ui/input";
 import { formatDateTime, formatNumber } from "@/lib/format";
 import { refreshRateAction, saveGeneralAction, saveRateAction, setUsdRateAction } from "@/app/(app)/settings/actions";
 import { useRun } from "./use-run";
+import { useI18n } from "@/i18n/client";
 
 export interface GeneralView {
   distributionMode: "MANUAL" | "ROUND_ROBIN";
@@ -23,31 +24,32 @@ export interface GeneralView {
 
 export function GeneralForm({ v }: { v: GeneralView }) {
   const { pending, run } = useRun();
+  const { t, f } = useI18n();
   const [source, setSource] = useState(v.usdRateSource);
   const [manualRate, setManualRate] = useState(String(v.usdRate));
   return (
     <div className="space-y-5">
       <Card>
         <CardHeader>
-          <CardTitle>Распределение лидов</CardTitle>
+          <CardTitle>{t("general.distribution")}</CardTitle>
         </CardHeader>
         <CardContent>
           <form action={(fd) => run(() => saveGeneralAction(fd))} className="grid grid-cols-2 gap-4">
             <Field
-              label="Режим"
-              hint={`Автоматически — новые лиды по очереди получают активные менеджеры (сейчас ${v.managersCount}). Повторные обращения уходят прежнему менеджеру.`}
+              label={t("general.mode")}
+              hint={t("general.modeHint", { n: v.managersCount })}
             >
               <NativeSelect name="distributionMode" defaultValue={v.distributionMode}>
-                <option value="MANUAL">Вручную (администратор назначает / менеджеры берут сами)</option>
-                <option value="ROUND_ROBIN">Автоматически по очереди (round-robin)</option>
+                <option value="MANUAL">{t("general.modeManual")}</option>
+                <option value="ROUND_ROBIN">{t("general.modeAuto")}</option>
               </NativeSelect>
             </Field>
-            <Field label="Выделять красным, если лид не взят в работу за, минут">
+            <Field label={t("general.alert")}>
               <Input name="unprocessedAlertMin" type="number" min={1} defaultValue={v.unprocessedAlertMin} />
             </Field>
             <div className="col-span-2">
               <Button type="submit" disabled={pending}>
-                Сохранить
+                {t("common.save")}
               </Button>
             </div>
           </form>
@@ -56,23 +58,23 @@ export function GeneralForm({ v }: { v: GeneralView }) {
 
       <Card>
         <CardHeader>
-          <CardTitle>Курс USD → UZS</CardTitle>
+          <CardTitle>{t("general.rateTitle")}</CardTitle>
           <div className="text-right text-sm">
-            <div className="text-lg font-semibold">1 $ = {formatNumber(v.usdRate, 2)} сум</div>
-            <div className="text-xs text-muted-foreground">{v.usdRateUpdatedAt ? `обновлён ${formatDateTime(v.usdRateUpdatedAt)}` : "ещё не обновлялся"}</div>
+            <div className="text-lg font-semibold">1 $ = {formatNumber(v.usdRate, 2)} {f.sum}</div>
+            <div className="text-xs text-muted-foreground">{v.usdRateUpdatedAt ? t("general.rateUpdated", { date: formatDateTime(v.usdRateUpdatedAt) }) : t("general.rateNever")}</div>
           </div>
         </CardHeader>
         <CardContent>
           <p className="mb-4 text-sm text-muted-foreground">
-            Все отчёты и итоги пересчитываются по этому курсу: сделки в долларах — в сумы и наоборот.
+            {t("general.rateExplain")}
           </p>
           {v.usdRateError && source === "IPAK_YULI" && (
             <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-              <b>Не удалось получить курс автоматически</b>, используется последний известный. {v.usdRateError}
+              <b>{t("general.rateFailed")}</b>{t("general.rateFailedTail")} {v.usdRateError}
             </div>
           )}
           <div className="mb-5 rounded-lg border bg-secondary/50 p-4">
-            <div className="mb-2 text-sm font-semibold">Установить курс вручную</div>
+            <div className="mb-2 text-sm font-semibold">{t("general.manualTitle")}</div>
             <form
               className="flex items-end gap-3"
               onSubmit={(e) => {
@@ -80,49 +82,49 @@ export function GeneralForm({ v }: { v: GeneralView }) {
                 run(() => setUsdRateAction(manualRate));
               }}
             >
-              <Field label="Сум за 1 $" className="w-48">
+              <Field label={t("general.sumPerUsd", { sum: f.sum })} className="w-48">
                 <Input value={manualRate} onChange={(e) => setManualRate(e.target.value)} inputMode="decimal" />
               </Field>
               <Button type="submit" disabled={pending}>
-                Установить курс
+                {t("general.setRate")}
               </Button>
             </form>
             <p className="mt-2 text-xs text-muted-foreground">
               {source === "IPAK_YULI"
-                ? "Курс применяется сразу ко всем отчётам и действует до следующего автоматического обновления (в ближайшие 07:00). Пригодится, если сайт банка не ответил."
-                : "Курс применяется сразу ко всем отчётам."}
+                ? t("general.manualHintAuto")
+                : t("general.manualHint")}
             </p>
           </div>
-          <div className="mb-2 text-sm font-semibold">Источник курса</div>
+          <div className="mb-2 text-sm font-semibold">{t("general.sourceTitle")}</div>
           <form action={(fd) => run(() => saveRateAction(fd))} className="grid grid-cols-2 gap-4">
-            <Field label="Источник">
+            <Field label={t("general.source")}>
               <NativeSelect name="usdRateSource" value={source} onChange={(e) => setSource(e.target.value as "MANUAL" | "IPAK_YULI")}>
-                <option value="IPAK_YULI">Ипак Йули Банк (автоматически)</option>
-                <option value="MANUAL">Вручную</option>
+                <option value="IPAK_YULI">{t("general.sourceIpak")}</option>
+                <option value="MANUAL">{t("general.sourceManual")}</option>
               </NativeSelect>
             </Field>
-            <Field label="Какой курс брать">
+            <Field label={t("general.side")}>
               <NativeSelect name="usdRateSide" defaultValue={v.usdRateSide} disabled={source === "MANUAL"}>
-                <option value="SELL">Продажа (банк продаёт $)</option>
-                <option value="BUY">Покупка (банк покупает $)</option>
+                <option value="SELL">{t("general.sideSell")}</option>
+                <option value="BUY">{t("general.sideBuy")}</option>
               </NativeSelect>
               {source === "MANUAL" && <input type="hidden" name="usdRateSide" value={v.usdRateSide} />}
             </Field>
             <input type="hidden" name="usdRate" value={manualRate} />
             <div className="col-span-2 flex gap-2">
               <Button type="submit" disabled={pending}>
-                Сохранить
+                {t("common.save")}
               </Button>
               {source === "IPAK_YULI" && (
                 <Button type="button" variant="outline" disabled={pending} onClick={() => run(refreshRateAction)}>
-                  <RefreshCw className={pending ? "animate-spin" : ""} /> Обновить курс сейчас
+                  <RefreshCw className={pending ? "animate-spin" : ""} /> {t("general.refresh")}
                 </Button>
               )}
             </div>
           </form>
           {source === "IPAK_YULI" && (
             <p className="mt-4 text-xs text-muted-foreground">
-              Курс обновляется каждый день в 07:00 по Ташкенту с открытых страниц: {v.rateSources.join(", ")}. Если сайт банка недоступен, используется следующий источник; при неудаче — повтор каждые 30 минут до 12:00, а сотрудники видят уведомление.
+              {t("general.scheduleHint", { sources: v.rateSources.join(", ") })}
             </p>
           )}
         </CardContent>

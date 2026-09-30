@@ -3,8 +3,10 @@
 import { useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Input, NativeSelect } from "@/components/ui/input";
+import { useI18n } from "@/i18n/client";
 
 export function KanbanFilters({ managers }: { managers: { id: string; name: string }[] | null }) {
+  const { t } = useI18n();
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
@@ -23,12 +25,12 @@ export function KanbanFilters({ managers }: { managers: { id: string; name: stri
           push("q", q);
         }}
       >
-        <Input className="w-64" placeholder="Поиск по имени или телефону" value={q} onChange={(e) => setQ(e.target.value)} />
+        <Input className="w-64" placeholder={t("leads.search")} value={q} onChange={(e) => setQ(e.target.value)} />
       </form>
       {managers && (
         <NativeSelect className="w-52" value={params.get("manager") ?? ""} onChange={(e) => push("manager", e.target.value)}>
-          <option value="">Все менеджеры</option>
-          <option value="none">— Не назначен —</option>
+          <option value="">{t("common.allManagers")}</option>
+          <option value="none">{t("common.notAssignedOption")}</option>
           {managers.map((m) => (
             <option key={m.id} value={m.id}>
               {m.name}

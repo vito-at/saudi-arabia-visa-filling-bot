@@ -5,10 +5,11 @@ import { useEffect, useId, useState } from "react";
 import { DndContext, DragOverlay, PointerSensor, useDraggable, useDroppable, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { Flame, Repeat } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { formatDateTime, formatDuration } from "@/lib/format";
+import { formatDateTime } from "@/lib/format";
 import { prettyPhone } from "@/lib/phone";
 import { useStatusChanger } from "@/components/leads/status-control";
 import { CallbackBadge } from "@/components/callbacks/callback-badge";
+import { useI18n } from "@/i18n/client";
 
 export interface KanbanStatus {
   id: string;
@@ -32,6 +33,7 @@ export interface KanbanCard {
 }
 
 function Card({ card, dragging }: { card: KanbanCard; dragging?: boolean }) {
+  const { t, f } = useI18n();
   return (
     <div
       className={cn(
@@ -44,18 +46,18 @@ function Card({ card, dragging }: { card: KanbanCard; dragging?: boolean }) {
         <Link href={`/leads/${card.id}`} className="flex-1 font-medium hover:underline" onPointerDown={(e) => e.stopPropagation()}>
           {card.name}
         </Link>
-        {card.isRepeat && <Repeat className="size-3.5 text-amber-600" aria-label="Повторное обращение" />}
+        {card.isRepeat && <Repeat className="size-3.5 text-amber-600" aria-label={t("leads.repeat")} />}
       </div>
       <div className="mt-1 text-xs text-muted-foreground">{prettyPhone(card.phone)}</div>
       {card.destination && <div className="mt-1 text-xs">✈ {card.destination}</div>}
       <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
-        <span>{card.manager ?? "не назначен"}</span>
+        <span>{card.manager ?? t("common.notAssigned")}</span>
         <span>{formatDateTime(card.createdAt).slice(0, 10)}</span>
       </div>
       {card.callbackAt && <CallbackBadge at={card.callbackAt} className="mt-1.5 flex w-fit" />}
       {card.overdueMin !== null && (
         <div className="mt-1.5 flex items-center gap-1 text-xs font-medium text-red-600">
-          <Flame className="size-3" /> ждёт {formatDuration(card.overdueMin)}
+          <Flame className="size-3" /> {t("leads.waiting", { time: f.duration(card.overdueMin) })}
         </div>
       )}
     </div>
@@ -72,6 +74,7 @@ function DraggableCard({ card }: { card: KanbanCard }) {
 }
 
 function Column({ status, cards }: { status: KanbanStatus; cards: KanbanCard[] }) {
+  const { t } = useI18n();
   const { setNodeRef, isOver } = useDroppable({ id: status.id });
   return (
     <div className="flex w-72 shrink-0 flex-col rounded-xl bg-slate-100/80">
@@ -84,7 +87,7 @@ function Column({ status, cards }: { status: KanbanStatus; cards: KanbanCard[] }
         {cards.map((c) => (
           <DraggableCard key={c.id} card={c} />
         ))}
-        {status.total > cards.length && <div className="py-1 text-center text-xs text-muted-foreground">и ещё {status.total - cards.length}…</div>}
+        {status.total > cards.length && <div className="py-1 text-center text-xs text-muted-foreground">{t("kanban.more", { n: status.total - cards.length })}</div>}
       </div>
     </div>
   );

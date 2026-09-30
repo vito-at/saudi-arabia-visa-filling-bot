@@ -40,15 +40,20 @@ export function formatNumber(n: number | null | undefined, fractionDigits = 0): 
     .replace(/ | /g, " ");
 }
 
-export function formatMoney(n: number | null | undefined, currency: "UZS" | "USD" = "UZS"): string {
+export type Lang = "ru" | "uz" | "en";
+
+/** Название сума на языке интерфейса */
+export const SUM_WORD: Record<Lang, string> = { ru: "сум", uz: "so‘m", en: "UZS" };
+
+export function formatMoney(n: number | null | undefined, currency: "UZS" | "USD" = "UZS", lang: Lang = "ru"): string {
   if (n === null || n === undefined || Number.isNaN(n)) return "—";
-  return currency === "USD" ? `$${formatNumber(n, 2)}` : `${formatNumber(Math.round(n))} сум`;
+  return currency === "USD" ? `$${formatNumber(n, 2)}` : `${formatNumber(Math.round(n))} ${SUM_WORD[lang]}`;
 }
 
 /** Сумма без копеек — для плиток и подписей графиков */
-export function formatMoneyRound(n: number | null | undefined, currency: "UZS" | "USD" = "UZS"): string {
+export function formatMoneyRound(n: number | null | undefined, currency: "UZS" | "USD" = "UZS", lang: Lang = "ru"): string {
   if (n === null || n === undefined || Number.isNaN(n)) return "—";
-  return currency === "USD" ? `$${formatNumber(Math.round(n))}` : `${formatNumber(Math.round(n))} сум`;
+  return currency === "USD" ? `$${formatNumber(Math.round(n))}` : `${formatNumber(Math.round(n))} ${SUM_WORD[lang]}`;
 }
 
 export function formatPercent(n: number | null | undefined, digits = 1): string {
@@ -56,14 +61,21 @@ export function formatPercent(n: number | null | undefined, digits = 1): string 
   return `${formatNumber(n * 100, digits)}%`;
 }
 
+const DURATION_UNITS: Record<Lang, { m: string; h: string; d: string }> = {
+  ru: { m: "мин", h: "ч", d: "д" },
+  uz: { m: "daq", h: "soat", d: "kun" },
+  en: { m: "min", h: "h", d: "d" },
+};
+
 /** Длительность в минутах → «1 ч 15 мин» */
-export function formatDuration(minutes: number | null | undefined): string {
+export function formatDuration(minutes: number | null | undefined, lang: Lang = "ru"): string {
   if (minutes === null || minutes === undefined || !Number.isFinite(minutes)) return "—";
+  const u = DURATION_UNITS[lang];
   const m = Math.round(minutes);
-  if (m < 60) return `${m} мин`;
+  if (m < 60) return `${m} ${u.m}`;
   const h = Math.floor(m / 60);
-  if (h < 24) return `${h} ч ${m % 60} мин`;
-  return `${Math.floor(h / 24)} д ${h % 24} ч`;
+  if (h < 24) return `${h} ${u.h} ${m % 60} ${u.m}`;
+  return `${Math.floor(h / 24)} ${u.d} ${h % 24} ${u.h}`;
 }
 
 /** Дата в Ташкенте в виде YYYY-MM-DD (для <input type="date">) */

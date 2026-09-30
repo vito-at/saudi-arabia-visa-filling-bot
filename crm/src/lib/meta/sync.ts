@@ -58,7 +58,7 @@ export async function syncLeads(trigger: SyncTrigger, opts: { fetchFn?: FetchFn;
   const result: SyncResult = { ok: true, formsChecked: 0, fetched: 0, created: 0, duplicates: 0, errors: [] };
   const integration = await getIntegration();
   const secrets = opts.secrets ?? readSecrets(integration);
-  if (!secrets) return { ...result, ok: false, skipped: "Интеграция не настроена: заполните App ID, App Secret, Page ID и токен" };
+  if (!secrets) return { ...result, ok: false, skipped: "err.integrationMissing" };
 
   const run = await withLock(async () => {
     const log = await prisma.syncLog.create({ data: { trigger } });
@@ -118,7 +118,7 @@ export async function syncLeads(trigger: SyncTrigger, opts: { fetchFn?: FetchFn;
     return result;
   });
 
-  return run ?? { ...result, ok: false, skipped: "Синхронизация уже выполняется" };
+  return run ?? { ...result, ok: false, skipped: "err.syncBusy" };
 }
 
 /** Обработка одного leadgen_id из вебхука */
