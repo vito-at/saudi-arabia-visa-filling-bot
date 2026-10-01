@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Search, X } from "lucide-react";
 import { Input, NativeSelect } from "@/components/ui/input";
+import { PeriodRange } from "@/components/common/period-range";
 import { Button } from "@/components/ui/button";
 import type { TKey } from "@/i18n/core";
 import { useI18n } from "@/i18n/client";
@@ -81,18 +82,14 @@ export function LeadsFilters({
       {forms.length > 0 && sel("form", t("leads.allForms"), forms)}
       <NativeSelect className="w-auto" value={period} onChange={(e) => update({ period: e.target.value || null, from: null, to: null })}>
         <option value="">{t("period.allTime")}</option>
-        {(["today", "yesterday", "7d", "30d", "month", "prev_month", "custom"] as const).map((k) => (
+        {(["today", "yesterday", "7d", "30d", "custom"] as const).map((k) => (
           <option key={k} value={k}>
             {t(`period.${k}` as TKey)}
           </option>
         ))}
       </NativeSelect>
       {period === "custom" && (
-        <>
-          <Input type="date" className="w-40" value={params.get("from") ?? ""} onChange={(e) => update({ from: e.target.value || null, period: "custom" })} />
-          <span className="text-muted-foreground">—</span>
-          <Input type="date" className="w-40" value={params.get("to") ?? ""} onChange={(e) => update({ to: e.target.value || null, period: "custom" })} />
-        </>
+        <PeriodRange from={params.get("from") ?? ""} to={params.get("to") ?? ""} onApply={(from, to) => update({ period: "custom", from, to })} />
       )}
       {hasFilters && (
         <Button

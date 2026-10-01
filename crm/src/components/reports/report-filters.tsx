@@ -3,13 +3,14 @@
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input, NativeSelect } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/input";
+import { PeriodRange } from "@/components/common/period-range";
 import type { PeriodKey } from "@/lib/period";
 import type { TKey } from "@/i18n/core";
 import { useI18n } from "@/i18n/client";
 import { cn } from "@/lib/utils";
 
-const PERIODS: PeriodKey[] = ["today", "7d", "30d", "month", "prev_month", "quarter", "year", "custom"];
+const PERIODS: PeriodKey[] = ["today", "7d", "30d", "quarter", "year", "custom"];
 
 export function ReportFilters({ managers, exportHref, defaultPeriod = "30d" }: { managers: { id: string; name: string }[] | null; exportHref?: string; defaultPeriod?: PeriodKey }) {
   const { t } = useI18n();
@@ -41,13 +42,7 @@ export function ReportFilters({ managers, exportHref, defaultPeriod = "30d" }: {
           </button>
         ))}
       </div>
-      {period === "custom" && (
-        <>
-          <Input type="date" className="w-40" value={params.get("from") ?? ""} onChange={(e) => set({ from: e.target.value })} aria-label={t("period.from")} />
-          <span className="text-muted-foreground">—</span>
-          <Input type="date" className="w-40" value={params.get("to") ?? ""} onChange={(e) => set({ to: e.target.value })} aria-label={t("period.to")} />
-        </>
-      )}
+      {period === "custom" && <PeriodRange from={params.get("from") ?? ""} to={params.get("to") ?? ""} onApply={(from, to) => set({ period: "custom", from, to })} />}
       {managers && (
         <NativeSelect className="w-52" value={params.get("manager") ?? ""} onChange={(e) => set({ manager: e.target.value })}>
           <option value="">{t("common.allManagers")}</option>

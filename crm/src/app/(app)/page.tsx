@@ -26,7 +26,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const user = await requireUser();
   const { t, f: fm } = await getI18n();
   const formatMoney = fm.moneyRound;
-  const f = await readFilters({ period: "month", ...params }, user);
+  const f = await readFilters({ period: "30d", ...params }, user);
   const cur = f.currency;
   const [d, managers, tasks, settings, newLeads] = await Promise.all([
     dashboardData(f),
@@ -49,7 +49,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         description={`${t("dashboard.compare", { from: formatDate(f.period.from), to: formatDate(new Date(f.period.to.getTime() - 1)), pfrom: formatDate(d.prev.from), pto: formatDate(new Date(d.prev.to.getTime() - 1)) })}${user.role !== "ADMIN" ? ` · ${t("dashboard.own")}` : ""}`}
       />
       <Suspense>
-        <ReportFilters managers={managers?.map((m) => ({ id: m.id, name: m.name })) ?? null} exportHref="/api/reports/export?tab=dashboard" defaultPeriod="month" />
+        <ReportFilters managers={managers?.map((m) => ({ id: m.id, name: m.name })) ?? null} exportHref="/api/reports/export?tab=dashboard" />
       </Suspense>
       <div className="grid grid-cols-6 gap-4">
         <KpiTile label={t("dashboard.leads")} value={formatNumber(d.cur.leads)} delta={d.deltas.leads} prev={formatNumber(d.was.leads)} />

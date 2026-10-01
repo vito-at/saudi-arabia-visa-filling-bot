@@ -26,12 +26,14 @@ export async function ReportTable({ table, currency, linkPrefix, compact }: { ta
   const { t, locale } = await getI18n();
   if (!table.rows.length) return <Empty>{t("reports.noData")}</Empty>;
   const num = (c: Column) => c.type !== "text" && c.type !== "date";
+  // широкие таблицы (реклама со статистикой) — плотнее, чтобы помещались без прокрутки
+  const dense = table.columns.length > 10;
   return (
-    <T className={compact ? "text-xs" : undefined}>
+    <T className={compact || dense ? "text-xs" : undefined}>
       <THead>
         <tr>
           {table.columns.map((c) => (
-            <TH key={c.key} className={cn(num(c) && "text-right")}>
+            <TH key={c.key} className={cn(num(c) && "text-right", dense && "px-2 whitespace-normal leading-tight")}>
               {c.label}
             </TH>
           ))}
@@ -44,7 +46,7 @@ export async function ReportTable({ table, currency, linkPrefix, compact }: { ta
               const v = fmtCell(r[c.key], c.type, currency, locale);
               const negative = (c.key === "profit" || c.key === "roi") && Number(r[c.key]) < 0;
               return (
-                <TD key={c.key} className={cn("whitespace-nowrap", num(c) && "text-right tabular-nums", j === 0 && "min-w-52 font-medium whitespace-normal", negative && "text-red-600")}>
+                <TD key={c.key} className={cn("whitespace-nowrap", num(c) && "text-right tabular-nums", j === 0 && (dense ? "min-w-36" : "min-w-52"), j === 0 && "font-medium whitespace-normal", dense && "px-2", negative && "text-red-600")}>
                   {j === 0 && linkPrefix && r.id ? (
                     <Link href={`${linkPrefix}${r.id}`} className="hover:underline">
                       {v}
@@ -60,7 +62,7 @@ export async function ReportTable({ table, currency, linkPrefix, compact }: { ta
         {table.totals && (
           <tr className="border-t-2 bg-slate-50 font-semibold">
             {table.columns.map((c) => (
-              <TD key={c.key} className={cn("whitespace-nowrap", num(c) && "text-right tabular-nums")}>
+              <TD key={c.key} className={cn("whitespace-nowrap", num(c) && "text-right tabular-nums", dense && "px-2")}>
                 {table.totals![c.key] !== undefined ? fmtCell(table.totals![c.key], c.type, currency, locale) : ""}
               </TD>
             ))}

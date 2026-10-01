@@ -140,13 +140,11 @@ export function LeadsTable({
             )}
             <SortTH k="createdAt">{t("leads.col.created")}</SortTH>
             <SortTH k="name">{t("leads.col.client")}</SortTH>
-            <TH>{t("leads.col.phone")}</TH>
             <SortTH k="status">{t("leads.col.status")}</SortTH>
             <SortTH k="manager">{t("leads.col.manager")}</SortTH>
-            <TH>{t("leads.col.source")}</TH>
-            <SortTH k="campaign">{t("leads.col.campaign")}</SortTH>
-            <TH>{t("leads.col.destination")}</TH>
-            <TH className="w-28" />
+            <SortTH k="campaign">{t("leads.col.source")}</SortTH>
+            <TH className="hidden min-[1440px]:table-cell">{t("leads.col.destination")}</TH>
+            <TH className="w-24" />
           </tr>
         </THead>
         <TBody>
@@ -182,18 +180,24 @@ export function LeadsTable({
                     </span>
                   )}
                 </div>
+                {r.phone && <div className="whitespace-nowrap text-xs text-muted-foreground">{prettyPhone(r.phone)}</div>}
               </TD>
-              <TD className="whitespace-nowrap">{prettyPhone(r.phone)}</TD>
               <TD>
                 <StatusBadge name={r.status.name} color={r.status.color} />
                 {r.callbackAt && <CallbackBadge at={r.callbackAt} className="mt-1 flex w-fit" />}
               </TD>
               <TD className="whitespace-nowrap">{r.manager ?? <span className="text-muted-foreground">{t("common.notAssigned")}</span>}</TD>
-              <TD className="whitespace-nowrap text-muted-foreground">{r.source}</TD>
-              <TD className="max-w-52 truncate text-muted-foreground" title={r.campaign ?? ""}>
-                {r.campaign ?? "—"}
+              <TD className="max-w-60 text-muted-foreground">
+                <div className="whitespace-nowrap">{r.source}</div>
+                {r.campaign && (
+                  <div className="truncate text-xs" title={r.campaign}>
+                    {r.campaign}
+                  </div>
+                )}
               </TD>
-              <TD className="text-muted-foreground">{r.destination ?? "—"}</TD>
+              <TD className="hidden max-w-40 truncate text-muted-foreground min-[1440px]:table-cell" title={r.destination ?? ""}>
+                {r.destination ?? "—"}
+              </TD>
               <TD onClick={(e) => e.stopPropagation()} className="text-right">
                 {r.isNew && (!r.managerId || r.managerId === currentUserId) && (
                   <Button size="sm" variant="outline" disabled={pending} onClick={() => take(r.id)}>

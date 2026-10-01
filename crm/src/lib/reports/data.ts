@@ -8,7 +8,7 @@ import { sp, type SearchParams } from "@/lib/leads/query";
 import { getI18n } from "@/i18n/server";
 import type { TFunction } from "@/i18n/core";
 import type { Locale } from "@/i18n/config";
-import type { Money, RDeal, RLead } from "./calc";
+import type { AdStat, Money, RDeal, RLead } from "./calc";
 
 export interface ReportFilters {
   period: Period;
@@ -83,23 +83,29 @@ export async function loadDeals(period: { from: Date; to: Date }, managerId: str
   return rows.map((d) => ({ ...d, amount: toNum(d.amount), cost: toNum(d.cost) }));
 }
 
-/** Расходы на рекламу за период, сгруппированные по уровню; суммы в валюте отчёта */
-export async function loadSpend(period: { from: Date; to: Date }, level: "campaign" | "adset" | "ad", f: ReportFilters): Promise<Map<string, number> | null> {
+/** Статистика рекламы за период (расход в валюте отчёта, показы, клики), сгруппированная по уровню */
+export async function loadSpend(period: { from: Date; to: Date }, level: "campaign" | "adset" | "ad", f: ReportFilters): Promise<Map<string, AdStat> | null> {
   const any = await prisma.adSpend.count();
   if (!any) return null;
   const col = { campaign: "campaignId", adset: "adsetId", ad: "adId" } as const;
-  const rows = await prisma.adSpend.groupBy({
-    by: [col[level], "currency"],
+  const nameCol = { campaign: "campaignName", adset: "adsetName", ad: "adName" } as const;
+  const rows = await prisma.adSpend.findMany({
     where: { date: { gte: period.from, lt: period.to } },
-    _sum: { spend: true },
+    select: { campaignId: true, adsetId: true, adId: true, campaignName: true, adsetName: true, adName: true, spend: true, currency: true, impressions: true, clicks: true },
   });
-  const map = new Map<string, number>();
+  const map = new Map<string, AdStat>();
   for (const r of rows) {
-    const key = (r as Record<string, unknown>)[col[level]] as string;
+    const key = r[col[level]];
+    if (!key) continue;
     const cur = r.currency === "UZS" ? "UZS" : "USD";
-    const v = toNum(r._sum.spend);
+    const v = toNum(r.spend);
     const converted = cur === f.currency ? v : cur === "USD" ? v * f.rate : v / f.rate;
-    map.set(key, (map.get(key) ?? 0) + converted);
+    const s = map.get(key) ?? { spend: 0, impressions: 0, clicks: 0, name: null };
+    s.spend += converted;
+    s.impressions += r.impressions;
+    s.clicks += r.clicks;
+    s.name ??= r[nameCol[level]];
+    map.set(key, s);
   }
   return map;
 }
