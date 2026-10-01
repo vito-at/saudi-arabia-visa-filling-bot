@@ -54,16 +54,16 @@ export function IntegrationForm({ v }: { v: IntegrationView }) {
       <form action={(fd) => run(() => saveIntegrationAction(fd))} className="space-y-5">
         <div className="grid grid-cols-2 gap-4">
           <Field label="App ID">
-            <Input name="appId" defaultValue={v.appId} placeholder="123456789012345" />
+            <Input name="appId" defaultValue={v.appId} autoComplete="off" data-1p-ignore data-lpignore="true" placeholder="123456789012345" />
           </Field>
           <Field label="App Secret" hint={v.hasAppSecret ? t("integ.appSecretSaved") : t("integ.appSecretHint")}>
-            <Input name="appSecret" type="password" autoComplete="off" placeholder={v.hasAppSecret ? "••••••••" : ""} />
+            <Input name="appSecret" type="password" autoComplete="new-password" data-1p-ignore data-lpignore="true" placeholder={v.hasAppSecret ? "••••••••" : ""} />
           </Field>
           <Field label="Page ID" hint={t("integ.pageIdHint")}>
-            <Input name="pageId" defaultValue={v.pageId} />
+            <Input name="pageId" defaultValue={v.pageId} autoComplete="off" data-1p-ignore data-lpignore="true" />
           </Field>
           <Field label={t("integ.pageToken")} hint={v.pageTokenMask ? t("integ.pageTokenCurrent", { mask: v.pageTokenMask }) : t("integ.pageTokenHint")}>
-            <Input name="pageToken" type="password" autoComplete="off" placeholder={v.pageTokenMask ? "••••••••" : "EAAG…"} />
+            <Input name="pageToken" type="password" autoComplete="new-password" data-1p-ignore data-lpignore="true" placeholder={v.pageTokenMask ? "••••••••" : "EAAG…"} />
           </Field>
           <Field label={t("integ.poll")}>
             <Input name="pollIntervalMin" type="number" min={1} max={1440} defaultValue={v.pollIntervalMin} />
@@ -77,10 +77,10 @@ export function IntegrationForm({ v }: { v: IntegrationView }) {
           <div className="mb-3 text-sm font-semibold">{t("integ.spendTitle")}</div>
           <div className="grid grid-cols-2 gap-4">
             <Field label={t("integ.adAccount")} hint={t("integ.adAccountHint")}>
-              <Input name="adAccountId" defaultValue={v.adAccountId} placeholder="act_1234567890" />
+              <Input name="adAccountId" defaultValue={v.adAccountId} autoComplete="off" data-1p-ignore data-lpignore="true" placeholder="act_1234567890" />
             </Field>
             <Field label={t("integ.adsToken")} hint={v.hasAdsToken ? t("integ.adsTokenSaved") : t("integ.adsTokenHint")}>
-              <Input name="adsToken" type="password" autoComplete="off" placeholder={v.hasAdsToken ? "••••••••" : ""} />
+              <Input name="adsToken" type="password" autoComplete="new-password" data-1p-ignore data-lpignore="true" placeholder={v.hasAdsToken ? "••••••••" : ""} />
             </Field>
           </div>
           {v.hasAdsToken && (
@@ -103,7 +103,7 @@ export function IntegrationForm({ v }: { v: IntegrationView }) {
             </Field>
             <Field label="Verify Token" hint={t("integ.verifyHint")}>
               <div className="flex gap-2">
-                <Input name="verifyToken" defaultValue={v.verifyToken} />
+                <Input name="verifyToken" defaultValue={v.verifyToken} autoComplete="off" data-1p-ignore data-lpignore="true" />
                 <Button type="button" variant="outline" size="icon" onClick={() => copy(v.verifyToken)} title={t("integ.copy")}>
                   <Copy />
                 </Button>
