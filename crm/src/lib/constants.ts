@@ -90,3 +90,7 @@ export const SPECIAL_STATUS_KINDS: StatusKind[] = ["NEW", "CALLBACK", "WON", "LO
 
 /** За сколько минут до звонка напоминать менеджеру */
 export const CALLBACK_REMIND_MIN = 10;
+
+/** «Постоянный клиент» — у клиента от 3 сделок (покупок любых услуг) */
+export const REGULAR_CLIENT_MIN_DEALS = 3;
+export const isRegularClient = (deals: number) => deals >= REGULAR_CLIENT_MIN_DEALS;

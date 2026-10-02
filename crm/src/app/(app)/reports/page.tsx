@@ -37,7 +37,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
         title={t("reports.title")}
         description={
           <>
-            {t("reports.subtitle", { from: formatDate(f.period.from), to: formatDate(new Date(f.period.to.getTime() - 1)), cur: f.currency, rate: formatNumber(f.rate, 2), sum })}
+            {t("reports.subtitle", { from: formatDate(f.period.from), to: formatDate(new Date(f.period.to.getTime() - 1)), cur: f.currency, rate: formatNumber(f.rate, 2), costRate: formatNumber(f.costRate, 2), sum })}
             {!isAdmin && ` · ${t("reports.ownOnly")}`}
           </>
         }

@@ -136,7 +136,7 @@ async function GeneralTab() {
         unprocessedAlertMin: s.unprocessedAlertMin,
         usdRate: toNum(s.usdRate),
         usdRateSource: s.usdRateSource,
-        usdRateSide: s.usdRateSide,
+        usdRateCost: toNum(s.usdRateCost),
         usdRateUpdatedAt: s.usdRateUpdatedAt?.toISOString() ?? null,
         usdRateError: s.usdRateError,
         managersCount,

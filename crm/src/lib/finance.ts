@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { convert, round2, toNum } from "@/lib/money";
 import type { ReportFilters } from "@/lib/reports/data";
 import { dateColumnRange } from "@/lib/period";
+import { dateColumnKey, ratesOn, resolveRates, type RateBook } from "@/lib/rate-book";
 
 /** Сделка в разделе «Финансы»: суммы в исходной валюте и в валюте отчёта */
 export interface FinanceDeal {
@@ -41,6 +42,10 @@ export interface FinanceSummary {
   adSpend: number | null; // null — расходы на рекламу не подключены
   expenses: number;
   netProfit: number;
+  /** взято владельцем из кассы — не расход компании */
+  ownerDraws: number;
+  /** осталось в компании: чистая прибыль − взятое владельцем */
+  retained: number;
   deals: number;
   leads: number;
 }
@@ -65,12 +70,15 @@ export function groupDealsByLead(
     };
   }>,
   to: Currency,
-  rate: number,
+  rates: RateBook | number,
+  costRate?: number,
 ): FinanceLead[] {
   const map = new Map<string, FinanceLead>();
   for (const d of deals) {
-    const revenue = convert(d.amount, d.currency, to, rate);
-    const cost = convert(d.cost, d.currency, to, rate);
+    // курсы дня оплаты: выручка по курсу продажи, себестоимость по курсу покупки
+    const r = resolveRates(rates, costRate, d.paidAt);
+    const revenue = convert(d.amount, d.currency, to, r.sale);
+    const cost = convert(d.cost, d.currency, to, r.cost);
     const row =
       map.get(d.lead.id) ??
       ({
@@ -110,8 +118,8 @@ export function groupDealsByLead(
   return [...map.values()].sort((a, b) => b.lastPaidAt.localeCompare(a.lastPaidAt));
 }
 
-/** Итоги: валовая прибыль − реклама − расходы компании = чистая прибыль */
-export function financeSummary(leads: FinanceLead[], adSpend: number | null, expenses: number): FinanceSummary {
+/** Итоги: валовая прибыль − реклама − расходы компании = чистая прибыль; минус взятое владельцем = осталось в компании */
+export function financeSummary(leads: FinanceLead[], adSpend: number | null, expenses: number, ownerDraws = 0): FinanceSummary {
   const revenue = round2(leads.reduce((s, l) => s + l.revenue, 0));
   const cost = round2(leads.reduce((s, l) => s + l.cost, 0));
   const grossProfit = round2(revenue - cost);
@@ -122,6 +130,8 @@ export function financeSummary(leads: FinanceLead[], adSpend: number | null, exp
     adSpend,
     expenses: round2(expenses),
     netProfit: round2(grossProfit - (adSpend ?? 0) - expenses),
+    ownerDraws: round2(ownerDraws),
+    retained: round2(grossProfit - (adSpend ?? 0) - expenses - ownerDraws),
     deals: leads.reduce((s, l) => s + l.deals.length, 0),
     leads: leads.length,
   };
@@ -158,19 +168,19 @@ export async function loadFinanceLeads(f: ReportFilters): Promise<FinanceLead[]>
   return groupDealsByLead(
     rows.map((r) => ({ ...r, amount: toNum(r.amount), cost: toNum(r.cost) })),
     f.currency,
-    f.rate,
+    f.book,
   );
 }
 
-/** Расход на рекламу из Meta за период; null, если расходы ещё ни разу не загружались */
+/** Расход на рекламу из Meta за период (по курсу покупки $ каждого дня); null, если расходы ещё ни разу не загружались */
 export async function loadAdSpendTotal(f: ReportFilters): Promise<number | null> {
   if (!(await prisma.adSpend.count())) return null;
   const rows = await prisma.adSpend.groupBy({
-    by: ["currency"],
+    by: ["date", "currency"],
     where: { date: dateColumnRange(f.period) },
     _sum: { spend: true },
   });
-  return round2(rows.reduce((s, r) => s + convert(toNum(r._sum.spend), r.currency === "UZS" ? "UZS" : "USD", f.currency, f.rate), 0));
+  return round2(rows.reduce((s, r) => s + convert(toNum(r._sum.spend), r.currency === "UZS" ? "UZS" : "USD", f.currency, ratesOn(f.book, dateColumnKey(r.date)).cost), 0));
 }
 
 export interface ExpenseRow {
@@ -181,6 +191,7 @@ export interface ExpenseRow {
   currency: Currency;
   converted: number;
   note: string | null;
+  ownerDraw: boolean;
   createdBy: string | null;
 }
 
@@ -196,8 +207,9 @@ export async function loadExpenses(f: ReportFilters): Promise<ExpenseRow[]> {
     category: e.category,
     amount: toNum(e.amount),
     currency: e.currency,
-    converted: convert(e.amount, e.currency, f.currency, f.rate),
+    converted: convert(e.amount, e.currency, f.currency, ratesOn(f.book, dateColumnKey(e.date)).cost),
     note: e.note,
+    ownerDraw: e.ownerDraw,
     createdBy: e.createdBy?.name ?? null,
   }));
 }
@@ -205,7 +217,8 @@ export async function loadExpenses(f: ReportFilters): Promise<ExpenseRow[]> {
 /** Суммы расходов по категориям (по убыванию) */
 export function expensesByCategory(rows: ExpenseRow[]) {
   const map = new Map<string, number>();
-  for (const r of rows) map.set(r.category, round2((map.get(r.category) ?? 0) + r.converted));
+  // взятое владельцем из кассы — не статья расходов компании
+  for (const r of rows) if (!r.ownerDraw) map.set(r.category, round2((map.get(r.category) ?? 0) + r.converted));
   return [...map.entries()].map(([category, total]) => ({ category, total })).sort((a, b) => b.total - a.total);
 }
 
@@ -213,6 +226,7 @@ export function expensesByCategory(rows: ExpenseRow[]) {
 export async function expenseCategories(): Promise<string[]> {
   const rows = await prisma.expense.groupBy({
     by: ["category"],
+    where: { ownerDraw: false },
     _count: { _all: true },
     orderBy: { _count: { category: "desc" } },
     take: 30,

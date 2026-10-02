@@ -14,6 +14,8 @@ export interface ExpenseInput {
   amount: string;
   currency: Currency;
   note: string;
+  /** «Взял себе из кассы» — не расход компании */
+  ownerDraw?: boolean;
 }
 
 function parseExpense(input: ExpenseInput) {
@@ -30,6 +32,7 @@ function parseExpense(input: ExpenseInput) {
     amount,
     currency: input.currency,
     note: input.note.trim().slice(0, 500) || null,
+    ownerDraw: !!input.ownerDraw,
   };
 }
 

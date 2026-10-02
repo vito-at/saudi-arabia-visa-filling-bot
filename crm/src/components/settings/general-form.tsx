@@ -14,8 +14,8 @@ export interface GeneralView {
   distributionMode: "MANUAL" | "ROUND_ROBIN";
   unprocessedAlertMin: number;
   usdRate: number;
+  usdRateCost: number;
   usdRateSource: "MANUAL" | "IPAK_YULI";
-  usdRateSide: "BUY" | "SELL";
   usdRateUpdatedAt: string | null;
   usdRateError: string | null;
   managersCount: number;
@@ -27,6 +27,7 @@ export function GeneralForm({ v }: { v: GeneralView }) {
   const { t, f } = useI18n();
   const [source, setSource] = useState(v.usdRateSource);
   const [manualRate, setManualRate] = useState(String(v.usdRate));
+  const [manualCost, setManualCost] = useState(String(v.usdRateCost));
   return (
     <div className="space-y-5">
       <Card>
@@ -60,7 +61,12 @@ export function GeneralForm({ v }: { v: GeneralView }) {
         <CardHeader>
           <CardTitle>{t("general.rateTitle")}</CardTitle>
           <div className="text-right text-sm">
-            <div className="text-lg font-semibold">1 $ = {formatNumber(v.usdRate, 2)} {f.sum}</div>
+            <div className="font-semibold">
+              {t("general.rateSale")}: 1 $ = {formatNumber(v.usdRate, 2)} {f.sum}
+            </div>
+            <div className="font-semibold">
+              {t("general.rateCost")}: 1 $ = {formatNumber(v.usdRateCost, 2)} {f.sum}
+            </div>
             <div className="text-xs text-muted-foreground">{v.usdRateUpdatedAt ? t("general.rateUpdated", { date: formatDateTime(v.usdRateUpdatedAt) }) : t("general.rateNever")}</div>
           </div>
         </CardHeader>
@@ -76,14 +82,17 @@ export function GeneralForm({ v }: { v: GeneralView }) {
           <div className="mb-5 rounded-lg border bg-secondary/50 p-4">
             <div className="mb-2 text-sm font-semibold">{t("general.manualTitle")}</div>
             <form
-              className="flex items-end gap-3"
+              className="flex flex-wrap items-end gap-3"
               onSubmit={(e) => {
                 e.preventDefault();
-                run(() => setUsdRateAction(manualRate));
+                run(() => setUsdRateAction(manualRate, manualCost));
               }}
             >
-              <Field label={t("general.sumPerUsd", { sum: f.sum })} className="w-48">
+              <Field label={t("general.rateSale")} hint={`${t("general.sumPerUsd", { sum: f.sum })}, ${t("general.rateSaleHint")}`} className="w-full sm:w-56">
                 <Input value={manualRate} onChange={(e) => setManualRate(e.target.value)} inputMode="decimal" />
+              </Field>
+              <Field label={t("general.rateCost")} hint={`${t("general.sumPerUsd", { sum: f.sum })}, ${t("general.rateCostHint")}`} className="w-full sm:w-56">
+                <Input value={manualCost} onChange={(e) => setManualCost(e.target.value)} inputMode="decimal" />
               </Field>
               <Button type="submit" disabled={pending}>
                 {t("general.setRate")}
@@ -103,14 +112,8 @@ export function GeneralForm({ v }: { v: GeneralView }) {
                 <option value="MANUAL">{t("general.sourceManual")}</option>
               </NativeSelect>
             </Field>
-            <Field label={t("general.side")}>
-              <NativeSelect name="usdRateSide" defaultValue={v.usdRateSide} disabled={source === "MANUAL"}>
-                <option value="SELL">{t("general.sideSell")}</option>
-                <option value="BUY">{t("general.sideBuy")}</option>
-              </NativeSelect>
-              {source === "MANUAL" && <input type="hidden" name="usdRateSide" value={v.usdRateSide} />}
-            </Field>
             <input type="hidden" name="usdRate" value={manualRate} />
+            <input type="hidden" name="usdRateCost" value={manualCost} />
             <div className="sm:col-span-2 flex gap-2">
               <Button type="submit" disabled={pending}>
                 {t("common.save")}

@@ -1,3 +1,7 @@
+import { REGULAR_CLIENT_MIN_DEALS, isRegularClient } from "@/lib/constants";
+import { RegularBadge } from "@/components/leads/regular-badge";
+import { ratesOn } from "@/lib/rate-book";
+import { loadRateBook } from "@/lib/rate-history";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Phone } from "lucide-react";
@@ -39,10 +43,11 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
   if (!client) notFound();
   const settings = await getSettings();
   const rate = toNum(settings.usdRate);
+  const book = await loadRateBook(settings);
   const deals = isAdmin ? client.deals : client.deals.filter((d) => d.managerId === user.id);
-  const leads = isAdmin ? client.leads : client.leads.filter((l) => l.managerId === user.id || !l.managerId);
-  const usd = sumDeals(deals, "USD", rate);
-  const uzs = sumDeals(deals, "UZS", rate);
+  const leads = isAdmin ? client.leads : client.leads.filter((l) => l.managerId === user.id || (!l.managerId && !l.hiddenFromManagers));
+  const usd = sumDeals(deals, "USD", book);
+  const uzs = sumDeals(deals, "UZS", book);
 
   return (
     <div className="space-y-5">
@@ -50,7 +55,10 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
         <ArrowLeft className="size-4" /> {t("client.back")}
       </Link>
       <div>
-        <h1 className="text-2xl font-semibold">{client.name}</h1>
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="text-2xl font-semibold">{client.name}</h1>
+          {isRegularClient(client.deals.length) && <RegularBadge label={t("leads.regular")} hint={t("leads.regularHint", { n: REGULAR_CLIENT_MIN_DEALS })} />}
+        </div>
         <div className="mt-1 flex gap-4 text-sm text-muted-foreground">
           {client.phone && (
             <a href={`tel:${client.phone}`} className="inline-flex items-center gap-1 text-primary hover:underline">
@@ -101,7 +109,7 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
                   <TD className="text-right whitespace-nowrap">{f.money(toNum(d.amount), d.currency)}</TD>
                   <TD className="text-right whitespace-nowrap">{f.money(toNum(d.cost), d.currency)}</TD>
                   <TD className="text-right whitespace-nowrap text-emerald-700">{f.money(profit, d.currency)}</TD>
-                  <TD className="text-right whitespace-nowrap">{f.money(convert(profit, d.currency, "USD", rate), "USD")}</TD>
+                  <TD className="text-right whitespace-nowrap">{f.money(convert(d.amount, d.currency, "USD", ratesOn(book, d.paidAt).sale) - convert(d.cost, d.currency, "USD", ratesOn(book, d.paidAt).cost), "USD")}</TD>
                   <TD>{d.manager?.name ?? "—"}</TD>
                 </TR>
               );

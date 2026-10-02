@@ -2,12 +2,13 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Pencil, Plus, Trash2, X } from "lucide-react";
+import { Pencil, Plus, Trash2, Wallet, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Field, Input, NativeSelect } from "@/components/ui/input";
 import { Empty } from "@/components/ui/empty";
 import { formatDate, toInputDate } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import { useI18n } from "@/i18n/client";
 import { deleteExpenseAction, saveExpenseAction, type ExpenseInput } from "@/app/(app)/finance/actions";
 import type { ExpenseRow } from "@/lib/finance";
@@ -18,6 +19,7 @@ const empty = (): ExpenseInput => ({
   amount: "",
   currency: "UZS",
   note: "",
+  ownerDraw: false,
 });
 
 /** Расходы компании: форма добавления/правки, список за период и итоги по статьям */
@@ -26,13 +28,15 @@ export function ExpensesPanel({ rows, byCategory, categories, currency }: { rows
   const router = useRouter();
   const [form, setForm] = useState<ExpenseInput>(empty);
   const [pending, start] = useTransition();
-  const suggestions = [...new Set([...categories, t("finance.catRent"), t("finance.catSalary"), t("finance.catTax"), t("finance.catAds"), t("finance.catOther")])];
+  const presets = [t("finance.catTaxi"), t("finance.catFood"), t("finance.catUtilities"), t("finance.catRent"), t("finance.catSalary"), t("finance.catTax"), t("finance.catAds"), t("finance.catOther")];
+  const suggestions = [...new Set([...presets, ...categories])];
   const set = (patch: Partial<ExpenseInput>) => setForm({ ...form, ...patch });
   const total = byCategory.reduce((s, c) => s + c.total, 0);
+  const drawsTotal = rows.filter((r) => r.ownerDraw).reduce((s, r) => s + r.converted, 0);
 
   function save() {
     start(async () => {
-      const res = await saveExpenseAction(form);
+      const res = await saveExpenseAction(form.ownerDraw ? { ...form, category: t("finance.ownerDraw") } : form);
       if (!res.ok) return void toast.error(res.error);
       toast.success(t("finance.saved"));
       setForm(empty());
@@ -68,17 +72,36 @@ export function ExpensesPanel({ rows, byCategory, categories, currency }: { rows
               </Button>
             )}
           </div>
+          {/* тип записи: расход компании или деньги, взятые владельцем из кассы */}
+          <div className="col-span-2 inline-flex w-fit rounded-lg bg-muted p-0.5 text-sm sm:col-span-4" role="radiogroup">
+            {[false, true].map((draw) => (
+              <button
+                key={String(draw)}
+                type="button"
+                role="radio"
+                aria-checked={!!form.ownerDraw === draw}
+                onClick={() => set({ ownerDraw: draw, category: draw ? "" : form.ownerDraw ? "" : form.category })}
+                className={cn("rounded-md px-3 py-1.5", !!form.ownerDraw === draw ? "bg-card font-medium shadow-sm" : "text-muted-foreground hover:text-foreground")}
+              >
+                {draw ? t("finance.ownerDraw") : t("finance.kindExpense")}
+              </button>
+            ))}
+          </div>
           <Field label={t("finance.date")}>
             <Input type="date" value={form.date} onChange={(e) => set({ date: e.target.value })} required />
           </Field>
-          <Field label={t("finance.category")} className="col-span-2 sm:col-span-1">
-            <Input list="expense-categories" value={form.category} placeholder={t("finance.categoryPh")} onChange={(e) => set({ category: e.target.value })} required />
-            <datalist id="expense-categories">
-              {suggestions.map((c) => (
-                <option key={c} value={c} />
-              ))}
-            </datalist>
-          </Field>
+          {form.ownerDraw ? (
+            <p className="col-span-2 self-end rounded-lg bg-violet-50 p-2.5 text-xs text-violet-800 sm:col-span-1">{t("finance.ownerDrawNote")}</p>
+          ) : (
+            <Field label={t("finance.category")} className="col-span-2 sm:col-span-1">
+              <Input list="expense-categories" value={form.category} placeholder={t("finance.categoryPh")} onChange={(e) => set({ category: e.target.value })} required />
+              <datalist id="expense-categories">
+                {suggestions.map((c) => (
+                  <option key={c} value={c} />
+                ))}
+              </datalist>
+            </Field>
+          )}
           <Field label={t("finance.amount")}>
             <Input inputMode="decimal" value={form.amount} onChange={(e) => set({ amount: e.target.value })} placeholder="0" required />
           </Field>
@@ -88,6 +111,21 @@ export function ExpensesPanel({ rows, byCategory, categories, currency }: { rows
               <option value="USD">USD</option>
             </NativeSelect>
           </Field>
+          {!form.ownerDraw && (
+            <div className="col-span-2 flex flex-wrap items-center gap-1.5 text-xs sm:col-span-4">
+              <span className="text-muted-foreground">{t("finance.quickCats")}</span>
+              {presets.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => set({ category: c })}
+                  className={cn("rounded-full border px-2.5 py-1", form.category === c ? "border-primary bg-primary/10 text-primary" : "hover:bg-muted")}
+                >
+                  {c}
+                </button>
+              ))}
+            </div>
+          )}
           <Field label={t("finance.note")} className="col-span-2 sm:col-span-3">
             <Input value={form.note} placeholder={t("finance.notePh")} onChange={(e) => set({ note: e.target.value })} />
           </Field>
@@ -113,7 +151,10 @@ export function ExpensesPanel({ rows, byCategory, categories, currency }: { rows
                 <li key={r.id} className={"flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 text-sm" + (form.id === r.id ? " bg-accent" : "")}>
                   <div className="w-24 shrink-0 text-muted-foreground">{formatDate(`${r.date}T12:00:00Z`)}</div>
                   <div className="min-w-0 flex-1">
-                    <div className="font-medium">{r.category}</div>
+                    <div className={cn("flex items-center gap-1.5 font-medium", r.ownerDraw && "text-violet-700")}>
+                      {r.ownerDraw && <Wallet className="size-3.5" />}
+                      {r.category}
+                    </div>
                     {(r.note || r.createdBy) && (
                       <div className="truncate text-xs text-muted-foreground">{[r.note, r.createdBy && t("finance.addedBy", { name: r.createdBy })].filter(Boolean).join(" · ")}</div>
                     )}
@@ -135,6 +176,7 @@ export function ExpensesPanel({ rows, byCategory, categories, currency }: { rows
                           amount: String(r.amount),
                           currency: r.currency,
                           note: r.note ?? "",
+                          ownerDraw: r.ownerDraw,
                         });
                         window.scrollTo({ top: 0, behavior: "smooth" });
                       }}
@@ -154,7 +196,7 @@ export function ExpensesPanel({ rows, byCategory, categories, currency }: { rows
 
       <div className="h-fit rounded-xl border bg-card p-4">
         <div className="mb-3 text-sm font-semibold">{t("finance.byCategory")}</div>
-        {byCategory.length === 0 ? (
+        {byCategory.length === 0 && drawsTotal === 0 ? (
           <div className="text-sm text-muted-foreground">—</div>
         ) : (
           <div className="space-y-2 text-sm">
@@ -178,6 +220,14 @@ export function ExpensesPanel({ rows, byCategory, categories, currency }: { rows
               <span>{t("finance.total")}</span>
               <span className="tabular-nums">{f.money(total, currency)}</span>
             </div>
+            {drawsTotal > 0 && (
+              <div className="flex justify-between gap-3 rounded-lg bg-violet-50 px-2.5 py-2 text-violet-800" title={t("finance.ownerDrawsHint")}>
+                <span className="inline-flex items-center gap-1.5">
+                  <Wallet className="size-3.5" /> {t("finance.ownerDraws")}
+                </span>
+                <span className="font-semibold tabular-nums">{f.money(drawsTotal, currency)}</span>
+              </div>
+            )}
           </div>
         )}
       </div>

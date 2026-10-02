@@ -34,7 +34,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const tokenProblem = meta?.enabled && !meta.tokenValid;
 
   return (
-    <RoleProvider role={user.role}>
+    <RoleProvider role={user.role} costRate={Number(settings?.usdRateCost ?? 0)}>
     <div className="min-h-screen">
       <Sidebar user={user} counters={{ leads: newLeads, tasks, finance: pendingCosts }} logout={logout} />
       <main className="lg:pl-60">
@@ -53,6 +53,18 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               <span>{t("banner.tellAdmin")}</span>
             )}
           </div>
+        )}
+        {pendingCosts > 0 && (
+          <Link
+            href="/finance"
+            title={t("banner.costPendingText")}
+            className="flex items-center gap-1.5 border-b border-amber-100 bg-amber-50/60 px-4 py-1 text-xs text-amber-800 hover:bg-amber-50 lg:px-8"
+          >
+            <AlertTriangle className="size-3.5 shrink-0" />
+            <span className="truncate">
+              {t("banner.costPending", { n: pendingCosts })} · <span className="underline">{t("banner.costPendingLink")}</span>
+            </span>
+          </Link>
         )}
         <div className="mx-auto max-w-[1600px] px-3 py-4 sm:px-4 lg:px-8 lg:py-6">{children}</div>
       </main>

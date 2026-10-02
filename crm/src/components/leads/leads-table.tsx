@@ -1,5 +1,7 @@
 "use client";
 
+import { REGULAR_CLIENT_MIN_DEALS } from "@/lib/constants";
+import { RegularBadge } from "@/components/leads/regular-badge";
 import Link from "next/link";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useState, useTransition } from "react";
@@ -29,6 +31,8 @@ export interface LeadRow {
   campaign: string | null;
   destination: string | null;
   isRepeat: boolean;
+  /** постоянный клиент — от 3 покупок */
+  isRegular: boolean;
   overdueMin: number | null; // сколько минут лид ждёт сверх порога
   isNew: boolean;
   callbackAt: string | null;
@@ -101,7 +105,7 @@ export function LeadsTable({ rows, managers, isAdmin }: { rows: LeadRow[]; manag
               <div className="min-w-0 flex-1">
                 <div className={cn("flex items-center gap-1.5 truncate", r.isNew && "font-semibold")}>
                   <span className="truncate">{r.name}</span>
-                  {r.isRepeat && <Repeat className="size-3.5 shrink-0 text-amber-600" aria-label={t("leads.repeat")} />}
+                  {r.isRegular ? <RegularBadge compact label={t("leads.regular")} hint={t("leads.regularHint", { n: REGULAR_CLIENT_MIN_DEALS })} /> : r.isRepeat && <Repeat className="size-3.5 shrink-0 text-amber-600" aria-label={t("leads.repeat")} />}
                 </div>
                 <div className="mt-0.5 text-xs text-muted-foreground">
                   {r.overdueMin !== null ? (
@@ -211,10 +215,14 @@ export function LeadsTable({ rows, managers, isAdmin }: { rows: LeadRow[]; manag
                 <TD>
                   <div className={cn("flex items-center gap-1.5", r.isNew && "font-semibold")}>
                     {r.name}
-                    {r.isRepeat && (
-                      <span title={t("leads.repeat")} className="text-amber-600">
-                        <Repeat className="size-3.5" />
-                      </span>
+                    {r.isRegular ? (
+                      <RegularBadge label={t("leads.regular")} hint={t("leads.regularHint", { n: REGULAR_CLIENT_MIN_DEALS })} className="font-normal" />
+                    ) : (
+                      r.isRepeat && (
+                        <span title={t("leads.repeat")} className="text-amber-600">
+                          <Repeat className="size-3.5" />
+                        </span>
+                      )
                     )}
                   </div>
                   {r.phone && <div className="whitespace-nowrap text-xs text-muted-foreground">{prettyPhone(r.phone)}</div>}

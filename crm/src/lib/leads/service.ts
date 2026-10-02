@@ -44,6 +44,8 @@ export interface NewLeadInput {
   platform?: string | null;
   metaCreatedAt?: Date | null;
   managerId?: string | null;
+  /** лид администратора: без ответственного не виден менеджерам */
+  hiddenFromManagers?: boolean;
   comment?: string | null;
 }
 
@@ -108,6 +110,7 @@ export async function createLead(input: NewLeadInput, actorId: string | null) {
           isRepeat,
           statusId: status.id,
           managerId,
+          hiddenFromManagers: input.hiddenFromManagers ?? false,
           assignedAt: managerId ? now : null,
           serviceType: input.serviceType ?? null,
           destination: input.destination?.trim() || null,

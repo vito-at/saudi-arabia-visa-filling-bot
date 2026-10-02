@@ -1,9 +1,10 @@
 /**
  * Чистые функции расчёта отчётов — без обращения к БД, покрыты тестами.
- * Суммы пересчитываются в валюту отчёта по текущему курсу.
+ * Суммы пересчитываются в валюту отчёта по курсам дня операции: выручка по курсу продажи $, себестоимость и реклама по курсу покупки $.
  */
 import type { Currency } from "@prisma/client";
 import { convert, round2, toNum } from "@/lib/money";
+import { ratesOn, type RateBook } from "@/lib/rate-book";
 
 export interface RDeal {
   amount: number | string;
@@ -38,16 +39,24 @@ export interface RLead {
 
 export interface Money {
   currency: Currency;
+  /** курс продажи $ — для выручки */
   rate: number;
+  /** курс покупки $ (дорогой) — для себестоимости; по умолчанию равен курсу продажи */
+  costRate?: number;
+  /** история курсов: если задана, сделка пересчитывается по курсам дня оплаты */
+  book?: RateBook;
 }
+
+const saleRate = (m: Money, d: RDeal) => (m.book ? ratesOn(m.book, d.paidAt).sale : m.rate);
+const costRate = (m: Money, d: RDeal) => (m.book ? ratesOn(m.book, d.paidAt).cost : m.costRate ?? m.rate);
 
 const safeDiv = (a: number, b: number) => (b > 0 ? a / b : null);
 
 export function dealRevenue(d: RDeal, m: Money) {
-  return convert(d.amount, d.currency, m.currency, m.rate);
+  return convert(d.amount, d.currency, m.currency, saleRate(m, d));
 }
 export function dealProfit(d: RDeal, m: Money) {
-  return round2(convert(toNum(d.amount) - toNum(d.cost), d.currency, m.currency, m.rate));
+  return round2(convert(d.amount, d.currency, m.currency, saleRate(m, d)) - convert(d.cost, d.currency, m.currency, costRate(m, d)));
 }
 
 export const isWon = (l: Pick<RLead, "statusKind" | "deals">) => l.statusKind === "WON";

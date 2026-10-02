@@ -32,6 +32,7 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
   const { rows, total } = await getClientAggregates({
     currency,
     usdRate: toNum(settings.usdRate),
+    usdRateCost: toNum(settings.usdRateCost),
     search: sp(params, "q"),
     managerId: user.role === "ADMIN" ? null : user.id,
     sort: sort in SORTS ? sort : "revenue",
@@ -50,7 +51,7 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
     <div>
       <PageHeader
         title={t("clients.title")}
-        description={t("clients.description", { cur: currency, rate: formatNumber(toNum(settings.usdRate), 2), sum: f.sum })}
+        description={t("clients.description", { cur: currency, rate: formatNumber(toNum(settings.usdRate), 2), costRate: formatNumber(toNum(settings.usdRateCost), 2), sum: f.sum })}
         actions={
           <Suspense>
             <SearchBox placeholder={t("clients.search")} />

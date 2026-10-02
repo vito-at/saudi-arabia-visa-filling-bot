@@ -9,6 +9,7 @@ import { formatNumber } from "@/lib/format";
 import { SPECIAL_STATUS_KINDS } from "@/lib/constants";
 import { getI18n } from "@/i18n/server";
 import { updateUsdRate } from "@/lib/rates";
+import { recordDayRates } from "@/lib/rate-history";
 import { requireAdmin } from "@/lib/session";
 import { ValidationError } from "@/lib/leads/service";
 
@@ -34,41 +35,50 @@ export async function saveRateAction(formData: FormData) {
   return runAction(async () => {
     await requireAdmin();
     const source = str(formData.get("usdRateSource"));
-    const side = str(formData.get("usdRateSide"));
     if (source !== "MANUAL" && source !== "IPAK_YULI") throw new ValidationError("err.rateSource");
-    if (side !== "BUY" && side !== "SELL") throw new ValidationError("err.rateSide");
-    const data: Parameters<typeof prisma.appSettings.update>[0]["data"] = { usdRateSource: source, usdRateSide: side };
+    const data: Parameters<typeof prisma.appSettings.update>[0]["data"] = { usdRateSource: source };
     if (source === "MANUAL") {
-      const rate = Number(str(formData.get("usdRate")).replace(/\s/g, "").replace(",", "."));
-      if (!Number.isFinite(rate) || rate < 1000 || rate > 100000) throw new ValidationError("err.rateValue");
-      Object.assign(data, { usdRate: rate, usdRateUpdatedAt: new Date(), usdRateError: null });
+      const { sale, cost } = parseRates(str(formData.get("usdRate")), str(formData.get("usdRateCost")));
+      Object.assign(data, { usdRate: sale, usdRateCost: cost, usdRateUpdatedAt: new Date(), usdRateError: null });
     }
-    await prisma.appSettings.update({ where: { id: 1 }, data });
+    await prisma.$transaction(async (tx) => {
+      await tx.appSettings.update({ where: { id: 1 }, data });
+      if (source === "MANUAL") await recordDayRates(Number(data.usdRate), Number(data.usdRateCost), tx);
+    });
     if (source === "IPAK_YULI") {
       const r = await updateUsdRate();
       revalidateAll();
       if (!r.ok) throw new ValidationError("err.rateSavedButFailed", { error: ("error" in r ? r.error : "") ?? "" });
       const { t, f } = await getI18n();
-      return t("msg.rateIpak", { rate: formatNumber("rate" in r ? r.rate : 0, 2), sum: f.sum });
+      return t("msg.rateIpak", { rate: formatNumber("buy" in r ? r.buy : 0, 2), costRate: formatNumber("sell" in r ? r.sell : 0, 2), sum: f.sum });
     }
     revalidateAll();
     return (await getI18n()).t("msg.rateSaved");
   });
 }
 
-/** Установить курс вручную прямо сейчас (в любом режиме); в авто-режиме действует до следующего обновления в 07:00 */
-export async function setUsdRateAction(value: string) {
+/** Курс продажи $ (выручка) и курс покупки $ (расходы); курс покупки не может быть ниже курса продажи */
+function parseRates(saleValue: string, costValue: string) {
+  const num = (v: string) => Number(String(v).replace(/\s/g, "").replace(",", "."));
+  const sale = num(saleValue);
+  const cost = num(costValue);
+  for (const r of [sale, cost]) if (!Number.isFinite(r) || r < 1000 || r > 100000) throw new ValidationError("err.rateValue");
+  if (cost < sale) throw new ValidationError("err.rateOrder");
+  return { sale, cost };
+}
+
+/** Установить курсы вручную прямо сейчас (в любом режиме); в авто-режиме действуют до следующего обновления в 07:00 */
+export async function setUsdRateAction(saleValue: string, costValue: string) {
   return runAction(async () => {
     await requireAdmin();
-    const rate = Number(String(value).replace(/\s/g, "").replace(",", "."));
-    if (!Number.isFinite(rate) || rate < 1000 || rate > 100000) throw new ValidationError("err.rateValue");
-    const s = await prisma.appSettings.update({
-      where: { id: 1 },
-      data: { usdRate: rate, usdRateUpdatedAt: new Date(), usdRateError: null },
+    const { sale, cost } = parseRates(saleValue, costValue);
+    const s = await prisma.$transaction(async (tx) => {
+      await recordDayRates(sale, cost, tx);
+      return tx.appSettings.update({ where: { id: 1 }, data: { usdRate: sale, usdRateCost: cost, usdRateUpdatedAt: new Date(), usdRateError: null } });
     });
     revalidateAll();
     const { t, f } = await getI18n();
-    return t(s.usdRateSource === "IPAK_YULI" ? "msg.rateSetAuto" : "msg.rateSet", { rate: formatNumber(rate, 2), sum: f.sum });
+    return t(s.usdRateSource === "IPAK_YULI" ? "msg.rateSetAuto" : "msg.rateSet", { rate: formatNumber(sale, 2), costRate: formatNumber(cost, 2), sum: f.sum });
   });
 }
 

@@ -1,3 +1,4 @@
+import { isRegularClient } from "@/lib/constants";
 import { Suspense } from "react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card } from "@/components/ui/card";
@@ -32,7 +33,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
       orderBy: buildLeadOrder(params),
       skip: (page - 1) * PAGE_SIZE,
       take: PAGE_SIZE,
-      include: { status: true, manager: { select: { name: true } } },
+      include: { status: true, manager: { select: { name: true } }, client: { select: { _count: { select: { deals: true } } } } },
     }),
     getStatuses(),
     getManagers(),
@@ -58,6 +59,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
       campaign: l.campaignName,
       destination: l.destination,
       isRepeat: l.isRepeat,
+      isRegular: isRegularClient(l.client._count.deals),
       isNew: l.status.kind === "NEW",
       callbackAt: l.status.kind === "CALLBACK" && l.callbackAt ? l.callbackAt.toISOString() : null,
       overdueMin: overdue ? Math.round((now.getTime() - l.createdAt.getTime()) / 60000) : null,

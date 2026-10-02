@@ -11,7 +11,7 @@ export async function KpiTile({ label, value, delta, prev }: { label: string; va
   const down = delta !== null && delta < -0.0005;
   const Icon = up ? ArrowUpRight : down ? ArrowDownRight : Minus;
   return (
-    <Card className="p-4">
+    <Card className="min-w-0 p-4">
       <div className="text-xs font-medium text-muted-foreground">{label}</div>
       <div className="mt-1.5 whitespace-nowrap text-xl font-semibold tracking-tight tabular-nums">{value}</div>
       <div className="mt-1.5 flex flex-wrap items-center gap-x-1 text-xs">
@@ -19,7 +19,8 @@ export async function KpiTile({ label, value, delta, prev }: { label: string; va
           {delta !== null && <Icon className="size-3.5" />}
           {delta === null ? "" : `${delta > 0 ? "+" : ""}${formatPercent(delta)}`}
         </span>
-        <span className="whitespace-nowrap text-muted-foreground">{delta === null ? t("dashboard.noCompare") : t("dashboard.was", { v: prev })}</span>
+        {/* «нет данных для сравнения» переносится на узкой плитке, «было …» держим в одну строку */}
+        <span className={cn("min-w-0 text-muted-foreground", delta !== null && "whitespace-nowrap")}>{delta === null ? t("dashboard.noCompare") : t("dashboard.was", { v: prev })}</span>
       </div>
     </Card>
   );

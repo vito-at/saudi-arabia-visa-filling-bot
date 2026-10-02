@@ -1,4 +1,5 @@
 import type { Currency } from "@prisma/client";
+import { resolveRates, type RateBook } from "./rate-book";
 
 type Num = number | string | { toString(): string } | null | undefined;
 
@@ -26,7 +27,7 @@ export function calcMargin(amount: Num, cost: Num): number | null {
 
 /**
  * Пересчёт суммы между UZS и USD по курсу USD→UZS.
- * Все отчёты считаются по текущему курсу из настроек (Ипак Йули Банк).
+ * Выручка пересчитывается по курсу продажи $, себестоимость и расходы — по курсу покупки $ (дорогому).
  */
 export function convert(amount: Num, from: Currency, to: Currency, usdRate: Num): number {
   const a = toNum(amount);
@@ -40,15 +41,20 @@ export interface DealMoney {
   amount: Num;
   cost: Num;
   currency: Currency;
+  paidAt?: Date;
 }
 
-/** Итоги по набору сделок в выбранной валюте */
-export function sumDeals(deals: DealMoney[], to: Currency, usdRate: Num) {
+/**
+ * Итоги по набору сделок в выбранной валюте: выручка по курсу продажи, себестоимость по курсу покупки.
+ * С историей курсов (RateBook) каждая сделка пересчитывается по курсам дня оплаты.
+ */
+export function sumDeals(deals: DealMoney[], to: Currency, usdRate: number | RateBook, costRate?: number) {
   let revenue = 0;
   let cost = 0;
   for (const d of deals) {
-    revenue += convert(d.amount, d.currency, to, usdRate);
-    cost += convert(d.cost, d.currency, to, usdRate);
+    const r = resolveRates(usdRate, costRate, d.paidAt);
+    revenue += convert(d.amount, d.currency, to, r.sale);
+    cost += convert(d.cost, d.currency, to, r.cost);
   }
   revenue = round2(revenue);
   cost = round2(cost);

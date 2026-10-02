@@ -3,6 +3,8 @@ import { prisma } from "@/lib/db";
 import { toNum } from "@/lib/money";
 import { dateColumnRange, previousPeriod, resolvePeriod, type Period } from "@/lib/period";
 import { getSettings } from "@/lib/refs";
+import { loadRateBook } from "@/lib/rate-history";
+import { dateColumnKey, ratesOn, type RateBook } from "@/lib/rate-book";
 import type { CurrentUser } from "@/lib/session";
 import { sp, type SearchParams } from "@/lib/leads/query";
 import { getI18n } from "@/i18n/server";
@@ -14,7 +16,12 @@ export interface ReportFilters {
   period: Period;
   currency: Currency;
   managerId: string | null; // для менеджера — всегда он сам
+  /** курс продажи $ — для выручки */
   rate: number;
+  /** курс покупки $ (дорогой) — для себестоимости, рекламы и расходов компании */
+  costRate: number;
+  /** история курсов: суммы пересчитываются по курсам дня операции */
+  book: RateBook;
   /** перевод подписей отчёта на язык пользователя */
   t: TFunction;
   locale: Locale;
@@ -30,10 +37,12 @@ export async function readFilters(params: SearchParams, user: CurrentUser): Prom
     currency: sp(params, "cur") === "UZS" ? "UZS" : "USD",
     managerId: user.role === "ADMIN" ? sp(params, "manager") ?? null : user.id,
     rate: toNum(settings.usdRate),
+    costRate: toNum(settings.usdRateCost),
+    book: await loadRateBook(settings),
   };
 }
 
-export const money = (f: ReportFilters): Money => ({ currency: f.currency, rate: f.rate });
+export const money = (f: ReportFilters): Money => ({ currency: f.currency, rate: f.rate, costRate: f.costRate, book: f.book });
 
 function managerWhere(managerId: string | null): Prisma.LeadWhereInput {
   if (!managerId) return {};
@@ -91,7 +100,7 @@ export async function loadSpend(period: { from: Date; to: Date }, level: "campai
   const nameCol = { campaign: "campaignName", adset: "adsetName", ad: "adName" } as const;
   const rows = await prisma.adSpend.findMany({
     where: { date: dateColumnRange(period) },
-    select: { campaignId: true, adsetId: true, adId: true, campaignName: true, adsetName: true, adName: true, spend: true, currency: true, impressions: true, clicks: true },
+    select: { date: true, campaignId: true, adsetId: true, adId: true, campaignName: true, adsetName: true, adName: true, spend: true, currency: true, impressions: true, clicks: true },
   });
   const map = new Map<string, AdStat>();
   for (const r of rows) {
@@ -99,7 +108,8 @@ export async function loadSpend(period: { from: Date; to: Date }, level: "campai
     if (!key) continue;
     const cur = r.currency === "UZS" ? "UZS" : "USD";
     const v = toNum(r.spend);
-    const converted = cur === f.currency ? v : cur === "USD" ? v * f.rate : v / f.rate;
+    const rate = ratesOn(f.book, dateColumnKey(r.date)).cost;
+    const converted = cur === f.currency ? v : cur === "USD" ? v * rate : v / rate;
     const s = map.get(key) ?? { spend: 0, impressions: 0, clicks: 0, name: null };
     s.spend += converted;
     s.impressions += r.impressions;

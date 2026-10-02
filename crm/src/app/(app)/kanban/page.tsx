@@ -1,3 +1,4 @@
+import { isRegularClient } from "@/lib/constants";
 import { Suspense } from "react";
 import { PageHeader } from "@/components/layout/page-header";
 import { KanbanBoard, type KanbanCard } from "@/components/kanban/kanban-board";
@@ -39,7 +40,7 @@ export default async function KanbanPage({ searchParams }: { searchParams: Promi
       };
       const [total, leads] = await Promise.all([
         prisma.lead.count({ where }),
-        prisma.lead.findMany({ where, orderBy: { statusChangedAt: "desc" }, take: PER_COLUMN, include: { status: true, manager: { select: { name: true } } } }),
+        prisma.lead.findMany({ where, orderBy: { statusChangedAt: "desc" }, take: PER_COLUMN, include: { status: true, manager: { select: { name: true } }, client: { select: { _count: { select: { deals: true } } } } } }),
       ]);
       return { status: s, total, leads };
     }),
@@ -55,6 +56,7 @@ export default async function KanbanPage({ searchParams }: { searchParams: Promi
       destination: l.destination,
       createdAt: l.createdAt.toISOString(),
       isRepeat: l.isRepeat,
+      isRegular: isRegularClient(l.client._count.deals),
       source: sourceLabel(t, l.source),
       callbackAt: l.status.kind === "CALLBACK" && l.callbackAt ? l.callbackAt.toISOString() : null,
       overdueMin: isOverdueNew(l, settings.unprocessedAlertMin, now) ? Math.round((now.getTime() - l.createdAt.getTime()) / 60000) : null,

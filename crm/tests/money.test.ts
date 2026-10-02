@@ -25,4 +25,10 @@ describe("прибыль и валюты", () => {
     expect(sumDeals(deals, "UZS", 12750)).toEqual({ revenue: 19_125_000, cost: 15_300_000, profit: 3_825_000, count: 2, avgCheck: 9_562_500 });
     expect(sumDeals([], "USD", 12750)).toEqual({ revenue: 0, cost: 0, profit: 0, count: 0, avgCheck: 0 });
   });
+  it("выручка по курсу продажи, себестоимость по курсу покупки", () => {
+    const deals = [{ amount: 1000, cost: 800, currency: "USD" as const }];
+    expect(sumDeals(deals, "UZS", 12_600, 12_750)).toEqual({ revenue: 12_600_000, cost: 10_200_000, profit: 2_400_000, count: 1, avgCheck: 12_600_000 });
+    // сделка в долларах в долларовом отчёте не пересчитывается
+    expect(sumDeals(deals, "USD", 12_600, 12_750)).toMatchObject({ revenue: 1000, cost: 800, profit: 200 });
+  });
 });

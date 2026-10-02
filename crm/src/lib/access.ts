@@ -3,10 +3,11 @@ import type { CurrentUser } from "./session";
 import { prisma } from "./db";
 import { AccessError } from "./session";
 
-/** Фильтр видимости лидов: менеджер видит свои и нераспределённые. */
+/** Фильтр видимости лидов: менеджер видит свои и нераспределённые (кроме созданных администратором). */
 export function leadScope(user: CurrentUser): Prisma.LeadWhereInput {
   if (user.role === "ADMIN") return {};
-  return { OR: [{ managerId: user.id }, { managerId: null }] };
+  // нераспределённые лиды из Meta и от менеджеров видны всем; созданные администратором — только после назначения
+  return { OR: [{ managerId: user.id }, { managerId: null, hiddenFromManagers: false }] };
 }
 
 /** Клиенты менеджера — те, у кого есть его лиды. */
