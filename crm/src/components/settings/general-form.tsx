@@ -34,7 +34,7 @@ export function GeneralForm({ v }: { v: GeneralView }) {
           <CardTitle>{t("general.distribution")}</CardTitle>
         </CardHeader>
         <CardContent>
-          <form action={(fd) => run(() => saveGeneralAction(fd))} className="grid grid-cols-2 gap-4">
+          <form action={(fd) => run(() => saveGeneralAction(fd))} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field
               label={t("general.mode")}
               hint={t("general.modeHint", { n: v.managersCount })}
@@ -47,7 +47,7 @@ export function GeneralForm({ v }: { v: GeneralView }) {
             <Field label={t("general.alert")}>
               <Input name="unprocessedAlertMin" type="number" min={1} defaultValue={v.unprocessedAlertMin} />
             </Field>
-            <div className="col-span-2">
+            <div className="sm:col-span-2">
               <Button type="submit" disabled={pending}>
                 {t("common.save")}
               </Button>
@@ -96,7 +96,7 @@ export function GeneralForm({ v }: { v: GeneralView }) {
             </p>
           </div>
           <div className="mb-2 text-sm font-semibold">{t("general.sourceTitle")}</div>
-          <form action={(fd) => run(() => saveRateAction(fd))} className="grid grid-cols-2 gap-4">
+          <form action={(fd) => run(() => saveRateAction(fd))} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label={t("general.source")}>
               <NativeSelect name="usdRateSource" value={source} onChange={(e) => setSource(e.target.value as "MANUAL" | "IPAK_YULI")}>
                 <option value="IPAK_YULI">{t("general.sourceIpak")}</option>
@@ -111,7 +111,7 @@ export function GeneralForm({ v }: { v: GeneralView }) {
               {source === "MANUAL" && <input type="hidden" name="usdRateSide" value={v.usdRateSide} />}
             </Field>
             <input type="hidden" name="usdRate" value={manualRate} />
-            <div className="col-span-2 flex gap-2">
+            <div className="sm:col-span-2 flex gap-2">
               <Button type="submit" disabled={pending}>
                 {t("common.save")}
               </Button>

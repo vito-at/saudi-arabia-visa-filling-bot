@@ -52,7 +52,7 @@ export function IntegrationForm({ v }: { v: IntegrationView }) {
   return (
     <div className="space-y-6">
       <form action={(fd) => run(() => saveIntegrationAction(fd))} className="space-y-5">
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="App ID">
             <Input name="appId" defaultValue={v.appId} autoComplete="off" data-1p-ignore data-lpignore="true" placeholder="123456789012345" />
           </Field>
@@ -75,7 +75,7 @@ export function IntegrationForm({ v }: { v: IntegrationView }) {
 
         <div className="rounded-lg border p-4">
           <div className="mb-3 text-sm font-semibold">{t("integ.spendTitle")}</div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label={t("integ.adAccount")} hint={t("integ.adAccountHint")}>
               <Input name="adAccountId" defaultValue={v.adAccountId} autoComplete="off" data-1p-ignore data-lpignore="true" placeholder="act_1234567890" />
             </Field>
@@ -92,7 +92,7 @@ export function IntegrationForm({ v }: { v: IntegrationView }) {
 
         <div className="rounded-lg border p-4">
           <div className="mb-3 text-sm font-semibold">{t("integ.webhookTitle")}</div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Callback URL">
               <div className="flex gap-2">
                 <Input readOnly value={v.webhookUrl} />
@@ -115,7 +115,7 @@ export function IntegrationForm({ v }: { v: IntegrationView }) {
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" name="enabled" defaultChecked={v.enabled} /> {t("integ.enabled")}
         </label>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button type="submit" disabled={pending}>
             <CheckCircle2 /> {t("common.save")}
           </Button>

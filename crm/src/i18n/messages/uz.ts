@@ -19,6 +19,7 @@ export const uz: Messages = {
   callback: {
     at: "Qayta qo‘ng‘iroq: {date}",
     callIn: "Qo‘ng‘iroq {when}",
+    collapse: "Yig‘ish",
     dateTime: "Qo‘ng‘iroq sanasi va vaqti (Toshkent)",
     dialogDescription: "Qo‘ng‘iroqdan 10 daqiqa oldin menejer teskari sanoqli eslatma oladi",
     dialogTitle: "Qachon qayta qo‘ng‘iroq qilish kerak?",
@@ -33,6 +34,7 @@ export const uz: Messages = {
     more: "yana {n} ta — «Lidlar» bo‘limiga qarang",
     pickFuture: "Kelajakdagi vaqtni tanlang",
     region: "Qo‘ng‘iroq eslatmalari",
+    showAll: "Hammasini ko‘rsatish ({n})",
     snooze: "+10 daq",
     snoozeTitle: "Qo‘ng‘iroqni 10 daqiqaga surish",
     snoozed: "«{name}»: qo‘ng‘iroq 10 daqiqaga surildi",
@@ -510,6 +512,7 @@ export const uz: Messages = {
     language: "Til",
     leads: "Lidlar",
     logout: "Chiqish",
+    menu: "Menyu",
     night: "Tun",
     reports: "Hisobotlar",
     settings: "Sozlamalar",

@@ -19,6 +19,7 @@ export const en: Messages = {
   callback: {
     at: "Call back {date}",
     callIn: "Call {when}",
+    collapse: "Collapse",
     dateTime: "Call date & time (Tashkent)",
     dialogDescription: "10 minutes before the call the manager gets a countdown reminder",
     dialogTitle: "When to call back?",
@@ -33,6 +34,7 @@ export const en: Messages = {
     more: "and {n} more — see Leads",
     pickFuture: "Pick a time in the future",
     region: "Call reminders",
+    showAll: "Show all ({n})",
     snooze: "+10 min",
     snoozeTitle: "Snooze the call for 10 minutes",
     snoozed: "“{name}”: call snoozed for 10 minutes",
@@ -510,6 +512,7 @@ export const en: Messages = {
     language: "Language",
     leads: "Leads",
     logout: "Log out",
+    menu: "Menu",
     night: "Night",
     reports: "Reports",
     settings: "Settings",

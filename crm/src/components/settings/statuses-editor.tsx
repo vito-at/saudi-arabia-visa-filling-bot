@@ -31,7 +31,7 @@ function Row({ s, all, first, last }: { s: StatusView; all: StatusView[]; first:
   const [askDelete, setAskDelete] = useState(false);
   return (
     <div className="rounded-lg border bg-card p-3">
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap">
         <div className="flex flex-col">
           <button className="text-muted-foreground hover:text-foreground disabled:opacity-30 cursor-pointer" disabled={first || pending} onClick={() => run(() => moveStatusAction(s.id, -1))} title={t("editor.up")}>
             <ArrowUp className="size-3.5" />
@@ -41,8 +41,8 @@ function Row({ s, all, first, last }: { s: StatusView; all: StatusView[]; first:
           </button>
         </div>
         <input type="color" value={color} onChange={(e) => setColor(e.target.value)} className="h-9 w-10 cursor-pointer rounded border bg-card p-1" aria-label={t("editor.color")} />
-        <Input value={name} onChange={(e) => setName(e.target.value)} className="flex-1" />
-        <NativeSelect value={kind} onChange={(e) => setKind(e.target.value as Kind)} disabled={s.isSystem} className="w-48">
+        <Input value={name} onChange={(e) => setName(e.target.value)} className="min-w-0 flex-1" />
+        <NativeSelect value={kind} onChange={(e) => setKind(e.target.value as Kind)} disabled={s.isSystem} className="w-full sm:w-48">
           {(["NEW", "IN_PROGRESS", "CALLBACK", "WON", "LOST", "OTHER"] as Kind[])
             .filter((k) => s.isSystem || !SPECIAL_STATUS_KINDS.includes(k))
             .map((k) => (
@@ -51,7 +51,7 @@ function Row({ s, all, first, last }: { s: StatusView; all: StatusView[]; first:
               </option>
             ))}
         </NativeSelect>
-        <span className="w-20 text-right text-xs text-muted-foreground">{t("editor.leadsCount", { n: s.leads })}</span>
+        <span className="text-xs text-muted-foreground sm:w-20 sm:text-right">{t("editor.leadsCount", { n: s.leads })}</span>
         <Button size="sm" disabled={!dirty || pending} onClick={() => run(() => saveStatusAction({ id: s.id, name, color, kind }), t("editor.statusSaved"))}>
           {t("common.save")}
         </Button>
@@ -66,9 +66,9 @@ function Row({ s, all, first, last }: { s: StatusView; all: StatusView[]; first:
         )}
       </div>
       {askDelete && (
-        <div className="mt-2 flex items-center gap-2 pl-8 text-sm">
+        <div className="mt-2 flex flex-wrap items-center gap-2 text-sm sm:pl-8">
           <span>{t("editor.moveLeads", { n: s.leads })}</span>
-          <NativeSelect className="w-60" value={moveTo} onChange={(e) => setMoveTo(e.target.value)}>
+          <NativeSelect className="w-full sm:w-60" value={moveTo} onChange={(e) => setMoveTo(e.target.value)}>
             <option value="">{t("editor.chooseStatus")}</option>
             {all
               .filter((o) => o.id !== s.id && o.kind !== "WON" && o.kind !== "LOST")
@@ -99,7 +99,7 @@ export function StatusesEditor({ statuses }: { statuses: StatusView[] }) {
       ))}
       <div className="flex items-center gap-2 rounded-lg border border-dashed p-3">
         <input type="color" value={color} onChange={(e) => setColor(e.target.value)} className="h-9 w-10 cursor-pointer rounded border bg-card p-1" aria-label={t("editor.color")} />
-        <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={t("editor.newStatusPh")} className="flex-1" />
+        <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={t("editor.newStatusPh")} className="min-w-0 flex-1" />
         <Button disabled={!name.trim() || pending} onClick={() => run(() => saveStatusAction({ name, color, kind: "OTHER" }), t("editor.statusAdded"), () => setName(""))}>
           <Plus /> {t("common.add")}
         </Button>

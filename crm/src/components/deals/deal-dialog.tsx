@@ -49,8 +49,8 @@ export function DealDialog({ open, onOpenChange, leadId, wonStatusId, rate, deal
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent title={deal ? t("deal.editTitle") : t("deal.title")} description={wonStatusId ? t("deal.wonHint") : undefined}>
-        <form onSubmit={submit} className="grid grid-cols-2 gap-4">
-          <Field label={t("deal.product")} className="col-span-2">
+        <form onSubmit={submit} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Field label={t("deal.product")} className="sm:col-span-2">
             <Textarea rows={2} value={form.product} onChange={set("product")} placeholder={t("deal.productPh")} required />
           </Field>
           <Field label={t("deal.amount")}>
@@ -68,7 +68,7 @@ export function DealDialog({ open, onOpenChange, leadId, wonStatusId, rate, deal
           <Field label={t("deal.paidAt")}>
             <Input type="date" value={form.paidAt} onChange={set("paidAt")} required />
           </Field>
-          <div className="col-span-2 rounded-lg bg-slate-50 p-3 text-sm">
+          <div className="sm:col-span-2 rounded-lg bg-slate-50 p-3 text-sm">
             <div className="flex justify-between">
               <span className="text-muted-foreground">{t("deal.profit")}</span>
               <b className={profit < 0 ? "text-red-600" : "text-emerald-700"}>{f.money(profit, form.currency)}</b>
@@ -80,7 +80,7 @@ export function DealDialog({ open, onOpenChange, leadId, wonStatusId, rate, deal
               </div>
             )}
           </div>
-          <div className="col-span-2 flex justify-end gap-2">
+          <div className="sm:col-span-2 flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               {t("common.cancel")}
             </Button>

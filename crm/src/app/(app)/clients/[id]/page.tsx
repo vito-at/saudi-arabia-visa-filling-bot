@@ -62,7 +62,7 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
           <span>{t("client.since", { date: formatDate(client.createdAt) })}</span>
         </div>
       </div>
-      <div className="grid grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5 lg:gap-4">
         <Stat label={t("client.leads")} value={String(leads.length)} />
         <Stat label={t("client.deals")} value={String(usd.count)} />
         <Stat label={t("client.revenue")} value={f.money(usd.revenue, "USD")} />

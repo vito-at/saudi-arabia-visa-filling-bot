@@ -27,7 +27,7 @@ export interface LeadDetails {
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="grid grid-cols-[160px_1fr] gap-3 py-1.5 text-sm">
+    <div className="grid grid-cols-1 gap-1 py-1.5 text-sm sm:grid-cols-[160px_1fr] sm:gap-3">
       <span className="text-muted-foreground">{label}</span>
       <span>{children || <span className="text-muted-foreground">—</span>}</span>
     </div>
@@ -70,7 +70,7 @@ export function LeadDetailsForm({ lead }: { lead: LeadDetails }) {
           setEdit(false);
         })
       }
-      className="grid grid-cols-2 gap-3"
+      className="grid grid-cols-1 gap-3 sm:grid-cols-2"
     >
       <Field label={t("lead.field.name")}>
         <Input name="name" defaultValue={lead.name} required />
@@ -103,7 +103,7 @@ export function LeadDetailsForm({ lead }: { lead: LeadDetails }) {
       <Field label={t("lead.field.travelTo")}>
         <Input name="travelTo" type="date" defaultValue={lead.travelTo} />
       </Field>
-      <div className="col-span-2 flex justify-end gap-2">
+      <div className="sm:col-span-2 flex justify-end gap-2">
         <Button type="button" variant="outline" onClick={() => setEdit(false)}>
           {t("common.cancel")}
         </Button>

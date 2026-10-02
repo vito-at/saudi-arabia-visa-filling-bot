@@ -18,17 +18,18 @@ export function KanbanFilters({ managers }: { managers: { id: string; name: stri
     router.push(`${pathname}?${next.toString()}`);
   };
   return (
-    <div className="flex gap-2">
+    <div className="flex w-full flex-wrap gap-2 sm:w-auto">
       <form
+        className="w-full sm:w-auto"
         onSubmit={(e) => {
           e.preventDefault();
           push("q", q);
         }}
       >
-        <Input className="w-64" placeholder={t("leads.search")} value={q} onChange={(e) => setQ(e.target.value)} />
+        <Input className="w-full sm:w-64" placeholder={t("leads.search")} value={q} onChange={(e) => setQ(e.target.value)} />
       </form>
       {managers && (
-        <NativeSelect className="w-52" value={params.get("manager") ?? ""} onChange={(e) => push("manager", e.target.value)}>
+        <NativeSelect className="w-full sm:w-52" value={params.get("manager") ?? ""} onChange={(e) => push("manager", e.target.value)}>
           <option value="">{t("common.allManagers")}</option>
           <option value="none">{t("common.notAssignedOption")}</option>
           {managers.map((m) => (

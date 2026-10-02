@@ -17,6 +17,7 @@ export const ru = {
   callback: {
     at: "Перезвонить {date}",
     callIn: "Звонок {when}",
+    collapse: "Свернуть",
     dateTime: "Дата и время звонка (Ташкент)",
     dialogDescription: "За 10 минут до звонка менеджер получит напоминание с обратным отсчётом",
     dialogTitle: "Когда перезвонить?",
@@ -31,6 +32,7 @@ export const ru = {
     more: "и ещё {n} — см. раздел «Лиды»",
     pickFuture: "Выберите время в будущем",
     region: "Напоминания о звонках",
+    showAll: "Показать все ({n})",
     snooze: "+10 мин",
     snoozeTitle: "Отложить звонок на 10 минут",
     snoozed: "«{name}»: звонок отложен на 10 минут",
@@ -508,6 +510,7 @@ export const ru = {
     language: "Язык",
     leads: "Лиды",
     logout: "Выйти",
+    menu: "Меню",
     night: "Ночь",
     reports: "Отчёты",
     settings: "Настройки",

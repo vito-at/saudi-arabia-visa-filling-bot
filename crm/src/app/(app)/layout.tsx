@@ -33,9 +33,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   return (
     <div className="min-h-screen">
       <Sidebar user={user} counters={{ leads: newLeads, tasks }} logout={logout} />
-      <main className="pl-60">
+      <main className="lg:pl-60">
         {tokenProblem && (
-          <div className="flex items-center gap-3 border-b border-red-200 bg-red-50 px-8 py-3 text-sm text-red-800">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 lg:px-8">
             <AlertTriangle className="size-5 shrink-0" />
             <div className="flex-1">
               <b>{t("banner.metaDown")}</b> {t("banner.metaDownText")}
@@ -50,7 +50,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             )}
           </div>
         )}
-        <div className="mx-auto max-w-[1600px] px-8 py-6">{children}</div>
+        <div className="mx-auto max-w-[1600px] px-3 py-4 sm:px-4 lg:px-8 lg:py-6">{children}</div>
       </main>
       <CallbackReminders />
       {rateStale && settings && (

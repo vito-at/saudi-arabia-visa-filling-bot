@@ -31,7 +31,7 @@ export function ReportFilters({ managers, exportHref, defaultPeriod = "30d" }: {
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <div className="flex rounded-lg bg-slate-200/60 p-1 text-sm">
+      <div className="no-scrollbar flex max-w-full overflow-x-auto rounded-lg bg-slate-200/60 p-1 text-sm">
         {PERIODS.map((p) => (
           <button
             key={p}
@@ -44,7 +44,7 @@ export function ReportFilters({ managers, exportHref, defaultPeriod = "30d" }: {
       </div>
       {period === "custom" && <PeriodRange from={params.get("from") ?? ""} to={params.get("to") ?? ""} onApply={(from, to) => set({ period: "custom", from, to })} />}
       {managers && (
-        <NativeSelect className="w-52" value={params.get("manager") ?? ""} onChange={(e) => set({ manager: e.target.value })}>
+        <NativeSelect className="w-full sm:w-52" value={params.get("manager") ?? ""} onChange={(e) => set({ manager: e.target.value })}>
           <option value="">{t("common.allManagers")}</option>
           <option value="none">{t("common.notAssignedOption")}</option>
           {managers.map((m) => (

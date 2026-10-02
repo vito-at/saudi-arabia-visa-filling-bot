@@ -42,7 +42,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   return (
     <div className="max-w-5xl">
       <PageHeader title={t("settings.title")} />
-      <div className="mb-5 flex gap-1 border-b">
+      <div className="no-scrollbar -mx-3 mb-5 flex gap-1 overflow-x-auto whitespace-nowrap border-b px-3 sm:mx-0 sm:px-0">
         {(Object.keys(TABS) as Tab[]).map((k) => (
           <Link
             key={k}

@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { BarChart3, CheckSquare, Columns3, LayoutDashboard, LogOut, Settings, Users, Inbox } from "lucide-react";
+import { BarChart3, CheckSquare, Columns3, LayoutDashboard, LogOut, Menu, Settings, Users, Inbox, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "./logo";
 import { ThemeToggle } from "./theme-toggle";
@@ -20,19 +21,68 @@ const NAV = [
   { href: "/settings", label: "nav.settings", icon: Settings, badge: null, admin: true },
 ] as const;
 
-export function Sidebar({
-  user,
-  counters,
-  logout,
-}: {
+type SidebarProps = {
   user: { name: string; role: "ADMIN" | "MANAGER" };
   counters: { leads: number; tasks: number };
   logout: () => Promise<void>;
-}) {
+};
+
+/** Боковое меню: на компьютере закреплено слева, на телефоне — верхняя панель и выезжающее меню */
+export function Sidebar(props: SidebarProps) {
+  const pathname = usePathname();
+  const { t } = useI18n();
+  const [open, setOpen] = useState(false);
+  // меню закрывается при переходе на другую страницу
+  useEffect(() => setOpen(false), [pathname]);
+  useEffect(() => {
+    document.body.style.overflow = open ? "hidden" : "";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [open]);
+  const total = props.counters.leads;
+
+  return (
+    <>
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground lg:flex">
+        <SidebarContent {...props} />
+      </aside>
+
+      <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-sidebar-border bg-sidebar px-3 lg:hidden">
+        <button type="button" onClick={() => setOpen(true)} aria-label={t("nav.menu")} className="relative rounded-md p-2 text-foreground hover:bg-sidebar-hover cursor-pointer">
+          <Menu className="size-5" />
+          {total > 0 && <span className="absolute right-0.5 top-0.5 size-2.5 rounded-full bg-brand ring-2 ring-sidebar" />}
+        </button>
+        <Link href="/" aria-label={t("common.home")}>
+          <Logo className="h-7" />
+        </Link>
+        {total > 0 && (
+          <Link href="/leads" className="ml-auto rounded-full bg-brand px-2.5 py-0.5 text-xs font-semibold text-white">
+            {t("nav.leads")} · {total}
+          </Link>
+        )}
+      </header>
+
+      {open && (
+        <div className="fixed inset-0 z-50 lg:hidden" role="dialog" aria-modal="true">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setOpen(false)} />
+          <aside className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col overflow-y-auto border-r border-sidebar-border bg-sidebar text-sidebar-foreground shadow-xl">
+            <button type="button" onClick={() => setOpen(false)} aria-label={t("common.close")} className="absolute right-2 top-3 rounded-md p-2 text-sidebar-muted hover:bg-sidebar-hover cursor-pointer">
+              <X className="size-5" />
+            </button>
+            <SidebarContent {...props} />
+          </aside>
+        </div>
+      )}
+    </>
+  );
+}
+
+function SidebarContent({ user, counters, logout }: SidebarProps) {
   const pathname = usePathname();
   const { t } = useI18n();
   return (
-    <aside className="fixed inset-y-0 left-0 z-30 flex w-60 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
+    <>
       <Link href="/" className="block px-5 pb-4 pt-5" aria-label={t("common.home")}>
         <Logo className="h-10" />
         <div className="mt-1.5 pl-0.5 text-[11px] uppercase tracking-wider text-sidebar-muted">{t("nav.tagline")}</div>
@@ -47,7 +97,7 @@ export function Sidebar({
               key={item.href}
               href={item.href}
               className={cn(
-                "relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
+                "relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors lg:py-2",
                 active ? "bg-sidebar-active font-medium text-sidebar-active-foreground" : "hover:bg-sidebar-hover hover:text-foreground",
               )}
             >
@@ -77,6 +127,6 @@ export function Sidebar({
           </form>
         </div>
       </div>
-    </aside>
+    </>
   );
 }

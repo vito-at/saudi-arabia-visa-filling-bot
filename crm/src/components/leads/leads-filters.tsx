@@ -54,7 +54,7 @@ export function LeadsFilters({
   const hasFilters = ["q", "status", "manager", "source", "campaign", "form", "period", "repeat"].some((k) => params.get(k));
 
   const sel = (key: string, label: string, options: Opt[], extra?: Opt[]) => (
-    <NativeSelect className="w-auto min-w-36 max-w-52" value={params.get(key) ?? ""} onChange={(e) => update({ [key]: e.target.value || null })}>
+    <NativeSelect className="w-[calc(50%-0.25rem)] sm:w-auto sm:min-w-36 sm:max-w-52" value={params.get(key) ?? ""} onChange={(e) => update({ [key]: e.target.value || null })}>
       <option value="">{label}</option>
       {extra?.map((o) => (
         <option key={o.id} value={o.id}>
@@ -71,7 +71,7 @@ export function LeadsFilters({
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <div className="relative w-72">
+      <div className="relative w-full sm:w-72">
         <Search className="pointer-events-none absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
         <Input className="pl-8" placeholder={t("leads.search")} value={q} onChange={(e) => setQ(e.target.value)} />
       </div>
@@ -80,7 +80,7 @@ export function LeadsFilters({
       {sel("source", t("leads.allSources"), sources)}
       {campaigns.length > 0 && sel("campaign", t("leads.allCampaigns"), campaigns)}
       {forms.length > 0 && sel("form", t("leads.allForms"), forms)}
-      <NativeSelect className="w-auto" value={period} onChange={(e) => update({ period: e.target.value || null, from: null, to: null })}>
+      <NativeSelect className="w-[calc(50%-0.25rem)] sm:w-auto" value={period} onChange={(e) => update({ period: e.target.value || null, from: null, to: null })}>
         <option value="">{t("period.allTime")}</option>
         {(["today", "yesterday", "7d", "30d", "custom"] as const).map((k) => (
           <option key={k} value={k}>

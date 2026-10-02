@@ -128,10 +128,17 @@
   body {
     @apply bg-background text-foreground antialiased;
     font-feature-settings: "tnum" 1;
-    min-width: 1280px;
   }
   input[type="date"],
   input[type="datetime-local"] {
     color-scheme: inherit;
+  }
+}
+
+/* горизонтальная прокрутка вкладок на телефоне без полосы прокрутки */
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
   }
 }

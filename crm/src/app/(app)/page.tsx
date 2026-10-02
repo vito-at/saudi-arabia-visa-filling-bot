@@ -51,7 +51,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       <Suspense>
         <ReportFilters managers={managers?.map((m) => ({ id: m.id, name: m.name })) ?? null} exportHref="/api/reports/export?tab=dashboard" />
       </Suspense>
-      <div className="grid grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:gap-4 xl:grid-cols-6">
         <KpiTile label={t("dashboard.leads")} value={formatNumber(d.cur.leads)} delta={d.deltas.leads} prev={formatNumber(d.was.leads)} />
         <KpiTile label={t("dashboard.sales")} value={formatNumber(d.cur.sales)} delta={d.deltas.sales} prev={formatNumber(d.was.sales)} />
         <KpiTile label={t("dashboard.conversion")} value={formatPercent(d.cur.conversion)} delta={d.deltas.conversion} prev={formatPercent(d.was.conversion)} />
@@ -59,7 +59,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         <KpiTile label={t("dashboard.profit")} value={formatMoney(d.cur.profit, cur)} delta={d.deltas.profit} prev={formatMoney(d.was.profit, cur)} />
         <KpiTile label={t("dashboard.avgCheck")} value={formatMoney(d.cur.avgCheck, cur)} delta={d.deltas.avgCheck} prev={formatMoney(d.was.avgCheck, cur)} />
       </div>
-      <div className="grid grid-cols-2 gap-5">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle>{t(d.bucket === 7 ? "dashboard.leadsByWeek" : "dashboard.leadsByDay")}</CardTitle>
@@ -77,7 +77,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           </CardContent>
         </Card>
       </div>
-      <div className="grid grid-cols-2 gap-5">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle>{t("dashboard.tasksToday")}</CardTitle>

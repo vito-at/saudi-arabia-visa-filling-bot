@@ -21,15 +21,15 @@ export function PeriodRange({ from, to, onApply }: { from: string; to: string; o
 
   return (
     <form
-      className="flex items-center gap-2"
+      className="flex w-full items-center gap-2 sm:w-auto"
       onSubmit={(e) => {
         e.preventDefault();
         if (valid) onApply(f, tt);
       }}
     >
-      <Input type="date" className="w-40" value={f} max={tt || undefined} onChange={(e) => setF(e.target.value)} aria-label={t("period.from")} />
+      <Input type="date" className="min-w-0 flex-1 sm:w-40 sm:flex-none" value={f} max={tt || undefined} onChange={(e) => setF(e.target.value)} aria-label={t("period.from")} />
       <span className="text-muted-foreground">—</span>
-      <Input type="date" className="w-40" value={tt} min={f || undefined} onChange={(e) => setT(e.target.value)} aria-label={t("period.to")} />
+      <Input type="date" className="min-w-0 flex-1 sm:w-40 sm:flex-none" value={tt} min={f || undefined} onChange={(e) => setT(e.target.value)} aria-label={t("period.to")} />
       <Button type="submit" size="sm" variant={changed ? "default" : "outline"} disabled={!valid}>
         <Search /> {t("period.show")}
       </Button>

@@ -12,7 +12,7 @@ export function SearchBox({ placeholder }: { placeholder: string }) {
   const [q, setQ] = useState(params.get("q") ?? "");
   return (
     <form
-      className="relative w-72"
+      className="relative w-full sm:w-72"
       onSubmit={(e) => {
         e.preventDefault();
         const next = new URLSearchParams(params.toString());

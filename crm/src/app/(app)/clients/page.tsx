@@ -59,7 +59,7 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
         }
       />
       <Card>
-        <div className="flex gap-1 border-b px-4 py-2 text-sm">
+        <div className="no-scrollbar flex gap-1 overflow-x-auto whitespace-nowrap border-b px-4 py-2 text-sm">
           <span className="py-1 pr-2 text-muted-foreground">{t("clients.sortBy")}</span>
           {Object.entries(SORTS).map(([k, v]) => (
             <Link key={k} href={sortHref(k)} className={cn("rounded-md px-2 py-1", sort === k ? "bg-primary text-white" : "hover:bg-accent")}>

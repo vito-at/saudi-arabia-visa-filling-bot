@@ -69,7 +69,7 @@ export function CallbackReminders() {
   if (!visible.length) return null;
 
   return (
-    <div className="fixed bottom-5 right-5 z-40 w-[380px] space-y-2" role="region" aria-label={t("callback.region")}>
+    <div className="fixed inset-x-3 bottom-3 z-40 space-y-2 sm:inset-x-auto sm:bottom-5 sm:right-5 sm:w-[380px]" role="region" aria-label={t("callback.region")}>
       <button
         onClick={() => setCollapsed(!collapsed)}
         className="ml-auto flex items-center gap-2 rounded-full bg-brand px-3 py-1.5 text-xs font-semibold text-white shadow-lg cursor-pointer"

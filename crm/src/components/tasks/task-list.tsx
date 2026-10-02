@@ -94,9 +94,9 @@ export function NewTaskForm({ leadId, assignees }: { leadId?: string; assignees?
       }}
     >
       <Input className="min-w-48 flex-1" value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t("tasks.whatToDo")} />
-      <Input className="w-52" type="datetime-local" value={dueAt} onChange={(e) => setDueAt(e.target.value)} />
+      <Input className="w-full sm:w-52" type="datetime-local" value={dueAt} onChange={(e) => setDueAt(e.target.value)} />
       {assignees && (
-        <NativeSelect className="w-44" value={assigneeId} onChange={(e) => setAssigneeId(e.target.value)}>
+        <NativeSelect className="w-full sm:w-44" value={assigneeId} onChange={(e) => setAssigneeId(e.target.value)}>
           <option value="">{leadId ? t("tasks.leadOwner") : t("tasks.toMe")}</option>
           {assignees.map((a) => (
             <option key={a.id} value={a.id}>
