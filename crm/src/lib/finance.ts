@@ -1,6 +1,6 @@
 import type { Currency, LeadSource } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { convert, round2, toNum } from "@/lib/money";
+import { convertCost, convertRevenue, round2, toNum } from "@/lib/money";
 import type { ReportFilters } from "@/lib/reports/data";
 import { dateColumnRange } from "@/lib/period";
 import { dateColumnKey, ratesOn, resolveRates, type RateBook } from "@/lib/rate-book";
@@ -75,10 +75,10 @@ export function groupDealsByLead(
 ): FinanceLead[] {
   const map = new Map<string, FinanceLead>();
   for (const d of deals) {
-    // курсы дня оплаты: выручка по курсу продажи, себестоимость по курсу покупки
+    // курсы дня оплаты: выручка по минимуму, себестоимость по максимуму
     const r = resolveRates(rates, costRate, d.paidAt);
-    const revenue = convert(d.amount, d.currency, to, r.sale);
-    const cost = convert(d.cost, d.currency, to, r.cost);
+    const revenue = convertRevenue(d.amount, d.currency, to, r);
+    const cost = convertCost(d.cost, d.currency, to, r);
     const row =
       map.get(d.lead.id) ??
       ({
@@ -180,7 +180,7 @@ export async function loadAdSpendTotal(f: ReportFilters): Promise<number | null>
     where: { date: dateColumnRange(f.period) },
     _sum: { spend: true },
   });
-  return round2(rows.reduce((s, r) => s + convert(toNum(r._sum.spend), r.currency === "UZS" ? "UZS" : "USD", f.currency, ratesOn(f.book, dateColumnKey(r.date)).cost), 0));
+  return round2(rows.reduce((s, r) => s + convertCost(toNum(r._sum.spend), r.currency === "UZS" ? "UZS" : "USD", f.currency, ratesOn(f.book, dateColumnKey(r.date))), 0));
 }
 
 export interface ExpenseRow {
@@ -207,7 +207,7 @@ export async function loadExpenses(f: ReportFilters): Promise<ExpenseRow[]> {
     category: e.category,
     amount: toNum(e.amount),
     currency: e.currency,
-    converted: convert(e.amount, e.currency, f.currency, ratesOn(f.book, dateColumnKey(e.date)).cost),
+    converted: convertCost(e.amount, e.currency, f.currency, ratesOn(f.book, dateColumnKey(e.date))),
     note: e.note,
     ownerDraw: e.ownerDraw,
     createdBy: e.createdBy?.name ?? null,

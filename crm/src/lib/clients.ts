@@ -34,7 +34,7 @@ export interface ClientAggOptions {
 /**
  * Клиенты с количеством сделок, выручкой и прибылью.
  * Суммы пересчитываются в выбранную валюту по курсам дня оплаты сделки (история ExchangeRate):
- * выручка по курсу продажи $, себестоимость по курсу покупки $. SQL-агрегация, чтобы сортировать по выручке.
+ * выручка по минимуму, себестоимость по максимуму — прибыль не завышается. SQL-агрегация, чтобы сортировать по выручке.
  * До начала истории действует самый ранний сохранённый курс, без истории — текущий из настроек.
  */
 export async function getClientAggregates(o: ClientAggOptions): Promise<{ rows: ClientAggRow[]; total: number }> {
@@ -60,12 +60,19 @@ export async function getClientAggregates(o: ClientAggOptions): Promise<{ rows: 
     lastDeal: Prisma.sql`"lastDealAt" DESC NULLS LAST`,
   }[o.sort ?? "revenue"];
 
+  // курсы дня оплаты (продажа и покупка $); выручка — по минимуму, себестоимость — по максимуму (как convertRevenue/convertCost)
+  const sale = Prisma.sql`COALESCE(rr.sale, r0.sale, ${new Prisma.Decimal(o.usdRate || 1)})`;
+  const cost = Prisma.sql`COALESCE(rr.cost, r0.cost, ${new Prisma.Decimal((o.usdRateCost ?? o.usdRate) || 1)})`;
+  const lo = Prisma.sql`LEAST(${sale}, ${cost})`;
+  const hi = Prisma.sql`GREATEST(${sale}, ${cost})`;
   const conv = (col: "amount" | "cost") => {
-    const rc = Prisma.raw(col === "amount" ? "sale" : "cost");
-    const fallback = new Prisma.Decimal((col === "amount" ? o.usdRate : o.usdRateCost ?? o.usdRate) || 1);
-    const rate = Prisma.sql`COALESCE(rr.${rc}, r0.${rc}, ${fallback})`;
     const v = Prisma.sql`d.${Prisma.raw(`"${col}"`)}`;
-    const converted = o.currency === "UZS" ? Prisma.sql`CASE WHEN d.currency = 'USD' THEN ${v} * ${rate} ELSE ${v} END` : Prisma.sql`CASE WHEN d.currency = 'UZS' THEN ${v} / ${rate} ELSE ${v} END`;
+    const revenue = col === "amount";
+    // сумы → доллары делим, доллары → сумы умножаем; выбираем курс, при котором выручка меньше, а расход больше
+    const converted =
+      o.currency === "UZS"
+        ? Prisma.sql`CASE WHEN d.currency = 'USD' THEN ${v} * ${revenue ? lo : hi} ELSE ${v} END`
+        : Prisma.sql`CASE WHEN d.currency = 'UZS' THEN ${v} / ${revenue ? hi : lo} ELSE ${v} END`;
     return Prisma.sql`COALESCE(SUM(${converted}), 0)`;
   };
 

@@ -342,7 +342,7 @@ export const en: Messages = {
     modeAuto: "Automatic round-robin",
     modeHint: "Automatic — active managers receive new leads in turn (currently {n}). Repeat inquiries go to the previous manager.",
     modeManual: "Manual (admin assigns / managers take leads themselves)",
-    rateExplain: "Revenue is converted at the $ sell rate, while costs, ads and company expenses use the $ buy rate (the higher one), so profit isn’t overstated. Rates are stored per day: each transaction uses its own day’s rate, so a new rate doesn’t change past reports.",
+    rateExplain: "Profit is calculated conservatively so it’s never overstated: revenue uses whichever of the two rates gives the smaller amount, while costs, ads and company expenses use the one that gives the larger amount. Dollars to sum: revenue at the $ sell rate, costs at the $ buy rate; sum to dollars — the other way round. Rates are stored per day: each transaction uses its own day’s rate, so a new rate doesn’t change past reports.",
     rateSale: "$ sell rate — revenue",
     rateSaleHint: "bank buys $",
     rateCost: "$ buy rate — costs",

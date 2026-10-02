@@ -7,7 +7,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Field, Input, NativeSelect, Textarea } from "@/components/ui/input";
 import { toInputDate } from "@/lib/format";
 import { useI18n } from "@/i18n/client";
-import { calcProfit, convert } from "@/lib/money";
+import { calcProfit, convertCost, convertRevenue } from "@/lib/money";
 import { createDealAction, updateDealAction, type DealInput } from "@/app/(app)/deals/actions";
 import { useCostRate, useIsAdmin } from "@/components/layout/role-context";
 
@@ -39,8 +39,8 @@ export function DealDialog({ open, onOpenChange, leadId, wonStatusId, rate, deal
 
   const profit = calcProfit(parse(form.amount), parse(form.cost));
   const other = form.currency === "USD" ? "UZS" : "USD";
-  // прибыль в другой валюте: выручка по курсу продажи, себестоимость по курсу покупки
-  const profitOther = rate > 0 ? convert(parse(form.amount), form.currency, other, rate) - convert(parse(form.cost), form.currency, other, costRate) : 0;
+  // прибыль в другой валюте: выручка по минимуму, себестоимость по максимуму
+  const profitOther = rate > 0 ? convertRevenue(parse(form.amount), form.currency, other, { sale: rate, cost: costRate }) - convertCost(parse(form.cost), form.currency, other, { sale: rate, cost: costRate }) : 0;
 
   function submit(e: React.FormEvent) {
     e.preventDefault();

@@ -342,7 +342,7 @@ export const uz: Messages = {
     modeAuto: "Avtomatik navbat bilan (round-robin)",
     modeHint: "Avtomatik — yangi lidlarni faol menejerlar navbat bilan oladi (hozir {n}). Takroriy murojaatlar avvalgi menejerga o‘tadi.",
     modeManual: "Qo‘lda (administrator biriktiradi / menejerlar o‘zlari oladi)",
-    rateExplain: "Tushum $ sotish kursi bo‘yicha, tannarx, reklama va kompaniya xarajatlari esa $ sotib olish kursi (qimmatroq) bo‘yicha qayta hisoblanadi — foyda oshirib ko‘rsatilmaydi. Kurslar kunlar bo‘yicha saqlanadi: har bir operatsiya o‘z kunidagi kurs bo‘yicha hisoblanadi, shuning uchun yangi kurs o‘tgan sanalar hisobotlarini o‘zgartirmaydi.",
+    rateExplain: "Foyda oshirib ko‘rsatilmasligi uchun minimal hisoblanadi: tushum ikki kursdan qaysi biri bilan kamroq chiqsa, o‘sha bilan, tannarx, reklama va kompaniya xarajatlari esa qaysi biri bilan ko‘proq chiqsa, o‘sha bilan qayta hisoblanadi. Dollardan so‘mga: tushum $ sotish kursi, xarajatlar $ sotib olish kursi bo‘yicha; so‘mdan dollarga — aksincha. Kurslar kunlar bo‘yicha saqlanadi: har bir operatsiya o‘z kunidagi kurs bo‘yicha hisoblanadi, shuning uchun yangi kurs o‘tgan sanalar hisobotlarini o‘zgartirmaydi.",
     rateSale: "$ sotish kursi — tushum",
     rateSaleHint: "bank $ sotib oladi",
     rateCost: "$ sotib olish kursi — xarajatlar",

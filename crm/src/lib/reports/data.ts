@@ -1,6 +1,6 @@
 import type { Currency, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { toNum } from "@/lib/money";
+import { convertCost, toNum } from "@/lib/money";
 import { dateColumnRange, previousPeriod, resolvePeriod, type Period } from "@/lib/period";
 import { getSettings } from "@/lib/refs";
 import { loadRateBook } from "@/lib/rate-history";
@@ -108,8 +108,7 @@ export async function loadSpend(period: { from: Date; to: Date }, level: "campai
     if (!key) continue;
     const cur = r.currency === "UZS" ? "UZS" : "USD";
     const v = toNum(r.spend);
-    const rate = ratesOn(f.book, dateColumnKey(r.date)).cost;
-    const converted = cur === f.currency ? v : cur === "USD" ? v * rate : v / rate;
+    const converted = convertCost(v, cur, f.currency, ratesOn(f.book, dateColumnKey(r.date)));
     const s = map.get(key) ?? { spend: 0, impressions: 0, clicks: 0, name: null };
     s.spend += converted;
     s.impressions += r.impressions;

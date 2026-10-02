@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ratesOn, type RateBook } from "@/lib/rate-book";
-import { sumDeals } from "@/lib/money";
+import { convertCost, convertRevenue, sumDeals } from "@/lib/money";
 import { groupDealsByLead } from "@/lib/finance";
 import { dealProfit, dealRevenue } from "@/lib/reports/calc";
 
@@ -48,5 +48,27 @@ describe("история курсов", () => {
     const m = { currency: "UZS" as const, rate: 13_000, book };
     expect(dealRevenue(d, m)).toBe(12_600_000);
     expect(dealProfit(d, m)).toBe(2_440_000);
+  });
+});
+
+describe("прибыль по минимуму в любой валюте отчёта", () => {
+  const r = { sale: 12_600, cost: 12_750 };
+  it("доллары → сумы: выручка по меньшему курсу, расходы по большему", () => {
+    expect(convertRevenue(1000, "USD", "UZS", r)).toBe(12_600_000);
+    expect(convertCost(800, "USD", "UZS", r)).toBe(10_200_000);
+  });
+  it("сумы → доллары: выручка по большему курсу, расходы по меньшему", () => {
+    expect(convertRevenue(12_750_000, "UZS", "USD", r)).toBe(1000); // а не 1011,90 по курсу 12 600
+    expect(convertCost(12_600_000, "UZS", "USD", r)).toBe(1000); // а не 988,24 по курсу 12 750
+  });
+  it("сделка в сумах в долларовом отчёте не даёт завышенной прибыли", () => {
+    const deal = { amount: 12_750_000, cost: 6_300_000, currency: "UZS" as const, paidAt: new Date("2026-09-12T08:00:00Z") };
+    const s = sumDeals([deal], "USD", 12_600, 12_750);
+    expect(s).toMatchObject({ revenue: 1000, cost: 500, profit: 500 });
+    // любой одиночный курс дал бы прибыль больше или равную
+    for (const one of [12_600, 12_750]) expect(sumDeals([deal], "USD", one).profit).toBeGreaterThanOrEqual(s.profit);
+  });
+  it("курсы перепутаны местами — результат тот же", () => {
+    expect(convertRevenue(1000, "USD", "UZS", { sale: 12_750, cost: 12_600 })).toBe(12_600_000);
   });
 });
