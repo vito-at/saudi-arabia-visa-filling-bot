@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown, ChevronRight, Pencil, Search } from "lucide-react";
+import { ChevronDown, ChevronRight, Pencil, Search, Trash2 } from "lucide-react";
+import { toast } from "sonner";
+import { deleteDealAction } from "@/app/(app)/deals/actions";
 import { Input, NativeSelect } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Empty } from "@/components/ui/empty";
@@ -48,6 +50,17 @@ export function FinanceLeads({ leads, currency, rate }: { leads: FinanceLead[]; 
   const tot = (k: "revenue" | "cost" | "profit") => rows.reduce((s, r) => s + r[k], 0);
   const profitCls = (n: number) => (n < 0 ? "text-red-600" : "text-emerald-700");
 
+  const [deleting, startDelete] = useTransition();
+  const removeDeal = (d: FinanceDeal) => {
+    if (!confirm(t("finance.dealDeleteConfirm", { name: d.product }))) return;
+    startDelete(async () => {
+      const res = await deleteDealAction(d.id);
+      if (!res.ok) return void toast.error(res.error);
+      toast.success(t("finance.dealDeleted"));
+      router.refresh();
+    });
+  };
+
   const dealLine = (leadId: string, d: FinanceDeal) => (
     <div key={d.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 py-1.5 text-sm">
       <div className="min-w-0 basis-full sm:flex-1 sm:basis-0">
@@ -63,6 +76,9 @@ export function FinanceLeads({ leads, currency, rate }: { leads: FinanceLead[]; 
       <div className={cn("text-xs font-medium", profitCls(d.amount - d.cost))}>{f.money(d.amount - d.cost, d.currency)}</div>
       <Button size="sm" variant="outline" onClick={() => setEditing({ leadId, deal: d })}>
         <Pencil /> {t("common.edit")}
+      </Button>
+      <Button size="icon-sm" variant="ghost" title={t("common.delete")} aria-label={t("common.delete")} disabled={deleting} onClick={() => removeDeal(d)}>
+        <Trash2 className="text-red-600" />
       </Button>
     </div>
   );

@@ -3,13 +3,13 @@
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, Check } from "lucide-react";
+import { AlertTriangle, Check, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatDate } from "@/lib/format";
 import { useI18n } from "@/i18n/client";
-import { setDealCostAction } from "@/app/(app)/deals/actions";
+import { deleteDealAction, setDealCostAction } from "@/app/(app)/deals/actions";
 import type { PendingDeal } from "@/lib/finance";
 
 /** Очередь администратора: сделки, закрытые менеджерами, — указать себестоимость */
@@ -80,6 +80,26 @@ function PendingRow({ deal }: { deal: PendingDeal }) {
         )}
         <Button type="submit" size="sm" disabled={!valid || pending}>
           <Check /> {t("common.save")}
+        </Button>
+        <Button
+          type="button"
+          size="icon-sm"
+          variant="ghost"
+          className="mb-0.5"
+          title={t("common.delete")}
+          aria-label={t("common.delete")}
+          disabled={pending}
+          onClick={() => {
+            if (!confirm(t("finance.dealDeleteConfirm", { name: deal.product }))) return;
+            start(async () => {
+              const res = await deleteDealAction(deal.id);
+              if (!res.ok) return void toast.error(res.error);
+              toast.success(t("finance.dealDeleted"));
+              router.refresh();
+            });
+          }}
+        >
+          <Trash2 className="text-red-600" />
         </Button>
       </form>
     </li>

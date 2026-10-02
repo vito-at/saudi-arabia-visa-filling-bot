@@ -376,6 +376,8 @@ export const uz: Messages = {
     costSaved: "Tannarx saqlandi",
     currency: "Valyuta",
     date: "Sana",
+    dealDeleteConfirm: "«{name}» sotuvini o‘chirasizmi? Uning tushumi va foydasi hisobotlardan yo‘qoladi.",
+    dealDeleted: "Sotuv o‘chirildi",
     deals: "Bitimlar",
     deleteConfirm: "«{name}» xarajatini o‘chirasizmi?",
     deleted: "Xarajat o‘chirildi",

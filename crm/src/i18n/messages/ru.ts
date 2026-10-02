@@ -374,6 +374,8 @@ export const ru = {
     costSaved: "Себестоимость сохранена",
     currency: "Валюта",
     date: "Дата",
+    dealDeleteConfirm: "Удалить продажу «{name}»? Выручка и прибыль по ней пропадут из отчётов.",
+    dealDeleted: "Продажа удалена",
     deals: "Сделок",
     deleteConfirm: "Удалить расход «{name}»?",
     deleted: "Расход удалён",

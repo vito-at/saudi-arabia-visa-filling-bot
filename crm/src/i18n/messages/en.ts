@@ -376,6 +376,8 @@ export const en: Messages = {
     costSaved: "Cost saved",
     currency: "Currency",
     date: "Date",
+    dealDeleteConfirm: "Delete the sale “{name}”? Its revenue and profit will disappear from reports.",
+    dealDeleted: "Sale deleted",
     deals: "Deals",
     deleteConfirm: "Delete the expense “{name}”?",
     deleted: "Expense deleted",
