@@ -534,6 +534,8 @@ export const en: Messages = {
     },
     empty: "No leads found",
     repeat: "Repeat inquiry",
+    regular: "Regular client",
+    regularHint: "{n}+ purchases from us",
     search: "Search by name or phone",
     select: "Select",
     selectAll: "Select all",

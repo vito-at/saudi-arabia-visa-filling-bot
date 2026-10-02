@@ -1,5 +1,7 @@
 "use client";
 
+import { REGULAR_CLIENT_MIN_DEALS } from "@/lib/constants";
+import { RegularBadge } from "@/components/leads/regular-badge";
 import Link from "next/link";
 import { useEffect, useId, useState } from "react";
 import { DndContext, DragOverlay, PointerSensor, useDraggable, useDroppable, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
@@ -27,6 +29,7 @@ export interface KanbanCard {
   destination: string | null;
   createdAt: string;
   isRepeat: boolean;
+  isRegular: boolean;
   overdueMin: number | null;
   source: string;
   callbackAt: string | null;
@@ -46,7 +49,7 @@ function Card({ card, dragging }: { card: KanbanCard; dragging?: boolean }) {
         <Link href={`/leads/${card.id}`} className="flex-1 font-medium hover:underline" onPointerDown={(e) => e.stopPropagation()}>
           {card.name}
         </Link>
-        {card.isRepeat && <Repeat className="size-3.5 text-amber-600" aria-label={t("leads.repeat")} />}
+        {card.isRegular ? <RegularBadge compact label={t("leads.regular")} hint={t("leads.regularHint", { n: REGULAR_CLIENT_MIN_DEALS })} className="mt-0.5" /> : card.isRepeat && <Repeat className="size-3.5 text-amber-600" aria-label={t("leads.repeat")} />}
       </div>
       <div className="mt-1 text-xs text-muted-foreground">{prettyPhone(card.phone)}</div>
       {card.destination && <div className="mt-1 text-xs">✈ {card.destination}</div>}

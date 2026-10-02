@@ -1,3 +1,5 @@
+import { REGULAR_CLIENT_MIN_DEALS, isRegularClient } from "@/lib/constants";
+import { RegularBadge } from "@/components/leads/regular-badge";
 import { loadRateBook } from "@/lib/rate-history";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -63,6 +65,7 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
           <div className="space-y-2">
             <div className="flex items-center gap-3">
               <h1 className="text-2xl font-semibold">{lead.name}</h1>
+              {isRegularClient(lead.client.deals.length) && <RegularBadge label={t("leads.regular")} hint={t("leads.regularHint", { n: REGULAR_CLIENT_MIN_DEALS })} />}
               {lead.isRepeat && (
                 <Badge className="border-amber-300 bg-amber-50 text-amber-800">
                   <Repeat className="size-3" /> {t("leads.repeat")}

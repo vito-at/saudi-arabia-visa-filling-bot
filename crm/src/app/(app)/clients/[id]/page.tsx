@@ -1,3 +1,5 @@
+import { REGULAR_CLIENT_MIN_DEALS, isRegularClient } from "@/lib/constants";
+import { RegularBadge } from "@/components/leads/regular-badge";
 import { ratesOn } from "@/lib/rate-book";
 import { loadRateBook } from "@/lib/rate-history";
 import Link from "next/link";
@@ -53,7 +55,10 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
         <ArrowLeft className="size-4" /> {t("client.back")}
       </Link>
       <div>
-        <h1 className="text-2xl font-semibold">{client.name}</h1>
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="text-2xl font-semibold">{client.name}</h1>
+          {isRegularClient(client.deals.length) && <RegularBadge label={t("leads.regular")} hint={t("leads.regularHint", { n: REGULAR_CLIENT_MIN_DEALS })} />}
+        </div>
         <div className="mt-1 flex gap-4 text-sm text-muted-foreground">
           {client.phone && (
             <a href={`tel:${client.phone}`} className="inline-flex items-center gap-1 text-primary hover:underline">

@@ -534,6 +534,8 @@ export const uz: Messages = {
     },
     empty: "Lidlar topilmadi",
     repeat: "Takroriy murojaat",
+    regular: "Doimiy mijoz",
+    regularHint: "Bizdan {n} va undan ortiq xarid",
     search: "Ism yoki telefon bo‘yicha qidirish",
     select: "Tanlash",
     selectAll: "Barchasini tanlash",
