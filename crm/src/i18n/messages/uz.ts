@@ -622,6 +622,8 @@ export const uz: Messages = {
     title: "Dollar kursi bugun yangilanmadi",
   },
   reports: {
+    nowNote: "Davrda yaratilgan lidlarning joriy statusi. Ulushlar yig‘indisi 100%.",
+    nowTitle: "Lidlar hozir qayerda · {n}",
     clientsHint: "Barcha bitimlarini ko‘rish uchun mijozni bosing.",
     excel: "Excel",
     funnelTitle: "Har bir bosqichga nechta lid yetdi",
@@ -713,8 +715,9 @@ export const uz: Messages = {
       weekFrom: "Hafta boshi",
     },
     funnel: {
+      allLeads: "Jami tushgan",
       lost: "Rad etildi (jami)",
-      note: "Davrda yaratilgan lidlar: {total}. Lid bosqichda yoki undan keyingisida bo‘lgan bo‘lsa, unga yetgan hisoblanadi. Rad etganlar: {lost}.",
+      note: "Jamlanma voronka: «Jami tushgan» — davrning barcha lidlari ({total}); lid bosqichda yoki undan keyingisida bo‘lgan bo‘lsa, unga yetgan hisoblanadi. Lidlar hozir qayerdaligi yuqoridagi blokda. Rad etganlar: {lost}.",
       ofPrev: "Oldingi bosqichdan %",
       ofTotal: "Barcha lidlardan %",
       reached: "Bosqichga yetdi",

@@ -622,6 +622,8 @@ export const en: Messages = {
     title: "Today’s dollar rate was not updated",
   },
   reports: {
+    nowNote: "Current status of leads created in the period. Shares add up to 100%.",
+    nowTitle: "Where leads are now · {n}",
     clientsHint: "Click a client to see all their deals.",
     excel: "Excel",
     funnelTitle: "How many leads reached each stage",
@@ -713,8 +715,9 @@ export const en: Messages = {
       weekFrom: "Week from",
     },
     funnel: {
+      allLeads: "All incoming leads",
       lost: "Lost (total)",
-      note: "Leads created in the period: {total}. A lead counts as reaching a stage if it was in that stage or later. Lost: {lost}.",
+      note: "Cumulative funnel: “All incoming leads” is every lead of the period ({total}); a lead counts as reaching a stage if it was in that stage or later. Where leads are now is shown in the block above. Lost: {lost}.",
       ofPrev: "% of previous stage",
       ofTotal: "% of all leads",
       reached: "Reached",

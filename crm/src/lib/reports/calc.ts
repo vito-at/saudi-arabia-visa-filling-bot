@@ -138,7 +138,7 @@ export interface SideStatusRow {
 export function calcFunnel(
   leads: Pick<RLead, "statusId" | "statusKind" | "visitedStatusIds">[],
   statuses: FunnelStatus[],
-): { steps: FunnelRow[]; side: SideStatusRow[]; lost: number; total: number } {
+): { steps: FunnelRow[]; side: SideStatusRow[]; current: SideStatusRow[]; lost: number; total: number } {
   const sorted = [...statuses].sort((a, b) => a.order - b.order);
   const steps = sorted.filter((s) => s.kind !== "LOST" && s.inFunnel !== false);
   const sideStatuses = sorted.filter((s) => s.kind !== "LOST" && s.inFunnel === false);
@@ -171,6 +171,11 @@ export function calcFunnel(
       ofPrev: i === 0 ? safeDiv(reached[i], total) : safeDiv(reached[i], reached[i - 1]),
     })),
     side: sideStatuses.map((s, i) => ({ statusId: s.id, name: s.name, color: s.color, count: visited[i], ofTotal: safeDiv(visited[i], total) })),
+    // где лиды периода находятся сейчас: доли по всем статусам в сумме дают 100%
+    current: sorted.map((s) => {
+      const count = leads.filter((l) => l.statusId === s.id).length;
+      return { statusId: s.id, name: s.name, color: s.color, count, ofTotal: safeDiv(count, total) };
+    }),
   };
 }
 

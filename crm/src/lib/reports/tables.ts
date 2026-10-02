@@ -80,7 +80,10 @@ export async function funnelTable(f: ReportFilters) {
   const { t } = f;
   const [leads, statusRows] = await Promise.all([loadLeads(f.period, f.managerId), getStatuses()]);
   const statuses = statusRows.map((s) => ({ ...s, name: statusName(t, s.name) }));
-  const funnel = calcFunnel(leads, statuses);
+  const calc = calcFunnel(leads, statuses);
+  // первый этап («Новый») в воронке — это все поступившие лиды, а не те, кто сейчас в статусе «Новый»
+  const newIds = new Set(statuses.filter((s) => s.kind === "NEW").map((s) => s.id));
+  const funnel = { ...calc, steps: calc.steps.map((s, i) => (i === 0 && newIds.has(s.statusId) ? { ...s, name: t("rt.funnel.allLeads") } : s)) };
   const table: Table = {
     title: t("rt.funnel.title"),
     note: t("rt.funnel.note", { total: funnel.total, lost: funnel.lost }),

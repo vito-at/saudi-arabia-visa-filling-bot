@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FunnelBars, HBars, LossPie } from "@/components/reports/charts";
 import { ReportFilters } from "@/components/reports/report-filters";
 import { ReportTable } from "@/components/reports/report-table";
-import { formatDate, formatNumber } from "@/lib/format";
+import { formatDate, formatNumber, formatPercent } from "@/lib/format";
 import { getManagers } from "@/lib/refs";
 import { readFilters } from "@/lib/reports/data";
 import { AD_LEVELS, adsTable, clientsTable, funnelTable, lossesTables, managersTable, REPORT_TABS, servicesTables, type ReportTab } from "@/lib/reports/tables";
@@ -82,8 +82,36 @@ async function ClientsReport({ f }: { f: F }) {
 
 async function FunnelReport({ f }: { f: F }) {
   const { table, side, funnel } = await funnelTable(f);
+  const now = funnel.current.filter((c) => c.count > 0);
   return (
-    <div className="grid grid-cols-1 gap-5 2xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
+    <div className="space-y-5">
+      {funnel.total > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>{f.t("reports.nowTitle", { n: formatNumber(funnel.total) })}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* одна полоса: доли статусов в сумме 100% */}
+            <div className="flex h-3 overflow-hidden rounded-full bg-slate-100">
+              {now.map((c) => (
+                <div key={c.statusId} title={`${c.name}: ${formatNumber(c.count)} (${formatPercent(c.ofTotal)})`} style={{ width: `${(c.ofTotal ?? 0) * 100}%`, background: c.color }} />
+              ))}
+            </div>
+            <div className="grid grid-cols-1 gap-x-8 gap-y-2 text-sm sm:grid-cols-2 xl:grid-cols-3">
+              {funnel.current.map((c) => (
+                <div key={c.statusId} className="flex items-center gap-2">
+                  <span className="size-2.5 shrink-0 rounded-full" style={{ background: c.color }} />
+                  <span className="min-w-0 flex-1 truncate">{c.name}</span>
+                  <span className="font-medium tabular-nums">{formatNumber(c.count)}</span>
+                  <span className="w-14 text-right tabular-nums text-muted-foreground">{formatPercent(c.ofTotal)}</span>
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground">{f.t("reports.nowNote")}</p>
+          </CardContent>
+        </Card>
+      )}
+      <div className="grid grid-cols-1 gap-5 2xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
       <Card>
         <CardHeader>
           <CardTitle>{f.t("reports.funnelTitle")}</CardTitle>
@@ -106,6 +134,7 @@ async function FunnelReport({ f }: { f: F }) {
           </div>
         )}
       </Card>
+      </div>
     </div>
   );
 }
