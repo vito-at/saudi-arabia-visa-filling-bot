@@ -14,7 +14,7 @@ import { clientScope } from "@/lib/access";
 import { sourceLabel, statusName } from "@/i18n/labels";
 import { getI18n } from "@/i18n/server";
 import { formatDate, formatDateTime } from "@/lib/format";
-import { calcProfit, convert, sumDeals, toNum } from "@/lib/money";
+import { calcProfit, convertCost, convertRevenue, sumDeals, toNum } from "@/lib/money";
 import { prettyPhone } from "@/lib/phone";
 import { getSettings } from "@/lib/refs";
 import { requireUser } from "@/lib/session";
@@ -109,7 +109,7 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
                   <TD className="text-right whitespace-nowrap">{f.money(toNum(d.amount), d.currency)}</TD>
                   <TD className="text-right whitespace-nowrap">{f.money(toNum(d.cost), d.currency)}</TD>
                   <TD className="text-right whitespace-nowrap text-emerald-700">{f.money(profit, d.currency)}</TD>
-                  <TD className="text-right whitespace-nowrap">{f.money(convert(d.amount, d.currency, "USD", ratesOn(book, d.paidAt).sale) - convert(d.cost, d.currency, "USD", ratesOn(book, d.paidAt).cost), "USD")}</TD>
+                  <TD className="text-right whitespace-nowrap">{f.money(convertRevenue(d.amount, d.currency, "USD", ratesOn(book, d.paidAt)) - convertCost(d.cost, d.currency, "USD", ratesOn(book, d.paidAt)), "USD")}</TD>
                   <TD>{d.manager?.name ?? "—"}</TD>
                 </TR>
               );

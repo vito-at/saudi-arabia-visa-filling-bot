@@ -28,6 +28,13 @@ export function GeneralForm({ v }: { v: GeneralView }) {
   const [source, setSource] = useState(v.usdRateSource);
   const [manualRate, setManualRate] = useState(String(v.usdRate));
   const [manualCost, setManualCost] = useState(String(v.usdRateCost));
+  // курсы обновились на сервере («Обновить курс сейчас», ручная установка) — подставляем их в поля ввода
+  const [shown, setShown] = useState({ sale: v.usdRate, cost: v.usdRateCost });
+  if (shown.sale !== v.usdRate || shown.cost !== v.usdRateCost) {
+    setShown({ sale: v.usdRate, cost: v.usdRateCost });
+    setManualRate(String(v.usdRate));
+    setManualCost(String(v.usdRateCost));
+  }
   return (
     <div className="space-y-5">
       <Card>
