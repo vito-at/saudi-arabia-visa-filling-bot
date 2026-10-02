@@ -17,15 +17,15 @@ const FIRST = ["Азиз", "Дилноза", "Шахзод", "Мадина", "Б
 const LAST = ["Каримов", "Юсупова", "Рахимов", "Абдуллаева", "Турсунов", "Назарова", "Исмоилов", "Хасанова", "Султанов", "Мирзаева", "Ахмедов", "Эргашева", "Холматов", "Раджабова", "Усмонов"];
 
 const CAMPAIGNS = [
-  { id: "120210000000001", name: "Умра 2026 — Фергана", service: "UMRAH" as ServiceType, dest: ["Мекка и Медина"], form: 1, usd: [1100, 1900] },
-  { id: "120210000000002", name: "Дубай из Ферганы — осень", service: "OUTBOUND_TOUR" as ServiceType, dest: ["Дубай", "Абу-Даби"], form: 0, usd: [650, 1400] },
-  { id: "120210000000003", name: "Турция всё включено", service: "OUTBOUND_TOUR" as ServiceType, dest: ["Анталья", "Стамбул", "Аланья"], form: 0, usd: [550, 1200] },
-  { id: "120210000000004", name: "Медтуризм — Индия и Корея", service: "MEDICAL" as ServiceType, dest: ["Индия, Дели", "Сеул"], form: 0, usd: [1500, 3500] },
+  { id: "120210000000001", name: "Шенгенская виза — Фергана", service: "VISA" as ServiceType, dest: ["Германия", "Италия", "Франция"], form: 1, usd: [120, 250] },
+  { id: "120210000000002", name: "Дубай из Ферганы — осень", service: "TOUR" as ServiceType, dest: ["Дубай", "Абу-Даби"], form: 0, usd: [650, 1400] },
+  { id: "120210000000003", name: "Турция всё включено", service: "TOUR" as ServiceType, dest: ["Анталья", "Стамбул", "Аланья"], form: 0, usd: [550, 1200] },
+  { id: "120210000000004", name: "Грузия и Армения — автобусный тур", service: "TOUR" as ServiceType, dest: ["Тбилиси", "Батуми", "Ереван"], form: 0, usd: [450, 900] },
   { id: "120210000000005", name: "Авиабилеты по лучшим ценам", service: "FLIGHTS" as ServiceType, dest: ["Москва", "Санкт-Петербург", "Стамбул", "Казань"], form: 2, uzs: [2_800_000, 7_500_000] },
 ];
 const FORMS = [
   { id: "900100000000001", name: "Заявка на тур" },
-  { id: "900100000000002", name: "Умра — анкета паломника" },
+  { id: "900100000000002", name: "Анкета на визу" },
   { id: "900100000000003", name: "Подбор авиабилетов" },
 ];
 const MANUAL_SOURCES: LeadSource[] = ["CALL", "CALL", "INSTAGRAM_DIRECT", "INSTAGRAM_DIRECT", "TELEGRAM", "TELEGRAM", "WALK_IN"];
@@ -141,7 +141,7 @@ export async function seedDemo(prisma: PrismaClient, count = 100) {
           { key: "kuda_hotite_poehat", label: "Куда хотите поехать?", value: dest },
           { key: "kogda_planiruete", label: "Когда планируете поездку?", value: pick(["В ближайший месяц", "Через 1–2 месяца", "Пока не решили"]) },
           { key: "skolko_chelovek", label: "Сколько человек поедет?", value: String(travelers) },
-          ...(camp.service === "UMRAH" ? [{ key: "byl_li_ranshe", label: "Были ли раньше в Умре?", value: pick(["Да", "Нет"]) }] : []),
+          ...(camp.service === "VISA" ? [{ key: "byl_li_otkaz", label: "Были ли отказы в визе?", value: pick(["Да", "Нет"]) }] : []),
         ]
       : undefined;
 

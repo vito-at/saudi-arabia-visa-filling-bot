@@ -776,11 +776,8 @@ export const en: Messages = {
   },
   service: {
     FLIGHTS: "Flights",
-    INBOUND_TOUR: "Inbound tour",
-    MEDICAL: "Medical tourism",
+    TOUR: "Tour",
     OTHER: "Other",
-    OUTBOUND_TOUR: "Outbound tour",
-    UMRAH: "Umrah",
     VISA: "Visa support",
   },
   settings: {

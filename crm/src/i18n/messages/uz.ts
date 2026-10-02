@@ -776,11 +776,8 @@ export const uz: Messages = {
   },
   service: {
     FLIGHTS: "Aviachiptalar",
-    INBOUND_TOUR: "Ichki tur",
-    MEDICAL: "Tibbiy turizm",
+    TOUR: "Tur",
     OTHER: "Boshqa",
-    OUTBOUND_TOUR: "Chet elga tur",
-    UMRAH: "Umra",
     VISA: "Viza ko‘magi",
   },
   settings: {
