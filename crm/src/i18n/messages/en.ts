@@ -259,6 +259,7 @@ export const en: Messages = {
     lossReasonNotFound: "Loss reason not found",
     lossReasonRequired: "Choose a loss reason",
     managerNotFound: "Manager not found",
+    metaBlocked: "Meta blocked the app's API access ({error}). Open Meta for Developers → your app → Required actions and the banners on the app dashboard: usually you need to set the privacy policy URL ({privacyUrl}), category and icon, or complete a review.",
     name: "Enter a name",
     noAccess: "Insufficient permissions",
     noAdAccount: "No ad account specified",

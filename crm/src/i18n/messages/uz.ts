@@ -259,6 +259,7 @@ export const uz: Messages = {
     lossReasonNotFound: "Rad etish sababi topilmadi",
     lossReasonRequired: "Rad etish sababini ko‘rsating",
     managerNotFound: "Menejer topilmadi",
+    metaBlocked: "Meta ilovaning API ga kirishini blokladi ({error}). Meta for Developers → ilovangiz → «Talab qilinadigan amallar» va ilova panelidagi bannerlarni oching: odatda maxfiylik siyosatini ({privacyUrl}), toifa va belgini ko‘rsatish yoki tekshiruvdan o‘tish kerak.",
     name: "Ismni kiriting",
     noAccess: "Ruxsat yetarli emas",
     noAdAccount: "Reklama kabineti ko‘rsatilmagan",
