@@ -58,7 +58,7 @@ export function FinanceLeads({ leads, currency, rate }: { leads: FinanceLead[]; 
         <span className="text-muted-foreground">{t("finance.revenue")}:</span> {f.money(d.amount, d.currency)}
       </div>
       <div className="text-xs">
-        <span className="text-muted-foreground">{t("finance.cost")}:</span> {f.money(d.cost, d.currency)}
+        <span className="text-muted-foreground">{t("finance.cost")}:</span> {d.costConfirmed ? f.money(d.cost, d.currency) : <span className="text-amber-600">{t("finance.pendingBadge")}</span>}
       </div>
       <div className={cn("text-xs font-medium", profitCls(d.amount - d.cost))}>{f.money(d.amount - d.cost, d.currency)}</div>
       <Button size="sm" variant="outline" onClick={() => setEditing({ leadId, deal: d })}>
@@ -93,6 +93,7 @@ export function FinanceLeads({ leads, currency, rate }: { leads: FinanceLead[]; 
                   {open.has(l.id) ? <ChevronDown className="mt-0.5 size-4 shrink-0" /> : <ChevronRight className="mt-0.5 size-4 shrink-0" />}
                   <div className="min-w-0 flex-1">
                     <div className="truncate font-medium">{l.name}</div>
+                    {l.costPending && <div className="text-xs font-medium text-amber-600">{t("finance.pendingBadge")}</div>}
                     <div className="truncate text-xs text-muted-foreground">{[formatDate(l.lastPaidAt), l.manager, sourceLabel(t, l.source)].filter(Boolean).join(" · ")}</div>
                   </div>
                   <div className="text-right">
@@ -139,6 +140,7 @@ export function FinanceLeads({ leads, currency, rate }: { leads: FinanceLead[]; 
                           {l.name}
                         </Link>
                         <div className="text-xs text-muted-foreground">{prettyPhone(l.phone)}</div>
+                        {l.costPending && <div className="text-xs font-medium text-amber-600">{t("finance.pendingBadge")}</div>}
                       </td>
                       <td className="whitespace-nowrap px-2 py-2.5 text-muted-foreground">{formatDate(l.lastPaidAt)}</td>
                       <td className="whitespace-nowrap px-2 py-2.5">{l.manager ?? <span className="text-muted-foreground">{t("common.notAssigned")}</span>}</td>

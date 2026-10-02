@@ -42,15 +42,19 @@ export async function createDealAction(leadId: string, input: DealInput, wonStat
   return runAction(async () => {
     const user = await requireUser();
     const lead = await getLeadForUser(user, leadId);
-    const d = parseDeal(input);
+    const isAdmin = user.role === "ADMIN";
+    // менеджер указывает только сумму продажи; себестоимость потом вносит администратор
+    const d = parseDeal(isAdmin ? input : { ...input, cost: "0" });
     await prisma.$transaction(async (tx) => {
-      const deal = await tx.deal.create({ data: { ...d, leadId, clientId: lead.clientId, managerId: lead.managerId ?? user.id } });
+      const deal = await tx.deal.create({ data: { ...d, costConfirmed: isAdmin, leadId, clientId: lead.clientId, managerId: lead.managerId ?? user.id } });
       await tx.leadHistory.create({
         data: {
           leadId,
           userId: user.id,
           field: "deal",
-          newValue: `${d.product}: ${formatMoney(d.amount, d.currency)}, прибыль ${formatMoney(calcProfit(d.amount, d.cost), d.currency)}`,
+          newValue: isAdmin
+            ? `${d.product}: ${formatMoney(d.amount, d.currency)}, прибыль ${formatMoney(calcProfit(d.amount, d.cost), d.currency)}`
+            : `${d.product}: ${formatMoney(d.amount, d.currency)}, себестоимость укажет администратор`,
         },
       });
       return deal;
@@ -75,7 +79,7 @@ export async function updateDealAction(dealId: string, input: DealInput) {
     if (user.role !== "ADMIN") throw new AccessError("err.onlyAdminDealEdit");
     const d = parseDeal(input);
     await prisma.$transaction([
-      prisma.deal.update({ where: { id: dealId }, data: d }),
+      prisma.deal.update({ where: { id: dealId }, data: { ...d, costConfirmed: true } }),
       prisma.leadHistory.create({
         data: {
           leadId: deal.leadId,
@@ -83,6 +87,29 @@ export async function updateDealAction(dealId: string, input: DealInput) {
           field: "deal",
           oldValue: `${deal.product}: ${formatMoney(Number(deal.amount), deal.currency)}`,
           newValue: `${d.product}: ${formatMoney(d.amount, d.currency)}`,
+        },
+      }),
+    ]);
+    revalidate(deal.leadId, deal.clientId);
+  });
+}
+
+/** Администратор указывает себестоимость сделки, закрытой менеджером */
+export async function setDealCostAction(dealId: string, costInput: string) {
+  return runAction(async () => {
+    const { user, deal } = await getDealForUser(dealId);
+    if (user.role !== "ADMIN") throw new AccessError("err.onlyAdminDealEdit");
+    const cost = Number(String(costInput).replace(/\s/g, "").replace(",", "."));
+    if (!Number.isFinite(cost) || cost < 0 || String(costInput).trim() === "") throw new ValidationError("err.costNegative");
+    await prisma.$transaction([
+      prisma.deal.update({ where: { id: dealId }, data: { cost, costConfirmed: true } }),
+      prisma.leadHistory.create({
+        data: {
+          leadId: deal.leadId,
+          userId: user.id,
+          field: "deal",
+          oldValue: `${deal.product}: себестоимость не указана`,
+          newValue: `${deal.product}: себестоимость ${formatMoney(cost, deal.currency)}, прибыль ${formatMoney(calcProfit(deal.amount, cost), deal.currency)}`,
         },
       }),
     ]);

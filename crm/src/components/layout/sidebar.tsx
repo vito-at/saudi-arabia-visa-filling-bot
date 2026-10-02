@@ -18,13 +18,13 @@ const NAV = [
   { href: "/clients", label: "nav.clients", icon: Users, badge: null },
   { href: "/tasks", label: "nav.tasks", icon: CheckSquare, badge: "tasks" },
   { href: "/reports", label: "nav.reports", icon: BarChart3, badge: null },
-  { href: "/finance", label: "nav.finance", icon: Wallet, badge: null, admin: true },
+  { href: "/finance", label: "nav.finance", icon: Wallet, badge: "finance", admin: true },
   { href: "/settings", label: "nav.settings", icon: Settings, badge: null, admin: true },
 ] as const;
 
 type SidebarProps = {
   user: { name: string; role: "ADMIN" | "MANAGER" };
-  counters: { leads: number; tasks: number };
+  counters: { leads: number; tasks: number; finance: number };
   logout: () => Promise<void>;
 };
 
@@ -106,7 +106,7 @@ function SidebarContent({ user, counters, logout }: SidebarProps) {
               <Icon className="size-4" />
               <span className="flex-1">{t(item.label as TKey)}</span>
               {count > 0 && (
-                <span className={cn("rounded-full px-1.5 text-xs font-semibold text-white", item.badge === "tasks" ? "bg-amber-500" : "bg-brand")}>{count}</span>
+                <span className={cn("rounded-full px-1.5 text-xs font-semibold text-white", item.badge === "leads" ? "bg-brand" : "bg-amber-500")}>{count}</span>
               )}
             </Link>
           );

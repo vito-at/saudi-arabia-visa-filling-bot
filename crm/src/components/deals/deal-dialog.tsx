@@ -9,6 +9,7 @@ import { toInputDate } from "@/lib/format";
 import { useI18n } from "@/i18n/client";
 import { calcProfit, convert } from "@/lib/money";
 import { createDealAction, updateDealAction, type DealInput } from "@/app/(app)/deals/actions";
+import { useIsAdmin } from "@/components/layout/role-context";
 
 export interface DealDialogProps {
   open: boolean;
@@ -29,6 +30,8 @@ export function DealDialog({ open, onOpenChange, leadId, wonStatusId, rate, deal
   );
   const { t, f } = useI18n();
   const [pending, start] = useTransition();
+  // менеджер указывает только сумму продажи — себестоимость вносит администратор
+  const isAdmin = useIsAdmin();
   const set = (k: keyof DealInput) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
     setForm({ ...form, [k]: e.target.value });
 
@@ -56,9 +59,11 @@ export function DealDialog({ open, onOpenChange, leadId, wonStatusId, rate, deal
           <Field label={t("deal.amount")}>
             <Input value={form.amount} onChange={set("amount")} inputMode="decimal" required />
           </Field>
-          <Field label={t("deal.cost")} hint={t("deal.costHint")}>
-            <Input value={form.cost} onChange={set("cost")} inputMode="decimal" />
-          </Field>
+          {isAdmin && (
+            <Field label={t("deal.cost")} hint={t("deal.costHint")}>
+              <Input value={form.cost} onChange={set("cost")} inputMode="decimal" />
+            </Field>
+          )}
           <Field label={t("deal.currency")}>
             <NativeSelect value={form.currency} onChange={set("currency")}>
               <option value="USD">{t("currency.USD")}</option>
@@ -68,6 +73,8 @@ export function DealDialog({ open, onOpenChange, leadId, wonStatusId, rate, deal
           <Field label={t("deal.paidAt")}>
             <Input type="date" value={form.paidAt} onChange={set("paidAt")} required />
           </Field>
+          {!isAdmin && <p className="rounded-lg bg-slate-50 p-3 text-sm text-muted-foreground sm:col-span-2">{t("deal.costByAdmin")}</p>}
+          {isAdmin && (
           <div className="sm:col-span-2 rounded-lg bg-slate-50 p-3 text-sm">
             <div className="flex justify-between">
               <span className="text-muted-foreground">{t("deal.profit")}</span>
@@ -80,6 +87,7 @@ export function DealDialog({ open, onOpenChange, leadId, wonStatusId, rate, deal
               </div>
             )}
           </div>
+          )}
           <div className="sm:col-span-2 flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               {t("common.cancel")}

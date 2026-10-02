@@ -260,6 +260,7 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
                   currency: d.currency,
                   paidAt: d.paidAt.toISOString(),
                   manager: d.manager?.name ?? null,
+                  costConfirmed: d.costConfirmed,
                 }))}
               />
             </CardContent>

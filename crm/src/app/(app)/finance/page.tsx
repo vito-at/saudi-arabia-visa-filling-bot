@@ -6,10 +6,11 @@ import { Card } from "@/components/ui/card";
 import { ReportFilters } from "@/components/reports/report-filters";
 import { FinanceLeads } from "@/components/finance/finance-leads";
 import { ExpensesPanel } from "@/components/finance/expenses-panel";
+import { PendingCosts } from "@/components/finance/pending-costs";
 import { formatDate, formatNumber } from "@/lib/format";
 import { getManagers } from "@/lib/refs";
 import { readFilters } from "@/lib/reports/data";
-import { expenseCategories, expensesByCategory, financeSummary, loadAdSpendTotal, loadExpenses, loadFinanceLeads } from "@/lib/finance";
+import { expenseCategories, expensesByCategory, financeSummary, loadAdSpendTotal, loadExpenses, loadFinanceLeads, loadPendingDeals } from "@/lib/finance";
 import { sp, type SearchParams } from "@/lib/leads/query";
 import { requireAdmin } from "@/lib/session";
 import { cn } from "@/lib/utils";
@@ -27,7 +28,8 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
   const fm = formatters(f.locale);
   const money = (n: number) => fm.money(n, f.currency);
 
-  const [leads, adSpend, expenses, categories, managers] = await Promise.all([loadFinanceLeads(f), loadAdSpendTotal(f), loadExpenses(f), expenseCategories(), getManagers()]);
+  const [leads, adSpend, expenses, categories, managers, pendingDeals] = await Promise.all([loadFinanceLeads(f), loadAdSpendTotal(f), loadExpenses(f), expenseCategories(), getManagers(), loadPendingDeals()]);
+  const pendingInPeriod = leads.reduce((s, l) => s + l.deals.filter((d) => !d.costConfirmed).length, 0);
   // итоги считаем по всем сделкам периода; при фильтре по менеджеру реклама и расходы компании не вычитаются
   const byManager = !!f.managerId;
   const summary = financeSummary(leads, byManager ? null : adSpend, byManager ? 0 : expenses.reduce((s, e) => s + e.converted, 0));
@@ -89,6 +91,7 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
           </span>
         }
       />
+      <PendingCosts deals={pendingDeals} />
       <div className="no-scrollbar -mx-3 mb-4 flex gap-1 overflow-x-auto whitespace-nowrap border-b px-3 sm:mx-0 sm:px-0">
         {(["leads", "expenses"] as Tab[]).map((tb) => (
           <Link
@@ -125,6 +128,7 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
         ))}
       </div>
 
+      {pendingInPeriod > 0 && <p className="-mt-2 mb-4 text-xs font-medium text-amber-700">{t("finance.pendingWarn", { n: pendingInPeriod })}</p>}
       {tab === "leads" ? (
         <Card>
           <div className="border-b px-4 py-3 text-xs text-muted-foreground">{t("finance.leadsCount", { n: summary.leads, d: summary.deals })}</div>
