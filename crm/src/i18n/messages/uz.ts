@@ -11,8 +11,8 @@ export const uz: Messages = {
     subtitle: "CRM tizimiga kirish",
   },
   banner: {
-    costPending: "Tugallanmagan sotuvlar: {n}",
-    costPendingLink: "Tannarxni ko‘rsatish",
+    costPending: "Tannarxsiz sotuvlar: {n}",
+    costPendingLink: "Ko‘rsatish",
     costPendingText: "menejerlar ularni «Sotildi» deb yopdi, lekin tannarx hali ko‘rsatilmagan — hisobotlardagi foyda to‘liq emas.",
     metaDown: "Meta bilan integratsiya ishlamayapti:",
     metaDownText: "kirish tokeni muddati tugagan yoki bekor qilingan — reklamadan yangi lidlar yuklanmayapti.",

@@ -11,7 +11,7 @@ export const en: Messages = {
     subtitle: "Sign in to CRM",
   },
   banner: {
-    costPending: "Incomplete sales: {n}",
+    costPending: "Sales without cost: {n}",
     costPendingLink: "Enter cost",
     costPendingText: "managers closed them as “Sold”, but the cost isn’t entered yet — profit in reports is incomplete.",
     metaDown: "Meta integration is not working:",
