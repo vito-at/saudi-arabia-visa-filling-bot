@@ -20,6 +20,14 @@ describe("финансы: прибыль по лидам", () => {
     expect(rows[1]).toMatchObject({ revenue: 500, cost: 520, profit: -20 }); // убыточная сделка
   });
 
+  it("сделка без себестоимости (закрыл менеджер) помечается у лида", () => {
+    const rows = groupDealsByLead([{ ...deals[2], costConfirmed: false, cost: 0 }, deals[0]], "USD", RATE);
+    const l2 = rows.find((r) => r.id === "l2")!;
+    expect(l2.costPending).toBe(true);
+    expect(l2.deals[0].costConfirmed).toBe(false);
+    expect(rows.find((r) => r.id === "l1")!.costPending).toBe(false);
+  });
+
   it("в сумах — по текущему курсу", () => {
     const [l1] = groupDealsByLead(deals, "UZS", RATE);
     expect(l1).toMatchObject({ revenue: 13_750_000, cost: 10_250_000, profit: 3_500_000 });

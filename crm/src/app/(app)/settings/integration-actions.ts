@@ -89,7 +89,12 @@ export async function syncNowAction() {
     const r = await syncLeads("MANUAL");
     revalidateAll();
     if (r.skipped) throw new ValidationError(r.skipped);
-    if (!r.ok) throw new ValidationError("err.syncFailed", { error: r.errors.join("; ") });
+    if (!r.ok) {
+      const error = r.errors.join("; ");
+      // Meta заблокировала приложение (код 200) — подсказываем, где смотреть причину
+      if (/api access blocked/i.test(error)) throw new ValidationError("err.metaBlocked", { error, privacyUrl: `${(process.env.APP_URL || "").replace(/\/$/, "")}/privacy` });
+      throw new ValidationError("err.syncFailed", { error });
+    }
     const { t } = await getI18n();
     return r.created ? t("msg.syncCreated", { n: r.created }) : t("msg.syncNone");
   });

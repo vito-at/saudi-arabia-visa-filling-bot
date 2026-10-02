@@ -14,6 +14,7 @@ export interface FinanceDeal {
   paidAt: string;
   revenue: number; // в валюте отчёта
   profit: number; // в валюте отчёта
+  costConfirmed: boolean;
 }
 
 export interface FinanceLead {
@@ -29,6 +30,8 @@ export interface FinanceLead {
   cost: number;
   profit: number;
   margin: number | null;
+  /** есть сделки, по которым администратор ещё не указал себестоимость */
+  costPending: boolean;
 }
 
 export interface FinanceSummary {
@@ -51,6 +54,7 @@ export function groupDealsByLead(
     cost: number;
     currency: Currency;
     paidAt: Date;
+    costConfirmed?: boolean;
     lead: {
       id: string;
       name: string;
@@ -82,6 +86,7 @@ export function groupDealsByLead(
         cost: 0,
         profit: 0,
         margin: null,
+        costPending: false,
       } satisfies FinanceLead);
     row.deals.push({
       id: d.id,
@@ -92,7 +97,9 @@ export function groupDealsByLead(
       paidAt: d.paidAt.toISOString(),
       revenue,
       profit: round2(revenue - cost),
+      costConfirmed: d.costConfirmed !== false,
     });
+    if (d.costConfirmed === false) row.costPending = true;
     row.revenue = round2(row.revenue + revenue);
     row.cost = round2(row.cost + cost);
     row.profit = round2(row.revenue - row.cost);
@@ -135,6 +142,7 @@ export async function loadFinanceLeads(f: ReportFilters): Promise<FinanceLead[]>
       cost: true,
       currency: true,
       paidAt: true,
+      costConfirmed: true,
       lead: {
         select: {
           id: true,
@@ -210,4 +218,34 @@ export async function expenseCategories(): Promise<string[]> {
     take: 30,
   });
   return rows.map((r) => r.category);
+}
+
+export interface PendingDeal {
+  id: string;
+  leadId: string;
+  leadName: string;
+  manager: string | null;
+  product: string;
+  amount: number;
+  currency: Currency;
+  paidAt: string;
+}
+
+/** Сделки, закрытые менеджерами, по которым администратор ещё не указал себестоимость (за всё время) */
+export async function loadPendingDeals(): Promise<PendingDeal[]> {
+  const rows = await prisma.deal.findMany({
+    where: { costConfirmed: false },
+    orderBy: { paidAt: "asc" },
+    select: { id: true, product: true, amount: true, currency: true, paidAt: true, manager: { select: { name: true } }, lead: { select: { id: true, name: true } } },
+  });
+  return rows.map((d) => ({
+    id: d.id,
+    leadId: d.lead.id,
+    leadName: d.lead.name,
+    manager: d.manager?.name ?? null,
+    product: d.product,
+    amount: toNum(d.amount),
+    currency: d.currency,
+    paidAt: d.paidAt.toISOString(),
+  }));
 }

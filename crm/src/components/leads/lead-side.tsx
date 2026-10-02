@@ -66,6 +66,7 @@ export interface DealItem {
   currency: "UZS" | "USD";
   paidAt: string;
   manager: string | null;
+  costConfirmed: boolean;
 }
 
 export function DealsPanel({ leadId, deals, rate, canManage }: { leadId: string; deals: DealItem[]; rate: number; canManage: boolean }) {
@@ -109,11 +110,15 @@ export function DealsPanel({ leadId, deals, rate, canManage }: { leadId: string;
               </div>
               <div>
                 <div className="text-muted-foreground">{t("deal.cost")}</div>
-                <div>{f.money(d.cost, d.currency)}</div>
+                {d.costConfirmed ? <div>{f.money(d.cost, d.currency)}</div> : <div className="text-amber-600" title={t("deal.costPending")}>{t("deal.costPendingShort")}</div>}
               </div>
               <div>
                 <div className="text-muted-foreground">{t("deal.profit")}</div>
-                <div className={profit < 0 ? "font-medium text-red-600" : "font-medium text-emerald-700"}>{f.money(profit, d.currency)}</div>
+                {d.costConfirmed ? (
+                  <div className={profit < 0 ? "font-medium text-red-600" : "font-medium text-emerald-700"}>{f.money(profit, d.currency)}</div>
+                ) : (
+                  <div className="text-muted-foreground">—</div>
+                )}
               </div>
             </div>
             <div className="mt-2 text-xs text-muted-foreground">

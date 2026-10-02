@@ -4,6 +4,7 @@ import { signOut } from "@/auth";
 import { Sidebar } from "@/components/layout/sidebar";
 import { CallbackReminders } from "@/components/callbacks/callback-reminders";
 import { RateNotice } from "@/components/layout/rate-notice";
+import { RoleProvider } from "@/components/layout/role-context";
 import { formatDate, formatNumber, toInputDate } from "@/lib/format";
 import { isRateStale } from "@/lib/rates";
 import { getI18n } from "@/i18n/server";
@@ -15,11 +16,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const user = await requireUser();
   const { t } = await getI18n();
 
-  const [newLeads, tasks, meta, settings] = await Promise.all([
+  const [newLeads, tasks, meta, settings, pendingCosts] = await Promise.all([
     prisma.lead.count({ where: { ...leadScope(user), status: { kind: "NEW" } } }),
     prisma.task.count({ where: { assigneeId: user.id, doneAt: null, dueAt: { lt: endOfDayTashkent() } } }),
     prisma.metaIntegration.findUnique({ where: { id: 1 } }),
     prisma.appSettings.findUnique({ where: { id: 1 } }),
+    // сделки, закрытые менеджерами без себестоимости, — счётчик у «Финансов» для администратора
+    user.role === "ADMIN" ? prisma.deal.count({ where: { costConfirmed: false } }) : Promise.resolve(0),
   ]);
   const rateStale = settings?.usdRateSource === "IPAK_YULI" && isRateStale(settings.usdRateUpdatedAt) && !!settings.usdRateError;
 
@@ -31,8 +34,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const tokenProblem = meta?.enabled && !meta.tokenValid;
 
   return (
+    <RoleProvider role={user.role}>
     <div className="min-h-screen">
-      <Sidebar user={user} counters={{ leads: newLeads, tasks }} logout={logout} />
+      <Sidebar user={user} counters={{ leads: newLeads, tasks, finance: pendingCosts }} logout={logout} />
       <main className="lg:pl-60">
         {tokenProblem && (
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 lg:px-8">
@@ -62,6 +66,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         />
       )}
     </div>
+    </RoleProvider>
   );
 }
 

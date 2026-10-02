@@ -8,7 +8,7 @@ export const authConfig = {
   callbacks: {
     authorized({ auth, request }) {
       const { pathname } = request.nextUrl;
-      const isPublic = pathname.startsWith("/login") || pathname.startsWith("/api/webhooks") || pathname.startsWith("/api/auth");
+      const isPublic = pathname.startsWith("/login") || pathname.startsWith("/privacy") || pathname.startsWith("/api/webhooks") || pathname.startsWith("/api/auth");
       if (isPublic) return true;
       return !!auth?.user;
     },
