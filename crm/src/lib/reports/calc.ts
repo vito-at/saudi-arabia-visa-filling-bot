@@ -102,6 +102,8 @@ export interface FunnelStatus {
   color: string;
   order: number;
   kind: string;
+  /** false — статус-попытка (не дозвонились, перезвонить): не этап воронки */
+  inFunnel?: boolean;
 }
 export interface FunnelRow {
   statusId: string;
@@ -119,17 +121,41 @@ export interface FunnelRow {
  * Лид «дошёл» до шага, если побывал в нём или в любом более позднем шаге (кроме «Отказа»).
  * «Отказ» показывается отдельной строкой: сколько лидов в итоге отказались.
  */
-export function calcFunnel(leads: Pick<RLead, "statusId" | "statusKind" | "visitedStatusIds">[], statuses: FunnelStatus[]): { steps: FunnelRow[]; lost: number; total: number } {
-  const steps = statuses.filter((s) => s.kind !== "LOST").sort((a, b) => a.order - b.order);
+/** Статус вне воронки: сколько лидов периода в нём побывали (или находятся сейчас) */
+export interface SideStatusRow {
+  statusId: string;
+  name: string;
+  color: string;
+  count: number;
+  ofTotal: number | null;
+}
+
+/**
+ * Воронка продаж. Этапы — статусы с inFunnel (кроме «Отказа»): лид дошёл до этапа, если побывал в нём или в этапе дальше.
+ * Статусы-попытки (не дозвонились, перезвонить) этапами не считаются и не «засчитываются» лидам, которые прошли дальше:
+ * для них отдельно считается, сколько лидов в них действительно побывали.
+ */
+export function calcFunnel(
+  leads: Pick<RLead, "statusId" | "statusKind" | "visitedStatusIds">[],
+  statuses: FunnelStatus[],
+): { steps: FunnelRow[]; side: SideStatusRow[]; current: SideStatusRow[]; lost: number; total: number } {
+  const sorted = [...statuses].sort((a, b) => a.order - b.order);
+  const steps = sorted.filter((s) => s.kind !== "LOST" && s.inFunnel !== false);
+  const sideStatuses = sorted.filter((s) => s.kind !== "LOST" && s.inFunnel === false);
   const orderOf = new Map(steps.map((s) => [s.id, s.order]));
   const reached = steps.map(() => 0);
+  const visited = sideStatuses.map(() => 0);
   let lost = 0;
   for (const l of leads) {
     if (l.statusKind === "LOST") lost++;
-    const orders = [l.statusId, ...l.visitedStatusIds].map((id) => orderOf.get(id)).filter((o): o is number => o !== undefined);
+    const ids = [l.statusId, ...l.visitedStatusIds];
+    const orders = ids.map((id) => orderOf.get(id)).filter((o): o is number => o !== undefined);
     const max = orders.length ? Math.max(...orders) : steps[0]?.order ?? 0;
     steps.forEach((s, i) => {
       if (s.order <= max) reached[i]++;
+    });
+    sideStatuses.forEach((s, i) => {
+      if (ids.includes(s.id)) visited[i]++;
     });
   }
   const total = leads.length;
@@ -144,6 +170,12 @@ export function calcFunnel(leads: Pick<RLead, "statusId" | "statusKind" | "visit
       ofTotal: safeDiv(reached[i], total),
       ofPrev: i === 0 ? safeDiv(reached[i], total) : safeDiv(reached[i], reached[i - 1]),
     })),
+    side: sideStatuses.map((s, i) => ({ statusId: s.id, name: s.name, color: s.color, count: visited[i], ofTotal: safeDiv(visited[i], total) })),
+    // где лиды периода находятся сейчас: доли по всем статусам в сумме дают 100%
+    current: sorted.map((s) => {
+      const count = leads.filter((l) => l.statusId === s.id).length;
+      return { statusId: s.id, name: s.name, color: s.color, count, ofTotal: safeDiv(count, total) };
+    }),
   };
 }
 

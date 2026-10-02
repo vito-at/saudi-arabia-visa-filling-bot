@@ -59,7 +59,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         <KpiTile label={t("dashboard.profit")} value={formatMoney(d.cur.profit, cur)} delta={d.deltas.profit} prev={formatMoney(d.was.profit, cur)} />
         <KpiTile label={t("dashboard.avgCheck")} value={formatMoney(d.cur.avgCheck, cur)} delta={d.deltas.avgCheck} prev={formatMoney(d.was.avgCheck, cur)} />
       </div>
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <Card>
           <CardHeader>
             <CardTitle>{t(d.bucket === 7 ? "dashboard.leadsByWeek" : "dashboard.leadsByDay")}</CardTitle>
@@ -77,7 +77,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           </CardContent>
         </Card>
       </div>
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <Card>
           <CardHeader>
             <CardTitle>{t("dashboard.tasksToday")}</CardTitle>

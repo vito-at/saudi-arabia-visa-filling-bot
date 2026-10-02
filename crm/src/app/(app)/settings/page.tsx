@@ -155,7 +155,7 @@ async function StatusesTab() {
         <CardTitle>{t("settings.statusesTitle")}</CardTitle>
       </CardHeader>
       <CardContent>
-        <StatusesEditor statuses={statuses.map((s) => ({ id: s.id, name: s.name, color: s.color, kind: s.kind, isSystem: s.isSystem, leads: s._count.leads }))} />
+        <StatusesEditor statuses={statuses.map((s) => ({ id: s.id, name: s.name, color: s.color, kind: s.kind, isSystem: s.isSystem, inFunnel: s.inFunnel, leads: s._count.leads }))} />
       </CardContent>
     </Card>
   );

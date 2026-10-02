@@ -53,9 +53,9 @@ export function FunnelBars({ data }: { data: { name: string; count: number; ofTo
   const { t } = useI18n();
   return (
     <ResponsiveContainer width="100%" height={Math.max(160, data.length * 44)}>
-      <BarChart data={data} layout="vertical" margin={{ top: 0, right: 110, left: 8, bottom: 0 }} barCategoryGap={6}>
+      <BarChart data={data} layout="vertical" margin={{ top: 0, right: 48, left: 4, bottom: 0 }} barCategoryGap={6}>
         <XAxis type="number" hide />
-        <YAxis type="category" dataKey="name" width={190} tick={catTick} tickLine={false} axisLine={false} />
+        <YAxis type="category" dataKey="name" width={130} tick={catTick} tickLine={false} axisLine={false} />
         <Tooltip {...tip} cursor={{ fill: c.cursor }} formatter={(v, _n, p) => [`${formatNumber(Number(v))} (${formatPercent(p.payload.ofTotal)})`, t("chart.reached")]} />
         <Bar dataKey="count" fill={c.single} radius={[0, 4, 4, 0]}>
           <LabelList dataKey="count" position="right" formatter={(v) => formatNumber(Number(v))} style={{ fontSize: 12, fill: c.label, fontWeight: 600 }} />
@@ -108,9 +108,9 @@ export function HBars({ data, currency, label }: { data: { name: string; value: 
   const { f } = useI18n();
   return (
     <ResponsiveContainer width="100%" height={Math.max(140, data.length * 40)}>
-      <BarChart data={data} layout="vertical" margin={{ top: 0, right: 120, left: 8, bottom: 0 }} barCategoryGap={6}>
+      <BarChart data={data} layout="vertical" margin={{ top: 0, right: 96, left: 4, bottom: 0 }} barCategoryGap={6}>
         <XAxis type="number" hide />
-        <YAxis type="category" dataKey="name" width={180} tick={catTick} tickLine={false} axisLine={false} />
+        <YAxis type="category" dataKey="name" width={150} tick={catTick} tickLine={false} axisLine={false} />
         <Tooltip {...tip} cursor={{ fill: c.cursor }} formatter={(v) => [f.money(Number(v), currency), label]} />
         <Bar dataKey="value" fill={c.single} radius={[0, 4, 4, 0]}>
           <LabelList dataKey="value" position="right" formatter={(v) => f.moneyRound(Number(v), currency)} style={{ fontSize: 12, fill: c.label }} />
