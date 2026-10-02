@@ -64,12 +64,9 @@ export function parseTravelers(v: string): number | null {
 
 export function guessService(text: string): ServiceType | null {
   const t = text.toLowerCase();
-  if (/умр|umra|хадж|hajj/.test(t)) return "UMRAH";
   if (/авиа|билет|avia|chipta|flight|ticket/.test(t)) return "FLIGHTS";
   if (/виз|viza|visa/.test(t)) return "VISA";
-  if (/мед|лечен|клиник|davolan|medical|clinic/.test(t)) return "MEDICAL";
-  if (/узбекист|въезд|inbound|по узбекистану/.test(t)) return "INBOUND_TOUR";
-  if (/тур|tour|sayohat|отдых/.test(t)) return "OUTBOUND_TOUR";
+  if (/тур|tour|sayohat|отдых/.test(t)) return "TOUR";
   return null;
 }
 

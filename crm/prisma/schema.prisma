@@ -25,11 +25,8 @@ enum LeadSource {
 
 enum ServiceType {
   FLIGHTS
-  OUTBOUND_TOUR
-  INBOUND_TOUR
-  UMRAH
+  TOUR
   VISA
-  MEDICAL
   OTHER
 }
 

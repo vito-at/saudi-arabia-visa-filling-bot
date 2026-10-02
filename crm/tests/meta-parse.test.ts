@@ -47,7 +47,7 @@ describe("parseMetaLead", () => {
     const answers = r.formAnswers as unknown as { key: string; label: string; value: string }[];
     expect(answers).toHaveLength(3);
     expect(answers[2]).toEqual({ key: "когда_планируете_поездку?", label: "Когда планируете поездку?", value: "через 1-2 месяца" });
-    expect(r.serviceType).toBe("OUTBOUND_TOUR");
+    expect(r.serviceType).toBe("TOUR");
   });
 
   it("использует подписи вопросов из формы и собирает имя из first/last name", () => {
@@ -79,7 +79,7 @@ describe("parseMetaLead", () => {
   it("понимает узбекские вопросы и несколько вариантов ответа", () => {
     const r = parseMetaLead({
       ...base,
-      campaign_name: "Umra 2026",
+      campaign_name: "Viza 2026",
       field_data: [
         { name: "ismingiz", values: ["Jasur"] },
         { name: "telefon_raqamingiz", values: ["+998 93 555 44 33"] },
@@ -88,7 +88,7 @@ describe("parseMetaLead", () => {
     });
     expect(r.name).toBe("Jasur");
     expect(r.destination).toBe("Turkiya, Dubay");
-    expect(r.serviceType).toBe("UMRAH");
+    expect(r.serviceType).toBe("VISA");
     // «telefon_raqamingiz» — не стандартный ключ: номер уходит в ответы формы
     expect((r.formAnswers as unknown as unknown[]).length).toBe(2);
   });
@@ -113,7 +113,7 @@ describe("вспомогательные функции", () => {
   });
   it("guessService", () => {
     expect(guessService("Авиабилеты по лучшим ценам")).toBe("FLIGHTS");
-    expect(guessService("Лечение в Индии")).toBe("MEDICAL");
+    expect(guessService("Тур в Турцию")).toBe("TOUR");
     expect(guessService("Виза в Корею")).toBe("VISA");
     expect(guessService("что-то")).toBeNull();
   });

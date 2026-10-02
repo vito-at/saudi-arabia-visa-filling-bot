@@ -38,11 +38,10 @@ export const reasonName = (t: TFunction, name: string) => (DEFAULT_REASON_KEYS[n
 
 const SERVICE_RU: Record<string, TKey> = {
   "Авиабилеты": "service.FLIGHTS",
-  "Выездной тур": "service.OUTBOUND_TOUR",
-  "Въездной тур": "service.INBOUND_TOUR",
-  "Умра": "service.UMRAH",
+  "Тур": "service.TOUR",
+  "Выездной тур": "service.TOUR",
+  "Въездной тур": "service.TOUR",
   "Визовая поддержка": "service.VISA",
-  "Медицинский туризм": "service.MEDICAL",
 };
 
 const SOURCE_RU: Record<string, TKey> = {

@@ -774,11 +774,8 @@ export const ru = {
   },
   service: {
     FLIGHTS: "Авиабилеты",
-    INBOUND_TOUR: "Въездной тур",
-    MEDICAL: "Медицинский туризм",
+    TOUR: "Тур",
     OTHER: "Другое",
-    OUTBOUND_TOUR: "Выездной тур",
-    UMRAH: "Умра",
     VISA: "Визовая поддержка",
   },
   settings: {
