@@ -697,6 +697,7 @@ export const uz: Messages = {
         form: "Formalar",
       },
       noSpend: "Xarajatlar sozlamalarda Marketing API ulangandan keyin paydo bo‘ladi.",
+      spendAllOnly: "Reklama xarajati faqat barcha menejerlar bo‘yicha umumiy hisobotda ko‘rsatiladi.",
       note: "Davrda yaratilgan reklama lidlari va ularning barcha bitimlari (keyinroq to‘langanlari ham). Reklamadan bo‘lmagan lidlar: {n}.",
       roiNote: "Kliklar — havola bo‘yicha, CTR = kliklar / ko‘rishlar. ROI = (foyda − xarajat) / xarajat.",
       title: "Reklama — {level}",

@@ -196,7 +196,7 @@ export async function adsTable(f: ReportFilters, level: AdLevel): Promise<Table>
       ];
   return {
     title: t("rt.ads.title", { level: t(AD_LEVELS[level]).toLowerCase() }),
-    note: `${t("rt.ads.note", { n: noAds })}${spend ? ` ${t("rt.ads.roiNote")}` : level !== "form" ? ` ${t("rt.ads.noSpend")}` : ""}`,
+    note: `${t("rt.ads.note", { n: noAds })}${spend ? ` ${t("rt.ads.roiNote")}` : level === "form" ? "" : ` ${t(f.managerId && f.managerId !== "none" ? "rt.ads.spendAllOnly" : "rt.ads.noSpend")}`}`,
     columns: cols,
     rows: rows.map((r) => ({ ...r })),
     totals: {
@@ -225,7 +225,9 @@ export async function adsTable(f: ReportFilters, level: AdLevel): Promise<Table>
 export async function managersTable(f: ReportFilters) {
   const { t } = f;
   const [leads, deals, users] = await Promise.all([loadLeads(f.period, f.managerId), loadDeals(f.period, f.managerId), getManagers()]);
-  const rows = calcManagers(leads, deals, users, money(f));
+  // менеджер (и фильтр по менеджеру) — только своя строка, без коллег
+  const visible = f.managerId && f.managerId !== "none" ? users.filter((u) => u.id === f.managerId) : users;
+  const rows = calcManagers(leads, deals, visible, money(f));
   const table: Table = {
     title: t("rt.managers.title"),
     note: t("rt.managers.note"),

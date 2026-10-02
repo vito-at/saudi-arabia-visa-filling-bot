@@ -697,6 +697,7 @@ export const en: Messages = {
         form: "Forms",
       },
       noSpend: "Spend will appear once the Marketing API is connected in settings.",
+      spendAllOnly: "Ad spend is shown only in the overall report for all managers.",
       note: "Ad leads created in the period and all their deals (including ones paid later). Leads not from ads: {n}.",
       roiNote: "Clicks are link clicks, CTR = clicks / impressions. ROI = (profit − spend) / spend.",
       title: "Advertising — {level}",
