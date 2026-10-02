@@ -66,11 +66,12 @@ export function groupDealsByLead(
   }>,
   to: Currency,
   rate: number,
+  costRate: number = rate,
 ): FinanceLead[] {
   const map = new Map<string, FinanceLead>();
   for (const d of deals) {
     const revenue = convert(d.amount, d.currency, to, rate);
-    const cost = convert(d.cost, d.currency, to, rate);
+    const cost = convert(d.cost, d.currency, to, costRate);
     const row =
       map.get(d.lead.id) ??
       ({
@@ -159,10 +160,11 @@ export async function loadFinanceLeads(f: ReportFilters): Promise<FinanceLead[]>
     rows.map((r) => ({ ...r, amount: toNum(r.amount), cost: toNum(r.cost) })),
     f.currency,
     f.rate,
+    f.costRate,
   );
 }
 
-/** Расход на рекламу из Meta за период; null, если расходы ещё ни разу не загружались */
+/** Расход на рекламу из Meta за период (по курсу покупки $); null, если расходы ещё ни разу не загружались */
 export async function loadAdSpendTotal(f: ReportFilters): Promise<number | null> {
   if (!(await prisma.adSpend.count())) return null;
   const rows = await prisma.adSpend.groupBy({
@@ -170,7 +172,7 @@ export async function loadAdSpendTotal(f: ReportFilters): Promise<number | null>
     where: { date: dateColumnRange(f.period) },
     _sum: { spend: true },
   });
-  return round2(rows.reduce((s, r) => s + convert(toNum(r._sum.spend), r.currency === "UZS" ? "UZS" : "USD", f.currency, f.rate), 0));
+  return round2(rows.reduce((s, r) => s + convert(toNum(r._sum.spend), r.currency === "UZS" ? "UZS" : "USD", f.currency, f.costRate), 0));
 }
 
 export interface ExpenseRow {
@@ -196,7 +198,7 @@ export async function loadExpenses(f: ReportFilters): Promise<ExpenseRow[]> {
     category: e.category,
     amount: toNum(e.amount),
     currency: e.currency,
-    converted: convert(e.amount, e.currency, f.currency, f.rate),
+    converted: convert(e.amount, e.currency, f.currency, f.costRate),
     note: e.note,
     createdBy: e.createdBy?.name ?? null,
   }));

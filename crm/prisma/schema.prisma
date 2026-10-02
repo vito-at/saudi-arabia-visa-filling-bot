@@ -58,12 +58,6 @@ enum RateSource {
   IPAK_YULI
 }
 
-/// Какой курс Ипак Йули Банка брать: покупки или продажи
-enum RateSide {
-  BUY
-  SELL
-}
-
 enum DistributionMode {
   MANUAL
   ROUND_ROBIN
@@ -133,6 +127,8 @@ model Lead {
   isRepeat    Boolean      @default(false)
   statusId    String
   managerId   String?
+  /// Лид создан администратором вручную: пока нет ответственного, менеджеры его не видят
+  hiddenFromManagers Boolean @default(false)
   serviceType ServiceType?
   destination String?
   travelFrom  DateTime?
@@ -327,10 +323,11 @@ model AppSettings {
   id                  Int              @id @default(1)
   distributionMode    DistributionMode @default(MANUAL)
   unprocessedAlertMin Int              @default(15)
-  /// Текущий курс USD→UZS — по нему пересчитываются все отчёты
+  /// Курс продажи $ (банк покупает доллары, дешёвый) — по нему пересчитывается выручка
   usdRate             Decimal          @default(12800) @db.Decimal(12, 2)
+  /// Курс покупки $ (банк продаёт доллары, дорогой) — по нему пересчитываются себестоимость, реклама и расходы компании
+  usdRateCost         Decimal          @default(12800) @db.Decimal(12, 2)
   usdRateSource       RateSource       @default(IPAK_YULI)
-  usdRateSide         RateSide         @default(SELL)
   usdRateUpdatedAt    DateTime?
   usdRateError        String?
 }

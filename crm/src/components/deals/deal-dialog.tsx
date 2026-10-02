@@ -9,7 +9,7 @@ import { toInputDate } from "@/lib/format";
 import { useI18n } from "@/i18n/client";
 import { calcProfit, convert } from "@/lib/money";
 import { createDealAction, updateDealAction, type DealInput } from "@/app/(app)/deals/actions";
-import { useIsAdmin } from "@/components/layout/role-context";
+import { useCostRate, useIsAdmin } from "@/components/layout/role-context";
 
 export interface DealDialogProps {
   open: boolean;
@@ -17,6 +17,7 @@ export interface DealDialogProps {
   leadId: string;
   /** если задан — после сохранения лид переводится в «Продано» */
   wonStatusId?: string | null;
+  /** курс продажи $; себестоимость пересчитывается по курсу покупки $ из контекста */
   rate: number;
   deal?: { id: string } & DealInput;
   onSaved?: () => void;
@@ -32,11 +33,14 @@ export function DealDialog({ open, onOpenChange, leadId, wonStatusId, rate, deal
   const [pending, start] = useTransition();
   // менеджер указывает только сумму продажи — себестоимость вносит администратор
   const isAdmin = useIsAdmin();
+  const costRate = useCostRate() || rate;
   const set = (k: keyof DealInput) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
     setForm({ ...form, [k]: e.target.value });
 
   const profit = calcProfit(parse(form.amount), parse(form.cost));
   const other = form.currency === "USD" ? "UZS" : "USD";
+  // прибыль в другой валюте: выручка по курсу продажи, себестоимость по курсу покупки
+  const profitOther = rate > 0 ? convert(parse(form.amount), form.currency, other, rate) - convert(parse(form.cost), form.currency, other, costRate) : 0;
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -83,7 +87,7 @@ export function DealDialog({ open, onOpenChange, leadId, wonStatusId, rate, deal
             {rate > 0 && (
               <div className="mt-1 flex justify-between text-xs text-muted-foreground">
                 <span>{t("deal.inOther", { cur: other })}</span>
-                <span>{f.money(convert(profit, form.currency, other, rate), other)}</span>
+                <span>{f.money(profitOther, other)}</span>
               </div>
             )}
           </div>

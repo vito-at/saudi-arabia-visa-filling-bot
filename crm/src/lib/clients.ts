@@ -17,7 +17,10 @@ export interface ClientAggRow {
 
 export interface ClientAggOptions {
   currency: Currency;
+  /** курс продажи $ — для выручки */
   usdRate: number;
+  /** курс покупки $ — для себестоимости; по умолчанию равен курсу продажи */
+  usdRateCost?: number;
   search?: string;
   /** только клиенты менеджера и только его сделки */
   managerId?: string | null;
@@ -30,13 +33,16 @@ export interface ClientAggOptions {
 
 /**
  * Клиенты с количеством сделок, выручкой и прибылью.
- * Суммы пересчитываются в выбранную валюту по текущему курсу (SQL-агрегация, чтобы сортировать по выручке).
+ * Суммы пересчитываются в выбранную валюту: выручка по курсу продажи $, себестоимость по курсу покупки $ (SQL-агрегация, чтобы сортировать по выручке).
  */
 export async function getClientAggregates(o: ClientAggOptions): Promise<{ rows: ClientAggRow[]; total: number }> {
-  const rate = new Prisma.Decimal(o.usdRate || 1);
   // коэффициенты пересчёта: сумма_в_целевой = amount * k(currency)
-  const kUsd = o.currency === "UZS" ? rate : new Prisma.Decimal(1);
-  const kUzs = o.currency === "UZS" ? new Prisma.Decimal(1) : new Prisma.Decimal(1).div(rate);
+  const factors = (usdRate: number) => {
+    const rate = new Prisma.Decimal(usdRate || 1);
+    return { usd: o.currency === "UZS" ? rate : new Prisma.Decimal(1), uzs: o.currency === "UZS" ? new Prisma.Decimal(1) : new Prisma.Decimal(1).div(rate) };
+  };
+  const kSale = factors(o.usdRate);
+  const kCost = factors(o.usdRateCost ?? o.usdRate);
 
   const dealCond: Prisma.Sql[] = [Prisma.sql`d."clientId" = c.id`];
   if (o.managerId) dealCond.push(Prisma.sql`d."managerId" = ${o.managerId}`);
@@ -59,8 +65,10 @@ export async function getClientAggregates(o: ClientAggOptions): Promise<{ rows: 
     lastDeal: Prisma.sql`"lastDealAt" DESC NULLS LAST`,
   }[o.sort ?? "revenue"];
 
-  const conv = (col: string) =>
-    Prisma.sql`COALESCE(SUM(CASE WHEN d.currency = 'USD' THEN d.${Prisma.raw(`"${col}"`)} * ${kUsd} ELSE d.${Prisma.raw(`"${col}"`)} * ${kUzs} END), 0)`;
+  const conv = (col: "amount" | "cost") => {
+    const k = col === "amount" ? kSale : kCost;
+    return Prisma.sql`COALESCE(SUM(CASE WHEN d.currency = 'USD' THEN d.${Prisma.raw(`"${col}"`)} * ${k.usd} ELSE d.${Prisma.raw(`"${col}"`)} * ${k.uzs} END), 0)`;
+  };
 
   const rows = await prisma.$queryRaw<
     { id: string; name: string; phone: string | null; createdAt: Date; leads: bigint; deals: bigint; revenue: Prisma.Decimal; cost: Prisma.Decimal; profit: Prisma.Decimal; lastDealAt: Date | null }[]

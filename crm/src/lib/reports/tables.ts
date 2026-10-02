@@ -53,6 +53,7 @@ export async function clientsTable(f: ReportFilters, opts: { limit?: number } = 
   const { rows, total } = await getClientAggregates({
     currency: f.currency,
     usdRate: f.rate,
+    usdRateCost: f.costRate,
     managerId: f.managerId && f.managerId !== "none" ? f.managerId : null,
     period: f.period,
     sort: "revenue",

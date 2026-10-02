@@ -1,6 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "./db";
 import { CALLBACK_REMIND_MIN } from "./constants";
+import { leadScope } from "./access";
 import type { CurrentUser } from "./session";
 
 export interface CallbackItem {
@@ -18,7 +19,7 @@ export interface CallbackItem {
 export async function loadCallbacks(user: CurrentUser, opts: { horizonMin?: number; personal?: boolean } = {}): Promise<CallbackItem[]> {
   const until = new Date(Date.now() + (opts.horizonMin ?? CALLBACK_REMIND_MIN + 5) * 60_000);
   const who: Prisma.LeadWhereInput =
-    opts.personal || user.role !== "ADMIN" ? { OR: [{ managerId: user.id }, { managerId: null }] } : {};
+    user.role !== "ADMIN" ? leadScope(user) : opts.personal ? { OR: [{ managerId: user.id }, { managerId: null }] } : {};
   const rows = await prisma.lead.findMany({
     where: { ...who, status: { kind: "CALLBACK" }, callbackAt: { not: null, lte: until } },
     orderBy: { callbackAt: "asc" },

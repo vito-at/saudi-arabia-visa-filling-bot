@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { expensesByCategory, financeSummary, groupDealsByLead, type ExpenseRow } from "@/lib/finance";
 
-const lead = (id: string, name: string) => ({ id, name, phone: "998901234567", source: "META_IG" as const, campaignName: "Умра", manager: { name: "Гулнора" } });
+const lead = (id: string, name: string) => ({ id, name, phone: "998901234567", source: "META_IG" as const, campaignName: "Дубай", manager: { name: "Гулнора" } });
 const RATE = 12_500;
 
 describe("финансы: прибыль по лидам", () => {
@@ -10,6 +10,11 @@ describe("финансы: прибыль по лидам", () => {
     { id: "d2", product: "Виза", amount: 1_250_000, cost: 250_000, currency: "UZS" as const, paidAt: new Date("2026-09-20T10:00:00Z"), lead: lead("l1", "Нодира") },
     { id: "d3", product: "Авиабилеты", amount: 500, cost: 520, currency: "USD" as const, paidAt: new Date("2026-09-15T10:00:00Z"), lead: lead("l2", "Фаррух") },
   ];
+
+  it("себестоимость пересчитывается по курсу покупки, выручка — по курсу продажи", () => {
+    const [row] = groupDealsByLead([deals[0]], "UZS", 12_600, 12_750);
+    expect(row).toMatchObject({ revenue: 12_600_000, cost: 10_200_000, profit: 2_400_000 });
+  });
 
   it("суммирует сделки лида в валюте отчёта, считает прибыль и маржу", () => {
     const rows = groupDealsByLead(deals, "USD", RATE);

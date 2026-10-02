@@ -73,6 +73,7 @@ export async function createLeadAction(formData: FormData) {
         travelTo: parseInputDate(str(formData.get("travelTo"))),
         travelers: parseTravelers(formData.get("travelers")),
         managerId,
+        hiddenFromManagers: user.role === "ADMIN",
         comment: str(formData.get("comment")),
       },
       user.id,

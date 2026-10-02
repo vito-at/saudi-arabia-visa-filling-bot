@@ -14,7 +14,10 @@ export interface ReportFilters {
   period: Period;
   currency: Currency;
   managerId: string | null; // для менеджера — всегда он сам
+  /** курс продажи $ — для выручки */
   rate: number;
+  /** курс покупки $ (дорогой) — для себестоимости, рекламы и расходов компании */
+  costRate: number;
   /** перевод подписей отчёта на язык пользователя */
   t: TFunction;
   locale: Locale;
@@ -30,10 +33,11 @@ export async function readFilters(params: SearchParams, user: CurrentUser): Prom
     currency: sp(params, "cur") === "UZS" ? "UZS" : "USD",
     managerId: user.role === "ADMIN" ? sp(params, "manager") ?? null : user.id,
     rate: toNum(settings.usdRate),
+    costRate: toNum(settings.usdRateCost),
   };
 }
 
-export const money = (f: ReportFilters): Money => ({ currency: f.currency, rate: f.rate });
+export const money = (f: ReportFilters): Money => ({ currency: f.currency, rate: f.rate, costRate: f.costRate });
 
 function managerWhere(managerId: string | null): Prisma.LeadWhereInput {
   if (!managerId) return {};
@@ -99,7 +103,7 @@ export async function loadSpend(period: { from: Date; to: Date }, level: "campai
     if (!key) continue;
     const cur = r.currency === "UZS" ? "UZS" : "USD";
     const v = toNum(r.spend);
-    const converted = cur === f.currency ? v : cur === "USD" ? v * f.rate : v / f.rate;
+    const converted = cur === f.currency ? v : cur === "USD" ? v * f.costRate : v / f.costRate;
     const s = map.get(key) ?? { spend: 0, impressions: 0, clicks: 0, name: null };
     s.spend += converted;
     s.impressions += r.impressions;

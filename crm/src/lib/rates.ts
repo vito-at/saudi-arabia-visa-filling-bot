@@ -104,15 +104,14 @@ export async function fetchIpakYuliRate(fetchFn: typeof fetch = fetch): Promise<
   throw new Error(errors.join("; "));
 }
 
-/** Обновить курс в настройках (если выбран источник «Ипак Йули Банк») */
+/** Обновить курсы в настройках (если выбран источник «Ипак Йули Банк»): курс продажи $ — покупка банка, курс покупки $ — продажа банка */
 export async function updateUsdRate(opts: { force?: boolean; fetchFn?: typeof fetch } = {}) {
   const s = await prisma.appSettings.findUnique({ where: { id: 1 } });
   if (!s || (s.usdRateSource !== "IPAK_YULI" && !opts.force)) return { ok: false, skipped: true as const };
   try {
     const r = await fetchIpakYuliRate(opts.fetchFn);
-    const rate = s.usdRateSide === "BUY" ? r.buy : r.sell;
-    await prisma.appSettings.update({ where: { id: 1 }, data: { usdRate: rate, usdRateUpdatedAt: new Date(), usdRateError: null } });
-    return { ok: true, rate, ...r };
+    await prisma.appSettings.update({ where: { id: 1 }, data: { usdRate: r.buy, usdRateCost: r.sell, usdRateUpdatedAt: new Date(), usdRateError: null } });
+    return { ok: true, ...r };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     await prisma.appSettings.update({ where: { id: 1 }, data: { usdRateError: msg.slice(0, 1000) } });

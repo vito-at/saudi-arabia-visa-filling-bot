@@ -85,6 +85,7 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
                 to: formatDate(new Date(f.period.to.getTime() - 1)),
                 cur: f.currency,
                 rate: formatNumber(f.rate, 2),
+                costRate: formatNumber(f.costRate, 2),
                 sum: fm.sum,
               })}
             </span>

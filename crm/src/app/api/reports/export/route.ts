@@ -47,7 +47,7 @@ export async function GET(req: NextRequest) {
   const to = new Date(f.period.to.getTime() - 1);
   const buf = await buildWorkbook(tables, {
     title: `Orient Travel — ${t(REPORT_TABS[tab])}`,
-    subtitle: `${t("excel.subtitle", { from: formatDate(f.period.from), to: formatDate(to), cur: f.currency, rate: f.rate })}${user.role !== "ADMIN" ? `; ${t("excel.manager", { name: user.name })}` : ""}`,
+    subtitle: `${t("excel.subtitle", { from: formatDate(f.period.from), to: formatDate(to), cur: f.currency, rate: f.rate, costRate: f.costRate })}${user.role !== "ADMIN" ? `; ${t("excel.manager", { name: user.name })}` : ""}`,
     currency: f.currency,
     minutesLabel: t("excel.minutes"),
   });

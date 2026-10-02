@@ -3,6 +3,8 @@ import {
   adKey,
   calcFunnel,
   calcKpis,
+  dealProfit,
+  dealRevenue,
   calcLossMatrix,
   calcLossReasons,
   calcManagers,
@@ -227,5 +229,14 @@ describe("ряды по дням и распределение", () => {
     ]);
     expect(pick.id).toBe("c");
     expect(pickRoundRobin([{ id: "a", lastAssignedAt: d("2026-09-30T10:00:00Z"), createdAt: d("2026-01-01") }, { id: "b", lastAssignedAt: d("2026-09-30T09:00:00Z"), createdAt: d("2026-01-01") }]).id).toBe("b");
+  });
+});
+
+describe("прибыль сделки в отчётах", () => {
+  it("выручка по курсу продажи, себестоимость по курсу покупки", () => {
+    const d = { amount: 1000, cost: 800, currency: "USD" as const, paidAt: new Date(), managerId: null };
+    expect(dealRevenue(d, { currency: "UZS", rate: 12_600, costRate: 12_750 })).toBe(12_600_000);
+    expect(dealProfit(d, { currency: "UZS", rate: 12_600, costRate: 12_750 })).toBe(2_400_000);
+    expect(dealProfit(d, { currency: "UZS", rate: 12_600 })).toBe(2_520_000); // без курса покупки — по одному курсу
   });
 });
