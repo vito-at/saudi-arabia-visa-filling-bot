@@ -91,7 +91,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
           </Suspense>
         </div>
         <Suspense>
-          <LeadsTable rows={rows} managers={managers.map((m) => ({ id: m.id, name: m.name }))} isAdmin={isAdmin} currentUserId={user.id} />
+          <LeadsTable rows={rows} managers={managers.map((m) => ({ id: m.id, name: m.name }))} isAdmin={isAdmin} />
         </Suspense>
         <Pagination page={page} pageSize={PAGE_SIZE} total={total} params={params} basePath="/leads" />
       </Card>

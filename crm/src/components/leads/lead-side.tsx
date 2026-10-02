@@ -68,7 +68,7 @@ export interface DealItem {
   manager: string | null;
 }
 
-export function DealsPanel({ leadId, deals, rate, canDelete }: { leadId: string; deals: DealItem[]; rate: number; canDelete: boolean }) {
+export function DealsPanel({ leadId, deals, rate, canManage }: { leadId: string; deals: DealItem[]; rate: number; canManage: boolean }) {
   const { t, f } = useI18n();
   const [editing, setEditing] = useState<DealItem | "new" | null>(null);
   const [pending, start] = useTransition();
@@ -80,12 +80,14 @@ export function DealsPanel({ leadId, deals, rate, canDelete }: { leadId: string;
           <div key={d.id} className="group rounded-lg border p-3 text-sm">
             <div className="flex items-start gap-2">
               <div className="flex-1 font-medium">{d.product}</div>
-              <button className="opacity-0 group-hover:opacity-100 text-muted-foreground cursor-pointer" title={t("common.edit")} onClick={() => setEditing(d)}>
-                <Pencil className="size-3.5" />
-              </button>
-              {canDelete && (
+              {canManage && (
+                <button className="text-muted-foreground cursor-pointer sm:opacity-0 sm:group-hover:opacity-100" title={t("common.edit")} onClick={() => setEditing(d)}>
+                  <Pencil className="size-3.5" />
+                </button>
+              )}
+              {canManage && (
                 <button
-                  className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-600 cursor-pointer"
+                  className="text-muted-foreground hover:text-red-600 cursor-pointer sm:opacity-0 sm:group-hover:opacity-100"
                   title={t("common.delete")}
                   disabled={pending}
                   onClick={() => {

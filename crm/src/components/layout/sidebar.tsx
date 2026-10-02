@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { BarChart3, CheckSquare, Columns3, LayoutDashboard, LogOut, Menu, Settings, Users, Inbox, X } from "lucide-react";
+import { BarChart3, CheckSquare, Columns3, LayoutDashboard, LogOut, Menu, Settings, Users, Inbox, Wallet, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "./logo";
 import { ThemeToggle } from "./theme-toggle";
@@ -18,6 +18,7 @@ const NAV = [
   { href: "/clients", label: "nav.clients", icon: Users, badge: null },
   { href: "/tasks", label: "nav.tasks", icon: CheckSquare, badge: "tasks" },
   { href: "/reports", label: "nav.reports", icon: BarChart3, badge: null },
+  { href: "/finance", label: "nav.finance", icon: Wallet, badge: null, admin: true },
   { href: "/settings", label: "nav.settings", icon: Settings, badge: null, admin: true },
 ] as const;
 

@@ -1,7 +1,7 @@
 import type { Currency, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { toNum } from "@/lib/money";
-import { previousPeriod, resolvePeriod, type Period } from "@/lib/period";
+import { dateColumnRange, previousPeriod, resolvePeriod, type Period } from "@/lib/period";
 import { getSettings } from "@/lib/refs";
 import type { CurrentUser } from "@/lib/session";
 import { sp, type SearchParams } from "@/lib/leads/query";
@@ -90,7 +90,7 @@ export async function loadSpend(period: { from: Date; to: Date }, level: "campai
   const col = { campaign: "campaignId", adset: "adsetId", ad: "adId" } as const;
   const nameCol = { campaign: "campaignName", adset: "adsetName", ad: "adName" } as const;
   const rows = await prisma.adSpend.findMany({
-    where: { date: { gte: period.from, lt: period.to } },
+    where: { date: dateColumnRange(period) },
     select: { campaignId: true, adsetId: true, adId: true, campaignName: true, adsetName: true, adName: true, spend: true, currency: true, impressions: true, clicks: true },
   });
   const map = new Map<string, AdStat>();

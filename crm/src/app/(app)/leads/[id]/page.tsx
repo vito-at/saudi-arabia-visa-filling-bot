@@ -101,7 +101,7 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            {lead.status.kind === "NEW" && (!lead.managerId || lead.managerId === user.id) && <TakeButton leadId={lead.id} />}
+            {lead.status.kind === "NEW" && !lead.managerId && <TakeButton leadId={lead.id} />}
             {isAdmin && <DeleteLeadButton leadId={lead.id} name={lead.name} deals={lead.deals.length} fromMeta={!!lead.leadgenId} />}
           </div>
         </div>
@@ -251,7 +251,7 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
               <DealsPanel
                 leadId={lead.id}
                 rate={rate}
-                canDelete={isAdmin}
+                canManage={isAdmin}
                 deals={lead.deals.map((d) => ({
                   id: d.id,
                   product: d.product,

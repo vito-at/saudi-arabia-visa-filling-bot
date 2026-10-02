@@ -264,7 +264,10 @@ export async function assignManager(leadIds: string[], managerId: string | null,
   });
 }
 
-/** «Взять в работу»: менеджер назначает себя и переводит лид в статус «В работе». */
+/**
+ * «Взять»: менеджер назначает лид на себя. Если в настройках есть статус типа «В работе», лид переводится в него;
+ * иначе статус остаётся «Новый», пока менеджер не сменит его после звонка.
+ */
 export async function takeLead(leadId: string, actor: { id: string; role: string }) {
   const lead = await prisma.lead.findUniqueOrThrow({ where: { id: leadId }, include: { status: true } });
   if (lead.managerId && lead.managerId !== actor.id && actor.role !== "ADMIN") {
@@ -272,9 +275,7 @@ export async function takeLead(leadId: string, actor: { id: string; role: string
   }
   if (lead.managerId !== actor.id) await assignManager([leadId], actor.id, actor.id);
   if (lead.status.kind === "NEW") {
-    const inProgress =
-      (await prisma.leadStatus.findFirst({ where: { kind: "IN_PROGRESS" }, orderBy: { order: "asc" } })) ??
-      (await prisma.leadStatus.findFirst({ where: { order: { gt: lead.status.order } }, orderBy: { order: "asc" } }));
+    const inProgress = await prisma.leadStatus.findFirst({ where: { kind: "IN_PROGRESS" }, orderBy: { order: "asc" } });
     if (inProgress) await changeStatus(leadId, { statusId: inProgress.id }, actor);
   }
 }
