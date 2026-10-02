@@ -1,3 +1,5 @@
+import { ratesOn } from "@/lib/rate-book";
+import { loadRateBook } from "@/lib/rate-history";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Phone } from "lucide-react";
@@ -39,11 +41,11 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
   if (!client) notFound();
   const settings = await getSettings();
   const rate = toNum(settings.usdRate);
-  const costRate = toNum(settings.usdRateCost);
+  const book = await loadRateBook(settings);
   const deals = isAdmin ? client.deals : client.deals.filter((d) => d.managerId === user.id);
   const leads = isAdmin ? client.leads : client.leads.filter((l) => l.managerId === user.id || (!l.managerId && !l.hiddenFromManagers));
-  const usd = sumDeals(deals, "USD", rate, costRate);
-  const uzs = sumDeals(deals, "UZS", rate, costRate);
+  const usd = sumDeals(deals, "USD", book);
+  const uzs = sumDeals(deals, "UZS", book);
 
   return (
     <div className="space-y-5">
@@ -102,7 +104,7 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
                   <TD className="text-right whitespace-nowrap">{f.money(toNum(d.amount), d.currency)}</TD>
                   <TD className="text-right whitespace-nowrap">{f.money(toNum(d.cost), d.currency)}</TD>
                   <TD className="text-right whitespace-nowrap text-emerald-700">{f.money(profit, d.currency)}</TD>
-                  <TD className="text-right whitespace-nowrap">{f.money(convert(d.amount, d.currency, "USD", rate) - convert(d.cost, d.currency, "USD", costRate), "USD")}</TD>
+                  <TD className="text-right whitespace-nowrap">{f.money(convert(d.amount, d.currency, "USD", ratesOn(book, d.paidAt).sale) - convert(d.cost, d.currency, "USD", ratesOn(book, d.paidAt).cost), "USD")}</TD>
                   <TD>{d.manager?.name ?? "—"}</TD>
                 </TR>
               );

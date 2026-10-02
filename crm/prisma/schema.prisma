@@ -332,6 +332,17 @@ model AppSettings {
   usdRateError        String?
 }
 
+/// История курсов USD→UZS по дням: суммы пересчитываются по курсу дня операции, поэтому отчёты за прошлые даты не меняются
+model ExchangeRate {
+  /// ташкентская дата
+  date      DateTime @id @db.Date
+  /// курс продажи $ — выручка
+  sale      Decimal  @db.Decimal(12, 2)
+  /// курс покупки $ — себестоимость, реклама, расходы компании
+  cost      Decimal  @db.Decimal(12, 2)
+  updatedAt DateTime @updatedAt
+}
+
 /// Расходы компании (аренда, зарплаты, налоги и т. п.) — вносит администратор в разделе «Финансы»
 model Expense {
   id          String   @id @default(cuid())

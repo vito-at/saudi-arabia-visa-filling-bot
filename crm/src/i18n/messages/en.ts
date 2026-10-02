@@ -84,7 +84,7 @@ export const en: Messages = {
       profit: "Profit",
       revenue: "Revenue",
     },
-    description: "Amounts in {cur}: revenue at the sell rate 1 $ = {rate} {sum}, costs at the buy rate 1 $ = {costRate} {sum}",
+    description: "Amounts in {cur} at the payment day’s rate: revenue at the sell rate, costs at the buy rate. Today 1 $ = {rate} / {costRate} {sum}",
     empty: "No clients found",
     search: "Name or phone",
     sort: {
@@ -312,7 +312,7 @@ export const en: Messages = {
   excel: {
     manager: "manager {name}",
     minutes: "min",
-    subtitle: "Period {from} — {to}; currency {cur}; sell rate 1 USD = {rate} UZS, buy rate 1 USD = {costRate} UZS",
+    subtitle: "Period {from} — {to}; currency {cur}; amounts at each day’s rate; today sell rate 1 USD = {rate} UZS, buy rate 1 USD = {costRate} UZS",
   },
   field: {
     callback: "Call back",
@@ -342,7 +342,7 @@ export const en: Messages = {
     modeAuto: "Automatic round-robin",
     modeHint: "Automatic — active managers receive new leads in turn (currently {n}). Repeat inquiries go to the previous manager.",
     modeManual: "Manual (admin assigns / managers take leads themselves)",
-    rateExplain: "Revenue is converted at the $ sell rate, while costs, ads and company expenses use the $ buy rate (the higher one), so profit isn’t overstated.",
+    rateExplain: "Revenue is converted at the $ sell rate, while costs, ads and company expenses use the $ buy rate (the higher one), so profit isn’t overstated. Rates are stored per day: each transaction uses its own day’s rate, so a new rate doesn’t change past reports.",
     rateSale: "$ sell rate — revenue",
     rateSaleHint: "bank buys $",
     rateCost: "$ buy rate — costs",
@@ -413,7 +413,7 @@ export const en: Messages = {
     sortProfit: "By profit",
     sortRevenue: "By revenue",
     source: "Source",
-    subtitle: "{from} — {to} · amounts in {cur} · 1 $ = {rate} {sum} (sell) / {costRate} {sum} (buy)",
+    subtitle: "{from} — {to} · amounts in {cur} at each day’s rate · today 1 $ = {rate} {sum} (sell) / {costRate} {sum} (buy)",
     tabExpenses: "Company expenses",
     tabLeads: "Profit by lead",
     title: "Finance",
@@ -652,7 +652,7 @@ export const en: Messages = {
     profit: "Profit",
     profitByManager: "Profit by manager",
     profitByService: "Profit by service type",
-    subtitle: "{from} — {to} · amounts in {cur} · 1 $ = {rate} {sum} (sell) / {costRate} {sum} (buy)",
+    subtitle: "{from} — {to} · amounts in {cur} at each day’s rate · today 1 $ = {rate} {sum} (sell) / {costRate} {sum} (buy)",
     tab: {
       ads: "Advertising",
       clients: "Clients",

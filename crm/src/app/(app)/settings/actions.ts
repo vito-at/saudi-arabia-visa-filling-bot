@@ -9,6 +9,7 @@ import { formatNumber } from "@/lib/format";
 import { SPECIAL_STATUS_KINDS } from "@/lib/constants";
 import { getI18n } from "@/i18n/server";
 import { updateUsdRate } from "@/lib/rates";
+import { recordDayRates } from "@/lib/rate-history";
 import { requireAdmin } from "@/lib/session";
 import { ValidationError } from "@/lib/leads/service";
 
@@ -40,7 +41,10 @@ export async function saveRateAction(formData: FormData) {
       const { sale, cost } = parseRates(str(formData.get("usdRate")), str(formData.get("usdRateCost")));
       Object.assign(data, { usdRate: sale, usdRateCost: cost, usdRateUpdatedAt: new Date(), usdRateError: null });
     }
-    await prisma.appSettings.update({ where: { id: 1 }, data });
+    await prisma.$transaction(async (tx) => {
+      await tx.appSettings.update({ where: { id: 1 }, data });
+      if (source === "MANUAL") await recordDayRates(Number(data.usdRate), Number(data.usdRateCost), tx);
+    });
     if (source === "IPAK_YULI") {
       const r = await updateUsdRate();
       revalidateAll();
@@ -68,9 +72,9 @@ export async function setUsdRateAction(saleValue: string, costValue: string) {
   return runAction(async () => {
     await requireAdmin();
     const { sale, cost } = parseRates(saleValue, costValue);
-    const s = await prisma.appSettings.update({
-      where: { id: 1 },
-      data: { usdRate: sale, usdRateCost: cost, usdRateUpdatedAt: new Date(), usdRateError: null },
+    const s = await prisma.$transaction(async (tx) => {
+      await recordDayRates(sale, cost, tx);
+      return tx.appSettings.update({ where: { id: 1 }, data: { usdRate: sale, usdRateCost: cost, usdRateUpdatedAt: new Date(), usdRateError: null } });
     });
     revalidateAll();
     const { t, f } = await getI18n();

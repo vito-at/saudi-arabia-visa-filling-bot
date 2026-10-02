@@ -33,16 +33,11 @@ export interface ClientAggOptions {
 
 /**
  * Клиенты с количеством сделок, выручкой и прибылью.
- * Суммы пересчитываются в выбранную валюту: выручка по курсу продажи $, себестоимость по курсу покупки $ (SQL-агрегация, чтобы сортировать по выручке).
+ * Суммы пересчитываются в выбранную валюту по курсам дня оплаты сделки (история ExchangeRate):
+ * выручка по курсу продажи $, себестоимость по курсу покупки $. SQL-агрегация, чтобы сортировать по выручке.
+ * До начала истории действует самый ранний сохранённый курс, без истории — текущий из настроек.
  */
 export async function getClientAggregates(o: ClientAggOptions): Promise<{ rows: ClientAggRow[]; total: number }> {
-  // коэффициенты пересчёта: сумма_в_целевой = amount * k(currency)
-  const factors = (usdRate: number) => {
-    const rate = new Prisma.Decimal(usdRate || 1);
-    return { usd: o.currency === "UZS" ? rate : new Prisma.Decimal(1), uzs: o.currency === "UZS" ? new Prisma.Decimal(1) : new Prisma.Decimal(1).div(rate) };
-  };
-  const kSale = factors(o.usdRate);
-  const kCost = factors(o.usdRateCost ?? o.usdRate);
 
   const dealCond: Prisma.Sql[] = [Prisma.sql`d."clientId" = c.id`];
   if (o.managerId) dealCond.push(Prisma.sql`d."managerId" = ${o.managerId}`);
@@ -66,8 +61,12 @@ export async function getClientAggregates(o: ClientAggOptions): Promise<{ rows: 
   }[o.sort ?? "revenue"];
 
   const conv = (col: "amount" | "cost") => {
-    const k = col === "amount" ? kSale : kCost;
-    return Prisma.sql`COALESCE(SUM(CASE WHEN d.currency = 'USD' THEN d.${Prisma.raw(`"${col}"`)} * ${k.usd} ELSE d.${Prisma.raw(`"${col}"`)} * ${k.uzs} END), 0)`;
+    const rc = Prisma.raw(col === "amount" ? "sale" : "cost");
+    const fallback = new Prisma.Decimal((col === "amount" ? o.usdRate : o.usdRateCost ?? o.usdRate) || 1);
+    const rate = Prisma.sql`COALESCE(rr.${rc}, r0.${rc}, ${fallback})`;
+    const v = Prisma.sql`d.${Prisma.raw(`"${col}"`)}`;
+    const converted = o.currency === "UZS" ? Prisma.sql`CASE WHEN d.currency = 'USD' THEN ${v} * ${rate} ELSE ${v} END` : Prisma.sql`CASE WHEN d.currency = 'UZS' THEN ${v} / ${rate} ELSE ${v} END`;
+    return Prisma.sql`COALESCE(SUM(${converted}), 0)`;
   };
 
   const rows = await prisma.$queryRaw<
@@ -82,6 +81,12 @@ export async function getClientAggregates(o: ClientAggOptions): Promise<{ rows: 
       MAX(d."paidAt") AS "lastDealAt"
     FROM "Client" c
     LEFT JOIN "Deal" d ON ${Prisma.join(dealCond, " AND ")}
+    LEFT JOIN LATERAL (
+      SELECT r.sale, r.cost FROM "ExchangeRate" r
+      WHERE r.date <= ((d."paidAt" AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Tashkent')::date
+      ORDER BY r.date DESC LIMIT 1
+    ) rr ON TRUE
+    LEFT JOIN (SELECT sale, cost FROM "ExchangeRate" ORDER BY date ASC LIMIT 1) r0 ON TRUE
     WHERE ${Prisma.join(where, " AND ")}
     GROUP BY c.id
     ORDER BY ${order}

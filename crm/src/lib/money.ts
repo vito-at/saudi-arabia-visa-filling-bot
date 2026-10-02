@@ -1,4 +1,5 @@
 import type { Currency } from "@prisma/client";
+import { resolveRates, type RateBook } from "./rate-book";
 
 type Num = number | string | { toString(): string } | null | undefined;
 
@@ -40,15 +41,20 @@ export interface DealMoney {
   amount: Num;
   cost: Num;
   currency: Currency;
+  paidAt?: Date;
 }
 
-/** Итоги по набору сделок в выбранной валюте: выручка по курсу продажи, себестоимость по курсу покупки */
-export function sumDeals(deals: DealMoney[], to: Currency, usdRate: Num, costRate: Num = usdRate) {
+/**
+ * Итоги по набору сделок в выбранной валюте: выручка по курсу продажи, себестоимость по курсу покупки.
+ * С историей курсов (RateBook) каждая сделка пересчитывается по курсам дня оплаты.
+ */
+export function sumDeals(deals: DealMoney[], to: Currency, usdRate: number | RateBook, costRate?: number) {
   let revenue = 0;
   let cost = 0;
   for (const d of deals) {
-    revenue += convert(d.amount, d.currency, to, usdRate);
-    cost += convert(d.cost, d.currency, to, costRate);
+    const r = resolveRates(usdRate, costRate, d.paidAt);
+    revenue += convert(d.amount, d.currency, to, r.sale);
+    cost += convert(d.cost, d.currency, to, r.cost);
   }
   revenue = round2(revenue);
   cost = round2(cost);

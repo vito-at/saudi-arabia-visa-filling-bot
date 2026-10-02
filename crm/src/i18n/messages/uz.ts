@@ -84,7 +84,7 @@ export const uz: Messages = {
       profit: "Foyda",
       revenue: "Tushum",
     },
-    description: "Summalar {cur} da: tushum sotish kursi bo‘yicha 1 $ = {rate} {sum}, tannarx sotib olish kursi bo‘yicha 1 $ = {costRate} {sum}",
+    description: "Summalar {cur} da, to‘lov kunidagi kurs bo‘yicha: tushum sotish kursi, tannarx sotib olish kursi bo‘yicha. Bugun 1 $ = {rate} / {costRate} {sum}",
     empty: "Mijozlar topilmadi",
     search: "Ism yoki telefon",
     sort: {
@@ -312,7 +312,7 @@ export const uz: Messages = {
   excel: {
     manager: "menejer {name}",
     minutes: "daq",
-    subtitle: "Davr {from} — {to}; valyuta {cur}; sotish kursi 1 USD = {rate} UZS, sotib olish kursi 1 USD = {costRate} UZS",
+    subtitle: "Davr {from} — {to}; valyuta {cur}; summalar operatsiya kunidagi kurs bo‘yicha; bugun sotish kursi 1 USD = {rate} UZS, sotib olish kursi 1 USD = {costRate} UZS",
   },
   field: {
     callback: "Qayta qo‘ng‘iroq",
@@ -342,7 +342,7 @@ export const uz: Messages = {
     modeAuto: "Avtomatik navbat bilan (round-robin)",
     modeHint: "Avtomatik — yangi lidlarni faol menejerlar navbat bilan oladi (hozir {n}). Takroriy murojaatlar avvalgi menejerga o‘tadi.",
     modeManual: "Qo‘lda (administrator biriktiradi / menejerlar o‘zlari oladi)",
-    rateExplain: "Tushum $ sotish kursi bo‘yicha, tannarx, reklama va kompaniya xarajatlari esa $ sotib olish kursi (qimmatroq) bo‘yicha qayta hisoblanadi — foyda oshirib ko‘rsatilmaydi.",
+    rateExplain: "Tushum $ sotish kursi bo‘yicha, tannarx, reklama va kompaniya xarajatlari esa $ sotib olish kursi (qimmatroq) bo‘yicha qayta hisoblanadi — foyda oshirib ko‘rsatilmaydi. Kurslar kunlar bo‘yicha saqlanadi: har bir operatsiya o‘z kunidagi kurs bo‘yicha hisoblanadi, shuning uchun yangi kurs o‘tgan sanalar hisobotlarini o‘zgartirmaydi.",
     rateSale: "$ sotish kursi — tushum",
     rateSaleHint: "bank $ sotib oladi",
     rateCost: "$ sotib olish kursi — xarajatlar",
@@ -413,7 +413,7 @@ export const uz: Messages = {
     sortProfit: "Foyda bo‘yicha",
     sortRevenue: "Tushum bo‘yicha",
     source: "Manba",
-    subtitle: "{from} — {to} · summalar {cur} da · 1 $ = {rate} {sum} (sotish) / {costRate} {sum} (sotib olish)",
+    subtitle: "{from} — {to} · summalar {cur} da, operatsiya kunidagi kurs bo‘yicha · bugun 1 $ = {rate} {sum} (sotish) / {costRate} {sum} (sotib olish)",
     tabExpenses: "Kompaniya xarajatlari",
     tabLeads: "Lidlar bo‘yicha foyda",
     title: "Moliya",
@@ -652,7 +652,7 @@ export const uz: Messages = {
     profit: "Foyda",
     profitByManager: "Menejerlar bo‘yicha foyda",
     profitByService: "Xizmat turlari bo‘yicha foyda",
-    subtitle: "{from} — {to} · summalar {cur} da · 1 $ = {rate} {sum} (sotish) / {costRate} {sum} (sotib olish)",
+    subtitle: "{from} — {to} · summalar {cur} da, operatsiya kunidagi kurs bo‘yicha · bugun 1 $ = {rate} {sum} (sotish) / {costRate} {sum} (sotib olish)",
     tab: {
       ads: "Reklama bo‘yicha",
       clients: "Mijozlar bo‘yicha",

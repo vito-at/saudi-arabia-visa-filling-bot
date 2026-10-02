@@ -1,5 +1,6 @@
 import { prisma } from "./db";
 import { parseInputDateTime, toInputDate } from "./format";
+import { recordDayRates } from "./rate-history";
 
 /** Время ежедневного обновления курса и окно повторных попыток (по Ташкенту) */
 export const RATE_UPDATE_HOUR = 7;
@@ -110,7 +111,10 @@ export async function updateUsdRate(opts: { force?: boolean; fetchFn?: typeof fe
   if (!s || (s.usdRateSource !== "IPAK_YULI" && !opts.force)) return { ok: false, skipped: true as const };
   try {
     const r = await fetchIpakYuliRate(opts.fetchFn);
-    await prisma.appSettings.update({ where: { id: 1 }, data: { usdRate: r.buy, usdRateCost: r.sell, usdRateUpdatedAt: new Date(), usdRateError: null } });
+    await prisma.$transaction(async (tx) => {
+      await tx.appSettings.update({ where: { id: 1 }, data: { usdRate: r.buy, usdRateCost: r.sell, usdRateUpdatedAt: new Date(), usdRateError: null } });
+      await recordDayRates(r.buy, r.sell, tx);
+    });
     return { ok: true, ...r };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);

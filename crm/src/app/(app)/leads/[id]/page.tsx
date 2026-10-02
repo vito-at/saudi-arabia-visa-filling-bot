@@ -1,3 +1,4 @@
+import { loadRateBook } from "@/lib/rate-history";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Mail, MessageCircle, Phone, Repeat, Send, Flame } from "lucide-react";
@@ -45,7 +46,7 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
   const rate = toNum(settings.usdRate);
   const answers = (Array.isArray(lead.formAnswers) ? lead.formAnswers : []) as Answer[];
   const overdue = isOverdueNew(lead, settings.unprocessedAlertMin);
-  const clientTotals = sumDeals(lead.client.deals, "USD", rate, toNum(settings.usdRateCost));
+  const clientTotals = sumDeals(lead.client.deals, "USD", await loadRateBook(settings));
   const otherLeads = lead.client.leads.filter((l) => l.id !== lead.id && (user.role === "ADMIN" || l.managerId === user.id || (!l.managerId && !l.hiddenFromManagers)));
   const wa = whatsappLink(lead.phone);
   const tg = telegramLink(lead.phone);

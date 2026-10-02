@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { convert, round2, toNum } from "@/lib/money";
 import type { ReportFilters } from "@/lib/reports/data";
 import { dateColumnRange } from "@/lib/period";
+import { dateColumnKey, ratesOn, resolveRates, type RateBook } from "@/lib/rate-book";
 
 /** Сделка в разделе «Финансы»: суммы в исходной валюте и в валюте отчёта */
 export interface FinanceDeal {
@@ -65,13 +66,15 @@ export function groupDealsByLead(
     };
   }>,
   to: Currency,
-  rate: number,
-  costRate: number = rate,
+  rates: RateBook | number,
+  costRate?: number,
 ): FinanceLead[] {
   const map = new Map<string, FinanceLead>();
   for (const d of deals) {
-    const revenue = convert(d.amount, d.currency, to, rate);
-    const cost = convert(d.cost, d.currency, to, costRate);
+    // курсы дня оплаты: выручка по курсу продажи, себестоимость по курсу покупки
+    const r = resolveRates(rates, costRate, d.paidAt);
+    const revenue = convert(d.amount, d.currency, to, r.sale);
+    const cost = convert(d.cost, d.currency, to, r.cost);
     const row =
       map.get(d.lead.id) ??
       ({
@@ -159,20 +162,19 @@ export async function loadFinanceLeads(f: ReportFilters): Promise<FinanceLead[]>
   return groupDealsByLead(
     rows.map((r) => ({ ...r, amount: toNum(r.amount), cost: toNum(r.cost) })),
     f.currency,
-    f.rate,
-    f.costRate,
+    f.book,
   );
 }
 
-/** Расход на рекламу из Meta за период (по курсу покупки $); null, если расходы ещё ни разу не загружались */
+/** Расход на рекламу из Meta за период (по курсу покупки $ каждого дня); null, если расходы ещё ни разу не загружались */
 export async function loadAdSpendTotal(f: ReportFilters): Promise<number | null> {
   if (!(await prisma.adSpend.count())) return null;
   const rows = await prisma.adSpend.groupBy({
-    by: ["currency"],
+    by: ["date", "currency"],
     where: { date: dateColumnRange(f.period) },
     _sum: { spend: true },
   });
-  return round2(rows.reduce((s, r) => s + convert(toNum(r._sum.spend), r.currency === "UZS" ? "UZS" : "USD", f.currency, f.costRate), 0));
+  return round2(rows.reduce((s, r) => s + convert(toNum(r._sum.spend), r.currency === "UZS" ? "UZS" : "USD", f.currency, ratesOn(f.book, dateColumnKey(r.date)).cost), 0));
 }
 
 export interface ExpenseRow {
@@ -198,7 +200,7 @@ export async function loadExpenses(f: ReportFilters): Promise<ExpenseRow[]> {
     category: e.category,
     amount: toNum(e.amount),
     currency: e.currency,
-    converted: convert(e.amount, e.currency, f.currency, f.costRate),
+    converted: convert(e.amount, e.currency, f.currency, ratesOn(f.book, dateColumnKey(e.date)).cost),
     note: e.note,
     createdBy: e.createdBy?.name ?? null,
   }));
