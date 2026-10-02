@@ -17,6 +17,7 @@ export interface StatusView {
   color: string;
   kind: Kind;
   isSystem: boolean;
+  inFunnel: boolean;
   leads: number;
 }
 
@@ -26,7 +27,8 @@ function Row({ s, all, first, last }: { s: StatusView; all: StatusView[]; first:
   const [name, setName] = useState(s.name);
   const [color, setColor] = useState(s.color);
   const [kind, setKind] = useState<Kind>(s.kind);
-  const dirty = name !== s.name || color !== s.color || kind !== s.kind;
+  const [inFunnel, setInFunnel] = useState(s.inFunnel);
+  const dirty = name !== s.name || color !== s.color || kind !== s.kind || inFunnel !== s.inFunnel;
   const [moveTo, setMoveTo] = useState("");
   const [askDelete, setAskDelete] = useState(false);
   return (
@@ -51,8 +53,13 @@ function Row({ s, all, first, last }: { s: StatusView; all: StatusView[]; first:
               </option>
             ))}
         </NativeSelect>
+        {kind !== "LOST" && (
+          <label className="flex items-center gap-1.5 whitespace-nowrap text-xs" title={t("editor.inFunnelHint")}>
+            <input type="checkbox" checked={inFunnel} onChange={(e) => setInFunnel(e.target.checked)} /> {t("editor.inFunnel")}
+          </label>
+        )}
         <span className="text-xs text-muted-foreground sm:w-20 sm:text-right">{t("editor.leadsCount", { n: s.leads })}</span>
-        <Button size="sm" disabled={!dirty || pending} onClick={() => run(() => saveStatusAction({ id: s.id, name, color, kind }), t("editor.statusSaved"))}>
+        <Button size="sm" disabled={!dirty || pending} onClick={() => run(() => saveStatusAction({ id: s.id, name, color, kind, inFunnel }), t("editor.statusSaved"))}>
           {t("common.save")}
         </Button>
         {s.isSystem ? (
@@ -105,7 +112,7 @@ export function StatusesEditor({ statuses }: { statuses: StatusView[] }) {
         </Button>
       </div>
       <p className="pt-2 text-xs text-muted-foreground">
-        {t("editor.statusesHint")}
+        {t("editor.statusesHint")} {t("editor.inFunnelHint")}
       </p>
     </div>
   );

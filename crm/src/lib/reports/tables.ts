@@ -95,7 +95,20 @@ export async function funnelTable(f: ReportFilters) {
       { name: t("rt.funnel.lost"), count: funnel.lost, ofTotal: pct(funnel.lost, funnel.total), ofPrev: null },
     ],
   };
-  return { table, funnel };
+  // статусы-попытки: сколько лидов в них побывали (не этапы воронки)
+  const side: Table | null = funnel.side.length
+    ? {
+        title: t("rt.funnel.sideTitle"),
+        note: t("rt.funnel.sideNote"),
+        columns: [
+          { key: "name", label: t("rt.funnel.status"), type: "text" },
+          { key: "count", label: t("rt.funnel.visited"), type: "int" },
+          { key: "ofTotal", label: t("rt.funnel.ofTotal"), type: "pct" },
+        ],
+        rows: funnel.side.map((s) => ({ name: s.name, count: s.count, ofTotal: s.ofTotal })),
+      }
+    : null;
+  return { table, side, funnel };
 }
 
 export async function lossesTables(f: ReportFilters) {

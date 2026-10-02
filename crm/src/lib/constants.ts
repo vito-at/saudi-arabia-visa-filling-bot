@@ -45,10 +45,10 @@ export const STATUS_KIND_LABELS: Record<StatusKind, string> = {
   OTHER: "Промежуточный",
 };
 
-export const DEFAULT_STATUSES: { name: string; color: string; kind: StatusKind; isSystem?: boolean }[] = [
+export const DEFAULT_STATUSES: { name: string; color: string; kind: StatusKind; isSystem?: boolean; inFunnel?: boolean }[] = [
   { name: "Новый", color: "#3b82f6", kind: "NEW", isSystem: true },
-  { name: "Не дозвонились", color: "#f59e0b", kind: "OTHER" },
-  { name: "Перезвонить", color: "#fa6500", kind: "CALLBACK", isSystem: true },
+  { name: "Не дозвонились", color: "#f59e0b", kind: "OTHER", inFunnel: false },
+  { name: "Перезвонить", color: "#fa6500", kind: "CALLBACK", isSystem: true, inFunnel: false },
   { name: "Консультация", color: "#06b6d4", kind: "OTHER" },
   { name: "Ожидает оплату", color: "#ec4899", kind: "OTHER" },
   { name: "Продано", color: "#16a34a", kind: "WON", isSystem: true },

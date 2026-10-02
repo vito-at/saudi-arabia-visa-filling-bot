@@ -94,6 +94,34 @@ describe("воронка", () => {
     ]);
     expect(f.steps[3].ofTotal).toBe(0.4);
     expect(f.steps[3].ofPrev).toBeCloseTo(2 / 3);
+    expect(f.side).toEqual([]);
+  });
+
+  it("статусы-попытки не считаются этапами: лид, сразу попавший на консультацию, не «проходит» через «Не дозвонились»", () => {
+    const st = [
+      { id: "n", name: "Новый", color: "#000", order: 1, kind: "NEW" },
+      { id: "nd", name: "Не дозвонились", color: "#000", order: 2, kind: "OTHER", inFunnel: false },
+      { id: "cb", name: "Перезвонить", color: "#000", order: 3, kind: "CALLBACK", inFunnel: false },
+      { id: "c", name: "Консультация", color: "#000", order: 4, kind: "OTHER" },
+      { id: "w", name: "Продано", color: "#000", order: 5, kind: "WON" },
+      { id: "l", name: "Отказ", color: "#000", order: 6, kind: "LOST" },
+    ];
+    const leads = [
+      lead({ statusId: "c", visitedStatusIds: ["c"] }), // сразу консультация
+      lead({ statusId: "nd", visitedStatusIds: ["nd"] }), // не дозвонились и всё
+      lead({ statusId: "w", statusKind: "WON", visitedStatusIds: ["nd", "cb", "c", "w"] }),
+      lead({ statusId: "l", statusKind: "LOST", visitedStatusIds: ["cb", "l"] }),
+    ];
+    const f = calcFunnel(leads, st);
+    expect(f.steps.map((s) => [s.name, s.count])).toEqual([
+      ["Новый", 4],
+      ["Консультация", 2],
+      ["Продано", 1],
+    ]);
+    expect(f.side.map((s) => [s.name, s.count, s.ofTotal])).toEqual([
+      ["Не дозвонились", 2, 0.5],
+      ["Перезвонить", 2, 0.5],
+    ]);
   });
 });
 

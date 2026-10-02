@@ -81,9 +81,9 @@ async function ClientsReport({ f }: { f: F }) {
 }
 
 async function FunnelReport({ f }: { f: F }) {
-  const { table, funnel } = await funnelTable(f);
+  const { table, side, funnel } = await funnelTable(f);
   return (
-    <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1.2fr_1fr]">
+    <div className="grid grid-cols-1 gap-5 2xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
       <Card>
         <CardHeader>
           <CardTitle>{f.t("reports.funnelTitle")}</CardTitle>
@@ -98,6 +98,13 @@ async function FunnelReport({ f }: { f: F }) {
         </CardHeader>
         <ReportTable table={table} currency={f.currency} />
         <p className="px-5 py-3 text-xs text-muted-foreground">{table.note}</p>
+        {side && (
+          <div className="border-t">
+            <div className="px-5 pb-1 pt-4 text-sm font-semibold">{side.title}</div>
+            <ReportTable table={side} currency={f.currency} />
+            <p className="px-5 py-3 text-xs text-muted-foreground">{side.note}</p>
+          </div>
+        )}
       </Card>
     </div>
   );
@@ -107,7 +114,7 @@ async function LossesReport({ f, isAdmin }: { f: F; isAdmin: boolean }) {
   const t = await lossesTables(f);
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1.3fr_1fr]">
+      <div className="grid grid-cols-1 gap-5 2xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
         <Card>
           <CardHeader>
             <CardTitle>{f.t("reports.lossesTitle", { n: t.total })}</CardTitle>
@@ -187,7 +194,7 @@ async function ServicesReport({ f }: { f: F }) {
   const t = await servicesTables(f);
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <Card>
           <CardHeader>
             <CardTitle>{t.services.title}</CardTitle>

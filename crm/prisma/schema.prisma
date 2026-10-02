@@ -98,6 +98,8 @@ model LeadStatus {
   order    Int
   kind     StatusKind @default(OTHER)
   isSystem Boolean    @default(false)
+  /// false — статус-попытка (не дозвонились, перезвонить): не является этапом воронки продаж
+  inFunnel Boolean    @default(true)
 
   leads Lead[]
 }

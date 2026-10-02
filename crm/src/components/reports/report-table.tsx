@@ -33,7 +33,7 @@ export async function ReportTable({ table, currency, linkPrefix, compact }: { ta
       <THead>
         <tr>
           {table.columns.map((c) => (
-            <TH key={c.key} className={cn(num(c) && "text-right", dense && "px-2 whitespace-normal leading-tight")}>
+            <TH key={c.key} className={cn("whitespace-normal leading-tight", num(c) && "text-right", dense && "px-2")}>
               {c.label}
             </TH>
           ))}
