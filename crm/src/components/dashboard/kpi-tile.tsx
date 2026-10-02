@@ -14,12 +14,12 @@ export async function KpiTile({ label, value, delta, prev }: { label: string; va
     <Card className="p-4">
       <div className="text-xs font-medium text-muted-foreground">{label}</div>
       <div className="mt-1.5 whitespace-nowrap text-xl font-semibold tracking-tight tabular-nums">{value}</div>
-      <div className="mt-1.5 flex items-center gap-1 text-xs">
+      <div className="mt-1.5 flex flex-wrap items-center gap-x-1 text-xs">
         <span className={cn("inline-flex items-center gap-0.5 font-medium", up && "text-emerald-700", down && "text-red-600", !up && !down && "text-muted-foreground")}>
           {delta !== null && <Icon className="size-3.5" />}
           {delta === null ? "" : `${delta > 0 ? "+" : ""}${formatPercent(delta)}`}
         </span>
-        <span className="text-muted-foreground">{delta === null ? t("dashboard.noCompare") : t("dashboard.was", { v: prev })}</span>
+        <span className="whitespace-nowrap text-muted-foreground">{delta === null ? t("dashboard.noCompare") : t("dashboard.was", { v: prev })}</span>
       </div>
     </Card>
   );

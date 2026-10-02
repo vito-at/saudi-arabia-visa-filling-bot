@@ -123,7 +123,7 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
         </div>
       </Card>
 
-      <div className="grid grid-cols-[1fr_380px] gap-5">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_380px]">
         <div className="space-y-5">
           <Card>
             <CardHeader>
@@ -154,7 +154,7 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
               </CardHeader>
               <CardContent className="divide-y">
                 {answers.map((a) => (
-                  <div key={a.key} className="grid grid-cols-[240px_1fr] gap-3 py-2 text-sm">
+                  <div key={a.key} className="grid grid-cols-1 gap-1 py-2 text-sm sm:grid-cols-[240px_1fr] sm:gap-3">
                     <span className="text-muted-foreground">{a.label || a.key}</span>
                     <span className="whitespace-pre-wrap">{a.value}</span>
                   </div>

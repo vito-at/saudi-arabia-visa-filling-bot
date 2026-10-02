@@ -36,7 +36,7 @@ export function NewLeadDialog({ managers, isAdmin, roundRobin }: { managers: { i
         </Button>
       </DialogTrigger>
       <DialogContent title={t("newLead.title")} description={t("newLead.description")} className="max-w-2xl">
-        <form action={submit} className="grid grid-cols-2 gap-4">
+        <form action={submit} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label={t("newLead.name")}>
             <Input name="name" required />
           </Field>
@@ -97,10 +97,10 @@ export function NewLeadDialog({ managers, isAdmin, roundRobin }: { managers: { i
               )}
             </NativeSelect>
           </Field>
-          <Field label={t("newLead.comment")} className="col-span-2">
+          <Field label={t("newLead.comment")} className="sm:col-span-2">
             <Textarea name="comment" rows={3} placeholder={t("newLead.commentPh")} />
           </Field>
-          <div className="col-span-2 flex justify-end gap-2">
+          <div className="sm:col-span-2 flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>
               {t("common.cancel")}
             </Button>

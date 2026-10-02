@@ -42,7 +42,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
           </>
         }
       />
-      <div className="mb-4 flex gap-1 border-b">
+      <div className="no-scrollbar -mx-3 mb-4 flex gap-1 overflow-x-auto whitespace-nowrap border-b px-3 sm:mx-0 sm:px-0">
         {(Object.keys(REPORT_TABS) as ReportTab[]).filter((tb) => tb !== "dashboard").map((tb) => (
           <Link key={tb} href={tabHref(tb)} className={cn("-mb-px border-b-2 px-3 py-2 text-sm", tab === tb ? "border-primary font-medium text-primary" : "border-transparent text-muted-foreground hover:text-foreground")}>
             {t(REPORT_TABS[tb])}
@@ -83,7 +83,7 @@ async function ClientsReport({ f }: { f: F }) {
 async function FunnelReport({ f }: { f: F }) {
   const { table, funnel } = await funnelTable(f);
   return (
-    <div className="grid grid-cols-[1.2fr_1fr] gap-5">
+    <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1.2fr_1fr]">
       <Card>
         <CardHeader>
           <CardTitle>{f.t("reports.funnelTitle")}</CardTitle>
@@ -107,7 +107,7 @@ async function LossesReport({ f, isAdmin }: { f: F; isAdmin: boolean }) {
   const t = await lossesTables(f);
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-[1.3fr_1fr] gap-5">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1.3fr_1fr]">
         <Card>
           <CardHeader>
             <CardTitle>{f.t("reports.lossesTitle", { n: t.total })}</CardTitle>
@@ -144,7 +144,7 @@ async function AdsReport({ f, level, tabHref }: { f: F; level: AdLevel; tabHref:
   return (
     <Card>
       <CardHeader>
-        <div className="flex rounded-lg bg-slate-200/60 p-1 text-sm">
+        <div className="no-scrollbar flex max-w-full overflow-x-auto whitespace-nowrap rounded-lg bg-slate-200/60 p-1 text-sm">
           {(Object.keys(AD_LEVELS) as AdLevel[]).map((l) => (
             <Link key={l} href={`${tabHref}&level=${l}`} className={cn("rounded-md px-3 py-1", level === l ? "bg-card font-medium shadow-xs" : "text-muted-foreground")}>
               {f.t(AD_LEVELS[l])}
@@ -187,7 +187,7 @@ async function ServicesReport({ f }: { f: F }) {
   const t = await servicesTables(f);
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-2 gap-5">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle>{t.services.title}</CardTitle>

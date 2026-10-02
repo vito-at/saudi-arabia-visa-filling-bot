@@ -25,7 +25,7 @@ export function CallbackCard({ item, now, onChanged, compact }: { item: Callback
         {!s.due && <span className="text-[9px] leading-none">{t("common.minutesShort")}</span>}
       </div>
       <div className="min-w-0 flex-1">
-        <div className={cn("truncate text-xs font-semibold", s.due ? "text-primary" : "text-muted-foreground")}>
+        <div className={cn("text-xs font-semibold sm:truncate", s.due ? "text-primary" : "text-muted-foreground")}>
           {s.due ? t("callback.dueExcl") : t("callback.callIn", { when: callbackLabel(s, t) })} · {formatTime(item.callbackAt)}
         </div>
         <Link href={`/leads/${item.id}`} className="block truncate text-sm font-medium hover:underline">

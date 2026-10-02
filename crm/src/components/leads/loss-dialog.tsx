@@ -27,7 +27,7 @@ export function LossDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent title={t("loss.title")} description={t("loss.description")}>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           {reasons.map((r) => (
             <button
               type="button"

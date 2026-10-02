@@ -242,25 +242,56 @@ export function adKey(level: AdLevel) {
   };
 }
 
+export interface AdStat {
+  spend: number;
+  impressions: number;
+  clicks: number;
+  name: string | null;
+}
+
 export interface AdRow extends GroupRow {
   spend: number | null;
+  impressions: number | null;
+  clicks: number | null;
+  ctr: number | null;
+  cpc: number | null;
   cpl: number | null;
   cps: number | null;
   roi: number | null;
 }
 
-/** Добавить расходы: стоимость лида, стоимость продажи, ROI = (прибыль − расход) / расход */
-export function withSpend(rows: GroupRow[], spendByKey: Map<string, number> | null): AdRow[] {
-  return rows.map((r) => {
-    const spend = spendByKey ? round2(spendByKey.get(r.key) ?? 0) : null;
-    return {
-      ...r,
-      spend,
-      cpl: spend !== null ? safeDiv(spend, r.leads) : null,
-      cps: spend !== null ? safeDiv(spend, r.sales) : null,
-      roi: spend ? (r.profit - spend) / spend : null,
-    };
-  });
+/**
+ * Добавить статистику рекламы: расход, показы, клики, CTR, цену клика, стоимость лида и продажи,
+ * ROI = (прибыль − расход) / расход. Кампании с расходом, но без лидов в периоде, тоже попадают в отчёт.
+ */
+export function withSpend(rows: GroupRow[], stats: Map<string, AdStat> | null): AdRow[] {
+  const all = [...rows];
+  if (stats) {
+    const known = new Set(rows.map((r) => r.key));
+    for (const [key, s] of stats) {
+      if (!known.has(key) && (s.spend > 0 || s.impressions > 0)) all.push({ key, name: s.name ?? key, leads: 0, sales: 0, conversion: null, revenue: 0, profit: 0 });
+    }
+  }
+  return all
+    .map((r) => {
+      const s = stats?.get(r.key);
+      const spend = stats ? round2(s?.spend ?? 0) : null;
+      const impressions = stats ? s?.impressions ?? 0 : null;
+      const clicks = stats ? s?.clicks ?? 0 : null;
+      return {
+        ...r,
+        name: r.name === r.key && s?.name ? s.name : r.name,
+        spend,
+        impressions,
+        clicks,
+        ctr: impressions !== null && clicks !== null ? safeDiv(clicks, impressions) : null,
+        cpc: spend !== null && clicks !== null ? safeDiv(spend, clicks) : null,
+        cpl: spend !== null ? safeDiv(spend, r.leads) : null,
+        cps: spend !== null ? safeDiv(spend, r.sales) : null,
+        roi: spend ? (r.profit - spend) / spend : null,
+      };
+    })
+    .sort((a, b) => b.leads - a.leads || (b.spend ?? 0) - (a.spend ?? 0) || a.name.localeCompare(b.name, "ru"));
 }
 
 // ——— Менеджеры ———

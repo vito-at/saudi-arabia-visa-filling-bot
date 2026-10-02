@@ -144,10 +144,23 @@ describe("отчёт по рекламе", () => {
     ]);
   });
   it("стоимость лида, стоимость продажи и ROI", () => {
-    const rows = withSpend(groupLeads(leads, adKey("campaign"), m), new Map([["c1", 200]]));
+    const stat = (spend: number, impressions = 0, clicks = 0, name: string | null = null) => ({ spend, impressions, clicks, name });
+    const rows = withSpend(groupLeads(leads, adKey("campaign"), m), new Map([["c1", stat(200)]]));
     expect(rows[0]).toMatchObject({ spend: 200, cpl: 50, cps: 200, roi: 0.5 }); // (300 − 200) / 200
     expect(rows[1]).toMatchObject({ spend: 0, cpl: 0, cps: 0, roi: null }); // нет расхода — ROI не считаем
     expect(withSpend(groupLeads(leads, adKey("campaign"), m), null)[0]).toMatchObject({ spend: null, roi: null });
+  });
+  it("показы, клики, CTR, цена клика и кампании с расходом без лидов", () => {
+    const stats = new Map([
+      ["c1", { spend: 200, impressions: 10_000, clicks: 250, name: "Умра (Meta)" }],
+      ["c3", { spend: 50, impressions: 4_000, clicks: 40, name: "Стамбул" }],
+      ["c4", { spend: 0, impressions: 0, clicks: 0, name: "Пустая" }],
+    ]);
+    const rows = withSpend(groupLeads(leads, adKey("campaign"), m), stats);
+    expect(rows.map((r) => r.key)).toEqual(["c1", "c2", "c3"]); // c4 без расхода и показов не показываем
+    expect(rows[0]).toMatchObject({ name: "Умра", impressions: 10_000, clicks: 250, ctr: 0.025, cpc: 0.8 });
+    expect(rows[1]).toMatchObject({ spend: 0, impressions: 0, clicks: 0, ctr: null, cpc: null });
+    expect(rows[2]).toMatchObject({ name: "Стамбул", leads: 0, sales: 0, spend: 50, cpl: null, ctr: 0.01, cpc: 1.25, roi: -1 });
   });
 });
 

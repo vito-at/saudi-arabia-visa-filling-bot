@@ -77,7 +77,7 @@ function Column({ status, cards }: { status: KanbanStatus; cards: KanbanCard[] }
   const { t } = useI18n();
   const { setNodeRef, isOver } = useDroppable({ id: status.id });
   return (
-    <div className="flex w-72 shrink-0 flex-col rounded-xl bg-slate-100/80">
+    <div className="flex w-[85vw] max-w-72 shrink-0 snap-start flex-col rounded-xl bg-slate-100/80 sm:w-72">
       <div className="flex items-center gap-2 px-3 py-2.5">
         <span className="size-2.5 rounded-full" style={{ backgroundColor: status.color }} />
         <span className="flex-1 text-sm font-semibold">{status.name}</span>
@@ -133,7 +133,7 @@ export function KanbanBoard({
   return (
     <>
       <DndContext id={dndId} sensors={sensors} onDragStart={(e) => setActive(cards.find((c) => c.id === e.active.id) ?? null)} onDragEnd={onDragEnd} onDragCancel={() => setActive(null)}>
-        <div className="flex h-[calc(100vh-170px)] gap-3 overflow-x-auto pb-3">
+        <div className="flex h-[calc(100dvh-200px)] snap-x gap-3 overflow-x-auto pb-3 lg:h-[calc(100vh-170px)]">
           {statuses.map((s) => (
             <Column
               key={s.id}

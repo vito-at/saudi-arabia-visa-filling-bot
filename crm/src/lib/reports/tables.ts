@@ -149,15 +149,34 @@ export async function adsTable(f: ReportFilters, level: AdLevel): Promise<Table>
   const noAds = leads.filter((l) => !adKey(level)(l)).length;
   const tot = (k: "leads" | "sales" | "revenue" | "profit") => rows.reduce((s, r) => s + r[k], 0);
   const totalSpend = spend ? rows.reduce((s, r) => s + (r.spend ?? 0), 0) : null;
-  const cols: Column[] = [
-    { key: "name", label: t(({ campaign: "rt.ads.col.campaign", adset: "rt.ads.col.adset", ad: "rt.ads.col.ad", form: "rt.ads.col.form" } as const)[level]), type: "text" },
-    { key: "leads", label: t("rt.col.leads"), type: "int" },
-    { key: "sales", label: t("rt.col.sales"), type: "int" },
-    { key: "conversion", label: t("rt.col.conversion"), type: "pct" },
-    { key: "revenue", label: t("rt.col.revenue"), type: "money" },
-    { key: "profit", label: t("rt.col.profit"), type: "money" },
-  ];
-  if (spend) cols.push({ key: "spend", label: t("rt.col.spend"), type: "money" }, { key: "cpl", label: t("rt.col.cpl"), type: "money" }, { key: "cps", label: t("rt.col.cps"), type: "money" }, { key: "roi", label: t("rt.col.roi"), type: "pct" });
+  const totalImpr = rows.reduce((s, r) => s + (r.impressions ?? 0), 0);
+  const totalClicks = rows.reduce((s, r) => s + (r.clicks ?? 0), 0);
+  const nameCol: Column = { key: "name", label: t(({ campaign: "rt.ads.col.campaign", adset: "rt.ads.col.adset", ad: "rt.ads.col.ad", form: "rt.ads.col.form" } as const)[level]), type: "text" };
+  const cols: Column[] = spend
+    ? [
+        nameCol,
+        { key: "spend", label: t("rt.col.spend"), type: "money" },
+        { key: "impressions", label: t("rt.col.impressions"), type: "int" },
+        { key: "clicks", label: t("rt.col.clicks"), type: "int" },
+        { key: "ctr", label: t("rt.col.ctr"), type: "pct" },
+        { key: "cpc", label: t("rt.col.cpc"), type: "money" },
+        { key: "leads", label: t("rt.col.leads"), type: "int" },
+        { key: "cpl", label: t("rt.col.cpl"), type: "money" },
+        { key: "sales", label: t("rt.col.sales"), type: "int" },
+        { key: "conversion", label: t("rt.col.conversion"), type: "pct" },
+        { key: "cps", label: t("rt.col.cps"), type: "money" },
+        { key: "revenue", label: t("rt.col.revenue"), type: "money" },
+        { key: "profit", label: t("rt.col.profit"), type: "money" },
+        { key: "roi", label: t("rt.col.roi"), type: "pct" },
+      ]
+    : [
+        nameCol,
+        { key: "leads", label: t("rt.col.leads"), type: "int" },
+        { key: "sales", label: t("rt.col.sales"), type: "int" },
+        { key: "conversion", label: t("rt.col.conversion"), type: "pct" },
+        { key: "revenue", label: t("rt.col.revenue"), type: "money" },
+        { key: "profit", label: t("rt.col.profit"), type: "money" },
+      ];
   return {
     title: t("rt.ads.title", { level: t(AD_LEVELS[level]).toLowerCase() }),
     note: `${t("rt.ads.note", { n: noAds })}${spend ? ` ${t("rt.ads.roiNote")}` : level !== "form" ? ` ${t("rt.ads.noSpend")}` : ""}`,
@@ -170,7 +189,18 @@ export async function adsTable(f: ReportFilters, level: AdLevel): Promise<Table>
       conversion: pct(tot("sales"), tot("leads")),
       revenue: tot("revenue"),
       profit: tot("profit"),
-      ...(totalSpend !== null ? { spend: totalSpend, cpl: pct(totalSpend, tot("leads")), cps: pct(totalSpend, tot("sales")), roi: totalSpend ? (tot("profit") - totalSpend) / totalSpend : null } : {}),
+      ...(totalSpend !== null
+        ? {
+            spend: totalSpend,
+            impressions: totalImpr,
+            clicks: totalClicks,
+            ctr: pct(totalClicks, totalImpr),
+            cpc: pct(totalSpend, totalClicks),
+            cpl: pct(totalSpend, tot("leads")),
+            cps: pct(totalSpend, tot("sales")),
+            roi: totalSpend ? (tot("profit") - totalSpend) / totalSpend : null,
+          }
+        : {}),
     },
   };
 }

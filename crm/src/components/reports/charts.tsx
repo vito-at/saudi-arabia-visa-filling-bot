@@ -75,8 +75,8 @@ export function LossPie({ data }: { data: { name: string; count: number; share: 
   const slices = rest.length ? [...top, { name: others, count: rest.reduce((s, r) => s + r.count, 0), share: rest.reduce((s, r) => s + (r.share ?? 0), 0) }] : top;
   const color = (i: number, name: string) => (name === others ? c.other : c.series[i % c.series.length]);
   return (
-    <div className="flex items-center gap-6">
-      <div className="h-64 w-64 shrink-0">
+    <div className="flex flex-col items-center gap-4 sm:flex-row sm:gap-6">
+      <div className="h-56 w-56 shrink-0 sm:h-64 sm:w-64">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie data={slices} dataKey="count" nameKey="name" innerRadius="55%" outerRadius="95%" paddingAngle={1} stroke={c.surface} strokeWidth={2} isAnimationActive={false}>
