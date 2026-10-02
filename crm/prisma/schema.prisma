@@ -88,6 +88,7 @@ model User {
   history      LeadHistory[]
   tasks        Task[]        @relation("TaskAssignee")
   createdTasks Task[]        @relation("TaskCreator")
+  expenses     Expense[]
 }
 
 model LeadStatus {
@@ -330,4 +331,20 @@ model AppSettings {
   usdRateSide         RateSide         @default(SELL)
   usdRateUpdatedAt    DateTime?
   usdRateError        String?
+}
+
+/// Расходы компании (аренда, зарплаты, налоги и т. п.) — вносит администратор в разделе «Финансы»
+model Expense {
+  id          String   @id @default(cuid())
+  date        DateTime @db.Date
+  category    String
+  amount      Decimal  @db.Decimal(18, 2)
+  currency    Currency
+  note        String?
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  createdBy User? @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([date])
 }

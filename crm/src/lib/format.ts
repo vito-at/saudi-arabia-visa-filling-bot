@@ -47,13 +47,16 @@ export const SUM_WORD: Record<Lang, string> = { ru: "сум", uz: "so‘m", en: 
 
 export function formatMoney(n: number | null | undefined, currency: "UZS" | "USD" = "UZS", lang: Lang = "ru"): string {
   if (n === null || n === undefined || Number.isNaN(n)) return "—";
-  return currency === "USD" ? `$${formatNumber(n, 2)}` : `${formatNumber(Math.round(n))} ${SUM_WORD[lang]}`;
+  return currency === "USD" ? usd(n, formatNumber(Math.abs(n), 2)) : `${formatNumber(Math.round(n))} ${SUM_WORD[lang]}`;
 }
+
+/** Знак минуса ставим перед значком доллара: −$1 200, а не $-1 200 */
+const usd = (n: number, abs: string) => (n < 0 && abs !== "0" ? `−$${abs}` : `$${abs}`);
 
 /** Сумма без копеек — для плиток и подписей графиков */
 export function formatMoneyRound(n: number | null | undefined, currency: "UZS" | "USD" = "UZS", lang: Lang = "ru"): string {
   if (n === null || n === undefined || Number.isNaN(n)) return "—";
-  return currency === "USD" ? `$${formatNumber(Math.round(n))}` : `${formatNumber(Math.round(n))} ${SUM_WORD[lang]}`;
+  return currency === "USD" ? usd(n, formatNumber(Math.abs(Math.round(n)))) : `${formatNumber(Math.round(n))} ${SUM_WORD[lang]}`;
 }
 
 export function formatPercent(n: number | null | undefined, digits = 1): string {

@@ -32,7 +32,7 @@ function parseDeal(input: DealInput) {
 }
 
 function revalidate(leadId: string, clientId: string) {
-  for (const p of ["/leads", "/kanban", "/", "/clients", "/reports"]) revalidatePath(p);
+  for (const p of ["/leads", "/kanban", "/", "/clients", "/reports", "/finance"]) revalidatePath(p);
   revalidatePath(`/leads/${leadId}`);
   revalidatePath(`/clients/${clientId}`);
 }
@@ -71,6 +71,8 @@ async function getDealForUser(dealId: string) {
 export async function updateDealAction(dealId: string, input: DealInput) {
   return runAction(async () => {
     const { user, deal } = await getDealForUser(dealId);
+    // выручку и себестоимость после создания сделки меняет только администратор
+    if (user.role !== "ADMIN") throw new AccessError("err.onlyAdminDealEdit");
     const d = parseDeal(input);
     await prisma.$transaction([
       prisma.deal.update({ where: { id: dealId }, data: d }),

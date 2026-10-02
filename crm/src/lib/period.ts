@@ -55,6 +55,16 @@ export function resolvePeriod(key: string | undefined, fromStr?: string, toStr?:
   return { key: "30d", from: start(addDays(today, -29)), to: start(addDays(today, 1)) };
 }
 
+/**
+ * Границы периода для колонок типа DATE (день расхода, день рекламной статистики).
+ * Prisma сравнивает DATE с UTC-датой переданного момента, поэтому берём календарные дни по Ташкенту:
+ * иначе последний день периода выпадает, а лишний день в начале попадает.
+ */
+export function dateColumnRange(p: { from: Date; to: Date }): { gte: Date; lt: Date } {
+  const day = (d: Date) => new Date(`${toInputDate(d)}T00:00:00Z`);
+  return { gte: day(p.from), lt: day(p.to) };
+}
+
 /** Предыдущий период той же длины — для сравнения на дашборде */
 export function previousPeriod(p: Period): Period {
   if (p.key === "month" || p.key === "prev_month") {
