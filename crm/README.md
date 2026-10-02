@@ -382,4 +382,25 @@ git pull
 docker compose --profile https up -d --build   # миграции применятся автоматически
 ```
 
+### Автообновление после мерджа
+
+Workflow `.github/workflows/crm-deploy.yml` после каждого пуша в рабочую ветку (`claude/determined-ritchie-kij49y`) подключается к серверу по SSH и запускает `~/orient-deploy.sh` (`git pull` + `docker compose --profile https up -d --build`), затем проверяет, что `https://crm.orienttravel.uz/login` отвечает. Его можно запустить и вручную: **Actions → CRM Deploy → Run workflow**.
+
+Настройка выполняется один раз. На сервере:
+
+```bash
+ssh-keygen -t ed25519 -N "" -f ~/.ssh/github_deploy -C github-deploy
+printf '#!/bin/sh\nset -e\ncd ~/orient\ngit pull --ff-only\ncd crm\ndocker compose --profile https up -d --build\ndocker image prune -f\n' > ~/orient-deploy.sh && chmod +x ~/orient-deploy.sh
+echo "command=\"$HOME/orient-deploy.sh\",no-port-forwarding,no-agent-forwarding,no-X11-forwarding,no-pty $(cat ~/.ssh/github_deploy.pub)" >> ~/.ssh/authorized_keys
+```
+
+Ключ ограничен командой `command=…`: с ним можно только запустить обновление, войти в консоль или выполнить что-то другое нельзя.
+
+В GitHub откройте **Settings → Secrets and variables → Actions** и добавьте два секрета:
+
+- `DEPLOY_HOST` — IP сервера;
+- `DEPLOY_SSH_KEY` — содержимое `~/.ssh/github_deploy` (закрытый ключ).
+
+Пока секреты не заданы, workflow пропускает обновление с предупреждением.
+
 > **Храните `ENCRYPTION_KEY` в надёжном месте.** Без него сохранённые токены Meta не расшифровать, и их придётся вводить заново.

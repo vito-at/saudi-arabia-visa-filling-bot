@@ -1,0 +1,61 @@
+name: CRM Deploy
+
+# Автообновление сервера после мерджа в рабочую ветку.
+# На сервере ключ разрешает только запуск ~/orient-deploy.sh (git pull + docker compose up --build),
+# поэтому из GitHub нельзя выполнить на сервере ничего другого.
+# Секреты репозитория: DEPLOY_HOST (IP сервера) и DEPLOY_SSH_KEY (закрытый ключ github_deploy).
+
+on:
+  push:
+    branches:
+      - claude/determined-ritchie-kij49y
+    paths:
+      - "crm/**"
+      - ".github/workflows/crm-deploy.yml"
+  workflow_dispatch:
+
+# одно обновление за раз; новое ждёт, пока закончится предыдущее
+concurrency:
+  group: crm-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Обновление сервера
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Проверка секретов
+        id: cfg
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          if [ -z "$HOST" ] || [ -z "$KEY" ]; then
+            echo "::warning::Секреты DEPLOY_HOST и DEPLOY_SSH_KEY не заданы — автообновление пропущено"
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Обновление (git pull + docker compose up --build)
+        if: steps.cfg.outputs.ready == 'true'
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/deploy && chmod 600 ~/.ssh/deploy
+          ssh-keyscan -t ed25519 "$HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          ssh -i ~/.ssh/deploy -o BatchMode=yes -o ServerAliveInterval=30 "root@$HOST"
+
+      - name: Проверка, что CRM отвечает
+        if: steps.cfg.outputs.ready == 'true'
+        run: |
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' https://crm.orienttravel.uz/login || true)
+            if [ "$code" = "200" ]; then echo "CRM отвечает (HTTP 200)"; exit 0; fi
+            echo "Ждём запуска… (HTTP $code)"; sleep 10
+          done
+          echo "::error::CRM не отвечает после обновления"
+          exit 1
