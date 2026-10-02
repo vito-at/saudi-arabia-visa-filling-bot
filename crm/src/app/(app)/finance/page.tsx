@@ -32,7 +32,8 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
   const pendingInPeriod = leads.reduce((s, l) => s + l.deals.filter((d) => !d.costConfirmed).length, 0);
   // итоги считаем по всем сделкам периода; при фильтре по менеджеру реклама и расходы компании не вычитаются
   const byManager = !!f.managerId;
-  const summary = financeSummary(leads, byManager ? null : adSpend, byManager ? 0 : expenses.reduce((s, e) => s + e.converted, 0));
+  const sumOf = (draw: boolean) => expenses.filter((e) => e.ownerDraw === draw).reduce((s, e) => s + e.converted, 0);
+  const summary = financeSummary(leads, byManager ? null : adSpend, byManager ? 0 : sumOf(false), byManager ? 0 : sumOf(true));
 
   const keep = new URLSearchParams();
   for (const [k, v] of Object.entries(params)) if (typeof v === "string" && k !== "tab") keep.set(k, v);
@@ -67,6 +68,18 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
       value: byManager ? "—" : money(summary.netProfit),
       tone: summary.netProfit < 0 ? "neg" : "pos",
       hint: t("finance.netHint"),
+    },
+    {
+      label: t("finance.ownerDraws"),
+      value: byManager ? "—" : `− ${money(summary.ownerDraws)}`,
+      tone: "muted",
+      hint: t("finance.ownerDrawsHint"),
+    },
+    {
+      label: t("finance.retained"),
+      value: byManager ? "—" : money(summary.retained),
+      tone: summary.retained < 0 ? "neg" : "pos",
+      hint: t("finance.retainedHint"),
     },
   ];
 
@@ -110,7 +123,7 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
         </Suspense>
       </div>
 
-      <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+      <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
         {tiles.map((tl) => (
           <Card key={tl.label} className="p-4" title={tl.hint}>
             <div className="text-xs font-medium text-muted-foreground">{tl.label}</div>

@@ -45,9 +45,16 @@ describe("финансы: прибыль по лидам", () => {
     expect(financeSummary(rows, null, 0)).toMatchObject({ adSpend: null, netProfit: 260 });
   });
 
+  it("взятое себе из кассы не уменьшает чистую прибыль, но уменьшает остаток в компании", () => {
+    const rows = groupDealsByLead(deals, "USD", RATE);
+    expect(financeSummary(rows, 100, 50, 80)).toMatchObject({ netProfit: 110, ownerDraws: 80, retained: 30 });
+    expect(financeSummary(rows, 100, 50)).toMatchObject({ ownerDraws: 0, retained: 110 });
+  });
+
   it("расходы по статьям — по убыванию", () => {
-    const e = (category: string, converted: number): ExpenseRow => ({ id: category + converted, date: "2026-09-01", category, amount: converted, currency: "USD", converted, note: null, createdBy: null });
-    expect(expensesByCategory([e("Аренда", 300), e("Зарплата", 900), e("Аренда", 300)])).toEqual([
+    const e = (category: string, converted: number, ownerDraw = false): ExpenseRow => ({ id: category + converted, date: "2026-09-01", category, amount: converted, currency: "USD", converted, note: null, ownerDraw, createdBy: null });
+    // взятое владельцем из кассы — не статья расходов
+    expect(expensesByCategory([e("Аренда", 300), e("Зарплата", 900), e("Аренда", 300), e("Взял себе из кассы", 500, true)])).toEqual([
       { category: "Зарплата", total: 900 },
       { category: "Аренда", total: 600 },
     ]);

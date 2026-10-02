@@ -351,6 +351,8 @@ model Expense {
   amount      Decimal  @db.Decimal(18, 2)
   currency    Currency
   note        String?
+  /// «Взял себе из кассы» — деньги владельца, не расход компании: не вычитаются из чистой прибыли, показываются отдельно
+  ownerDraw   Boolean  @default(false)
   createdById String?
   createdAt   DateTime @default(now())
 

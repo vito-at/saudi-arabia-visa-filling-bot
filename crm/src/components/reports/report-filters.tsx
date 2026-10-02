@@ -10,7 +10,7 @@ import type { TKey } from "@/i18n/core";
 import { useI18n } from "@/i18n/client";
 import { cn } from "@/lib/utils";
 
-const PERIODS: PeriodKey[] = ["today", "7d", "30d", "quarter", "year", "custom"];
+const PERIODS: PeriodKey[] = ["today", "7d", "30d", "month", "year", "custom"];
 
 export function ReportFilters({ managers, exportHref, defaultPeriod = "30d" }: { managers: { id: string; name: string }[] | null; exportHref?: string; defaultPeriod?: PeriodKey }) {
   const { t } = useI18n();
