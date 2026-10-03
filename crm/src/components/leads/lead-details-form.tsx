@@ -4,8 +4,8 @@ import { useState, useTransition } from "react";
 import { Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Field, Input, NativeSelect } from "@/components/ui/input";
-import { SERVICE_TYPES } from "@/lib/constants";
+import { Field, Input } from "@/components/ui/input";
+import { ServiceDestinationFields } from "./service-destination-fields";
 import { serviceLabel } from "@/i18n/labels";
 import { useI18n } from "@/i18n/client";
 import { formatDate } from "@/lib/format";
@@ -81,19 +81,7 @@ export function LeadDetailsForm({ lead }: { lead: LeadDetails }) {
       <Field label={t("lead.field.email")}>
         <Input name="email" type="email" defaultValue={lead.email ?? ""} />
       </Field>
-      <Field label={t("lead.field.service")}>
-        <NativeSelect name="serviceType" defaultValue={lead.serviceType ?? ""}>
-          <option value="">—</option>
-          {SERVICE_TYPES.map((k) => (
-            <option key={k} value={k}>
-              {serviceLabel(t, k)}
-            </option>
-          ))}
-        </NativeSelect>
-      </Field>
-      <Field label={t("lead.field.destination")}>
-        <Input name="destination" defaultValue={lead.destination ?? ""} />
-      </Field>
+      <ServiceDestinationFields service={lead.serviceType} destination={lead.destination} />
       <Field label={t("lead.field.travelers")}>
         <Input name="travelers" type="number" min={1} defaultValue={lead.travelers ?? ""} />
       </Field>
