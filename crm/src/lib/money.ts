@@ -61,6 +61,8 @@ export interface DealMoney {
   amount: Num;
   cost: Num;
   currency: Currency;
+  /** валюта себестоимости; если не задана — как у продажи */
+  costCurrency?: Currency;
   paidAt?: Date;
 }
 
@@ -74,10 +76,18 @@ export function sumDeals(deals: DealMoney[], to: Currency, usdRate: number | Rat
   for (const d of deals) {
     const r = resolveRates(usdRate, costRate, d.paidAt);
     revenue += convertRevenue(d.amount, d.currency, to, r);
-    cost += convertCost(d.cost, d.currency, to, r);
+    cost += convertCost(d.cost, d.costCurrency ?? d.currency, to, r);
   }
   revenue = round2(revenue);
   cost = round2(cost);
   const count = deals.length;
   return { revenue, cost, profit: round2(revenue - cost), count, avgCheck: count ? round2(revenue / count) : 0 };
+}
+
+/**
+ * Прибыль сделки в валюте продажи: себестоимость в другой валюте пересчитывается в валюту продажи
+ * по курсу, при котором она больше (прибыль не завышается).
+ */
+export function dealProfitInSale(d: DealMoney, r: RatePair): number {
+  return round2(toNum(d.amount) - convertCost(d.cost, d.costCurrency ?? d.currency, d.currency, r));
 }

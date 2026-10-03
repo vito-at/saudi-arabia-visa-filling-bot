@@ -68,11 +68,13 @@ export async function getClientAggregates(o: ClientAggOptions): Promise<{ rows: 
   const conv = (col: "amount" | "cost") => {
     const v = Prisma.sql`d.${Prisma.raw(`"${col}"`)}`;
     const revenue = col === "amount";
+    // валюта суммы: у выручки — валюта продажи, у себестоимости — своя
+    const cur = Prisma.raw(revenue ? `d.currency` : `d."costCurrency"`);
     // сумы → доллары делим, доллары → сумы умножаем; выбираем курс, при котором выручка меньше, а расход больше
     const converted =
       o.currency === "UZS"
-        ? Prisma.sql`CASE WHEN d.currency = 'USD' THEN ${v} * ${revenue ? lo : hi} ELSE ${v} END`
-        : Prisma.sql`CASE WHEN d.currency = 'UZS' THEN ${v} / ${revenue ? hi : lo} ELSE ${v} END`;
+        ? Prisma.sql`CASE WHEN ${cur} = 'USD' THEN ${v} * ${revenue ? lo : hi} ELSE ${v} END`
+        : Prisma.sql`CASE WHEN ${cur} = 'UZS' THEN ${v} / ${revenue ? hi : lo} ELSE ${v} END`;
     return Prisma.sql`COALESCE(SUM(${converted}), 0)`;
   };
 

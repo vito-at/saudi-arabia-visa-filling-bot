@@ -5,11 +5,11 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Field, Input, NativeSelect, Textarea } from "@/components/ui/input";
-import { toInputDate } from "@/lib/format";
+import { formatNumber, toInputDate } from "@/lib/format";
 import { useI18n } from "@/i18n/client";
-import { calcProfit, convertCost, convertRevenue } from "@/lib/money";
+import { convertCost, convertRevenue, dealProfitInSale } from "@/lib/money";
 import { createDealAction, updateDealAction, type DealInput } from "@/app/(app)/deals/actions";
-import { useCostRate, useIsAdmin } from "@/components/layout/role-context";
+import { useIsAdmin, useRates } from "@/components/layout/role-context";
 
 export interface DealDialogProps {
   open: boolean;
@@ -27,20 +27,30 @@ const parse = (s: string) => Number(String(s).replace(/\s/g, "").replace(",", ".
 
 export function DealDialog({ open, onOpenChange, leadId, wonStatusId, rate, deal, onSaved }: DealDialogProps) {
   const [form, setForm] = useState<DealInput>(
-    deal ?? { amount: "", cost: "", currency: "USD", paidAt: toInputDate(new Date()), product: "" },
+    deal ?? { amount: "", cost: "", currency: "USD", costCurrency: "USD", paidAt: toInputDate(new Date()), product: "" },
   );
   const { t, f } = useI18n();
   const [pending, start] = useTransition();
   // менеджер указывает только сумму продажи — себестоимость вносит администратор
   const isAdmin = useIsAdmin();
-  const costRate = useCostRate() || rate;
+  const ctx = useRates();
+  const rates = { sale: ctx.sale || rate, cost: ctx.cost || rate };
   const set = (k: keyof DealInput) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
     setForm({ ...form, [k]: e.target.value });
+  // валюта себестоимости по умолчанию следует за валютой продажи, пока её не выбрали отдельно
+  const [costCurTouched, setCostCurTouched] = useState(!!deal && deal.costCurrency !== deal.currency);
+  const costCurrency = form.costCurrency ?? form.currency;
 
-  const profit = calcProfit(parse(form.amount), parse(form.cost));
+  const amountNum = parse(form.amount);
+  const costNum = parse(form.cost);
+  const canConvert = rates.sale > 0 && rates.cost > 0;
+  const mixed = costCurrency !== form.currency;
+  // прибыль в валюте продажи: себестоимость в другой валюте — по курсу, при котором она больше
+  const profit = canConvert || !mixed ? dealProfitInSale({ amount: amountNum, cost: costNum, currency: form.currency, costCurrency }, rates) : 0;
   const other = form.currency === "USD" ? "UZS" : "USD";
   // прибыль в другой валюте: выручка по минимуму, себестоимость по максимуму
-  const profitOther = rate > 0 ? convertRevenue(parse(form.amount), form.currency, other, { sale: rate, cost: costRate }) - convertCost(parse(form.cost), form.currency, other, { sale: rate, cost: costRate }) : 0;
+  const profitOther = canConvert ? convertRevenue(amountNum, form.currency, other, rates) - convertCost(costNum, costCurrency, other, rates) : 0;
+  const costRateUsed = costCurrency === "USD" ? Math.max(rates.sale, rates.cost) : Math.min(rates.sale, rates.cost);
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -63,17 +73,37 @@ export function DealDialog({ open, onOpenChange, leadId, wonStatusId, rate, deal
           <Field label={t("deal.amount")}>
             <Input value={form.amount} onChange={set("amount")} inputMode="decimal" required />
           </Field>
-          {isAdmin && (
-            <Field label={t("deal.cost")} hint={t("deal.costHint")}>
-              <Input value={form.cost} onChange={set("cost")} inputMode="decimal" />
-            </Field>
-          )}
           <Field label={t("deal.currency")}>
-            <NativeSelect value={form.currency} onChange={set("currency")}>
+            <NativeSelect
+              value={form.currency}
+              onChange={(e) => {
+                const cur = e.target.value as DealInput["currency"];
+                setForm({ ...form, currency: cur, costCurrency: costCurTouched ? costCurrency : cur });
+              }}
+            >
               <option value="USD">{t("currency.USD")}</option>
               <option value="UZS">{t("currency.UZS")}</option>
             </NativeSelect>
           </Field>
+          {isAdmin && (
+            <>
+              <Field label={t("deal.cost")} hint={t("deal.costHint")}>
+                <Input value={form.cost} onChange={set("cost")} inputMode="decimal" />
+              </Field>
+              <Field label={t("deal.costCurrency")}>
+                <NativeSelect
+                  value={costCurrency}
+                  onChange={(e) => {
+                    setCostCurTouched(true);
+                    setForm({ ...form, costCurrency: e.target.value as DealInput["currency"] });
+                  }}
+                >
+                  <option value="USD">{t("currency.USD")}</option>
+                  <option value="UZS">{t("currency.UZS")}</option>
+                </NativeSelect>
+              </Field>
+            </>
+          )}
           <Field label={t("deal.paidAt")}>
             <Input type="date" value={form.paidAt} onChange={set("paidAt")} required />
           </Field>
@@ -84,12 +114,13 @@ export function DealDialog({ open, onOpenChange, leadId, wonStatusId, rate, deal
               <span className="text-muted-foreground">{t("deal.profit")}</span>
               <b className={profit < 0 ? "text-red-600" : "text-emerald-700"}>{f.money(profit, form.currency)}</b>
             </div>
-            {rate > 0 && (
+            {canConvert && (
               <div className="mt-1 flex justify-between text-xs text-muted-foreground">
                 <span>{t("deal.inOther", { cur: other })}</span>
                 <span>{f.money(profitOther, other)}</span>
               </div>
             )}
+            {mixed && canConvert && <p className="mt-1.5 text-xs text-muted-foreground">{t("deal.costConverted", { cur: costCurrency, rate: formatNumber(costRateUsed), sum: f.sum })}</p>}
           </div>
           )}
           <div className="sm:col-span-2 flex justify-end gap-2">

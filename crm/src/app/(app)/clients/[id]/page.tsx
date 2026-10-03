@@ -14,7 +14,7 @@ import { clientScope } from "@/lib/access";
 import { sourceLabel, statusName } from "@/i18n/labels";
 import { getI18n } from "@/i18n/server";
 import { formatDate, formatDateTime } from "@/lib/format";
-import { calcProfit, convertCost, convertRevenue, sumDeals, toNum } from "@/lib/money";
+import { convertCost, convertRevenue, dealProfitInSale, sumDeals, toNum } from "@/lib/money";
 import { prettyPhone } from "@/lib/phone";
 import { getSettings } from "@/lib/refs";
 import { requireUser } from "@/lib/session";
@@ -42,7 +42,6 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
   });
   if (!client) notFound();
   const settings = await getSettings();
-  const rate = toNum(settings.usdRate);
   const book = await loadRateBook(settings);
   const deals = isAdmin ? client.deals : client.deals.filter((d) => d.managerId === user.id);
   const leads = isAdmin ? client.leads : client.leads.filter((l) => l.managerId === user.id || (!l.managerId && !l.hiddenFromManagers));
@@ -97,7 +96,7 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
           </THead>
           <TBody>
             {deals.map((d) => {
-              const profit = calcProfit(d.amount, d.cost);
+              const profit = dealProfitInSale(d, ratesOn(book, d.paidAt));
               return (
                 <TR key={d.id}>
                   <TD>{formatDate(d.paidAt)}</TD>
@@ -107,9 +106,9 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
                     </Link>
                   </TD>
                   <TD className="text-right whitespace-nowrap">{f.money(toNum(d.amount), d.currency)}</TD>
-                  <TD className="text-right whitespace-nowrap">{f.money(toNum(d.cost), d.currency)}</TD>
-                  <TD className="text-right whitespace-nowrap text-emerald-700">{f.money(profit, d.currency)}</TD>
-                  <TD className="text-right whitespace-nowrap">{f.money(convertRevenue(d.amount, d.currency, "USD", ratesOn(book, d.paidAt)) - convertCost(d.cost, d.currency, "USD", ratesOn(book, d.paidAt)), "USD")}</TD>
+                  <TD className="text-right whitespace-nowrap">{f.money(toNum(d.cost), d.costCurrency)}</TD>
+                  <TD className={`text-right whitespace-nowrap ${profit < 0 ? "text-red-600" : "text-emerald-700"}`}>{f.money(profit, d.currency)}</TD>
+                  <TD className="text-right whitespace-nowrap">{f.money(convertRevenue(d.amount, d.currency, "USD", ratesOn(book, d.paidAt)) - convertCost(d.cost, d.costCurrency, "USD", ratesOn(book, d.paidAt)), "USD")}</TD>
                   <TD>{d.manager?.name ?? "—"}</TD>
                 </TR>
               );

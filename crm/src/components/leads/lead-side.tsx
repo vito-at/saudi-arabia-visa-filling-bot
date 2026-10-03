@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import { NativeSelect } from "@/components/ui/input";
 import { DealDialog } from "@/components/deals/deal-dialog";
 import { formatDate, toInputDate } from "@/lib/format";
-import { calcProfit } from "@/lib/money";
 import { assignManagerAction, deleteLeadAction, takeLeadAction } from "@/app/(app)/leads/actions";
 import { deleteDealAction } from "@/app/(app)/deals/actions";
 import { useI18n } from "@/i18n/client";
@@ -64,6 +63,9 @@ export interface DealItem {
   amount: number;
   cost: number;
   currency: "UZS" | "USD";
+  costCurrency: "UZS" | "USD";
+  /** прибыль в валюте продажи (себестоимость в другой валюте пересчитана по курсу дня оплаты) */
+  profit: number;
   paidAt: string;
   manager: string | null;
   costConfirmed: boolean;
@@ -76,7 +78,7 @@ export function DealsPanel({ leadId, deals, rate, canManage }: { leadId: string;
   return (
     <div className="space-y-2">
       {deals.map((d) => {
-        const profit = calcProfit(d.amount, d.cost);
+        const profit = d.profit;
         return (
           <div key={d.id} className="group rounded-lg border p-3 text-sm">
             <div className="flex items-start gap-2">
@@ -110,7 +112,7 @@ export function DealsPanel({ leadId, deals, rate, canManage }: { leadId: string;
               </div>
               <div>
                 <div className="text-muted-foreground">{t("deal.cost")}</div>
-                {d.costConfirmed ? <div>{f.money(d.cost, d.currency)}</div> : <div className="text-amber-600" title={t("deal.costPending")}>{t("deal.costPendingShort")}</div>}
+                {d.costConfirmed ? <div>{f.money(d.cost, d.costCurrency)}</div> : <div className="text-amber-600" title={t("deal.costPending")}>{t("deal.costPendingShort")}</div>}
               </div>
               <div>
                 <div className="text-muted-foreground">{t("deal.profit")}</div>
@@ -140,7 +142,7 @@ export function DealsPanel({ leadId, deals, rate, canManage }: { leadId: string;
           deal={
             editing === "new"
               ? undefined
-              : { id: editing.id, amount: String(editing.amount), cost: String(editing.cost), currency: editing.currency, paidAt: toInputDate(editing.paidAt), product: editing.product }
+              : { id: editing.id, amount: String(editing.amount), cost: String(editing.cost), currency: editing.currency, costCurrency: editing.costCurrency, paidAt: toInputDate(editing.paidAt), product: editing.product }
           }
         />
       )}
