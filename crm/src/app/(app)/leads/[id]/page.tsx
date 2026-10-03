@@ -146,6 +146,7 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
                   travelFrom: toInputDate(lead.travelFrom),
                   travelTo: toInputDate(lead.travelTo),
                   travelers: lead.travelers,
+                  visaApplications: lead.visaApplications,
                 }}
               />
             </CardContent>

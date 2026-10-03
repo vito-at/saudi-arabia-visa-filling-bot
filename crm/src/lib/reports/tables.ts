@@ -43,6 +43,7 @@ export const REPORT_TABS = {
   ads: "reports.tab.ads",
   managers: "reports.tab.managers",
   services: "reports.tab.services",
+  visas: "reports.tab.visas",
 } as const satisfies Record<string, TKey>;
 export type ReportTab = keyof typeof REPORT_TABS;
 

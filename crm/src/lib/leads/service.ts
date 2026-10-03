@@ -31,6 +31,7 @@ export interface NewLeadInput {
   travelFrom?: Date | null;
   travelTo?: Date | null;
   travelers?: number | null;
+  visaApplications?: number | null;
   formAnswers?: Prisma.InputJsonValue;
   leadgenId?: string | null;
   formId?: string | null;
@@ -117,6 +118,7 @@ export async function createLead(input: NewLeadInput, actorId: string | null) {
           travelFrom: input.travelFrom ?? null,
           travelTo: input.travelTo ?? null,
           travelers: input.travelers ?? null,
+          visaApplications: input.visaApplications ?? null,
           formAnswers: input.formAnswers ?? undefined,
           formId: input.formId ?? null,
           formName: input.formName ?? null,
@@ -292,6 +294,7 @@ export interface LeadFieldsPatch {
   travelFrom?: Date | null;
   travelTo?: Date | null;
   travelers?: number | null;
+  visaApplications?: number | null;
   source?: LeadSource;
 }
 

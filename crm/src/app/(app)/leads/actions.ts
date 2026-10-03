@@ -46,6 +46,16 @@ function parseService(v: FormDataEntryValue | null): ServiceType | null {
   return z.enum(serviceTypes).parse(s);
 }
 
+/** Количество заявлений — только для «Визовой поддержки», целое число от 1 */
+function parseVisaApplications(formData: FormData): number | null {
+  if (formData.get("serviceType") !== "VISA") return null;
+  const raw = str(formData.get("visaApplications"));
+  if (!raw) return null;
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n < 1 || n > 500) throw new ValidationError("err.visaApplications");
+  return n;
+}
+
 export async function createLeadAction(formData: FormData) {
   return runAction(async () => {
     const user = await requireUser();
@@ -72,6 +82,7 @@ export async function createLeadAction(formData: FormData) {
         travelFrom: parseInputDate(str(formData.get("travelFrom"))),
         travelTo: parseInputDate(str(formData.get("travelTo"))),
         travelers: parseTravelers(formData.get("travelers")),
+        visaApplications: parseVisaApplications(formData),
         managerId,
         hiddenFromManagers: user.role === "ADMIN",
         comment: str(formData.get("comment")),
@@ -103,6 +114,7 @@ export async function updateLeadAction(leadId: string, formData: FormData) {
         travelFrom,
         travelTo,
         travelers: parseTravelers(formData.get("travelers")),
+        visaApplications: parseVisaApplications(formData),
       },
       user.id,
     );

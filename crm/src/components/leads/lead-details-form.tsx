@@ -23,6 +23,7 @@ export interface LeadDetails {
   travelFrom: string; // YYYY-MM-DD
   travelTo: string;
   travelers: number | null;
+  visaApplications: number | null;
 }
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
@@ -51,7 +52,8 @@ export function LeadDetailsForm({ lead }: { lead: LeadDetails }) {
         <Row label={t("lead.field.phone")}>{lead.phone ? prettyPhone(lead.phone) : lead.phoneRaw}</Row>
         <Row label={t("lead.field.email")}>{lead.email}</Row>
         <Row label={t("lead.field.service")}>{lead.serviceType ? serviceLabel(t, lead.serviceType) : null}</Row>
-        <Row label={t("lead.field.destination")}>{lead.destination}</Row>
+        <Row label={lead.serviceType === "VISA" ? t("lead.visaCountry") : t("lead.field.destination")}>{lead.destination}</Row>
+        {lead.serviceType === "VISA" && <Row label={t("lead.field.visaApplications")}>{lead.visaApplications}</Row>}
         <Row label={t("lead.field.dates")}>
           {lead.travelFrom || lead.travelTo ? `${lead.travelFrom ? formatDate(`${lead.travelFrom}T00:00:00+05:00`) : "…"} — ${lead.travelTo ? formatDate(`${lead.travelTo}T00:00:00+05:00`) : "…"}` : null}
         </Row>
@@ -81,7 +83,7 @@ export function LeadDetailsForm({ lead }: { lead: LeadDetails }) {
       <Field label={t("lead.field.email")}>
         <Input name="email" type="email" defaultValue={lead.email ?? ""} />
       </Field>
-      <ServiceDestinationFields service={lead.serviceType} destination={lead.destination} />
+      <ServiceDestinationFields service={lead.serviceType} destination={lead.destination} applications={lead.visaApplications} />
       <Field label={t("lead.field.travelers")}>
         <Input name="travelers" type="number" min={1} defaultValue={lead.travelers ?? ""} />
       </Field>

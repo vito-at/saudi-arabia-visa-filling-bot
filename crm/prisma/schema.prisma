@@ -134,6 +134,8 @@ model Lead {
   travelFrom  DateTime?
   travelTo    DateTime?
   travelers   Int?
+  /// Количество заявлений на визу (для «Визовой поддержки») — для отчёта «Визы»
+  visaApplications Int?
   /// Кастомные ответы формы: [{ key, label, value }]
   formAnswers Json?
 
