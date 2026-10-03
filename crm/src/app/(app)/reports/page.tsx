@@ -10,6 +10,7 @@ import { getManagers } from "@/lib/refs";
 import { readFilters } from "@/lib/reports/data";
 import { AD_LEVELS, adsTable, clientsTable, funnelTable, lossesTables, managersTable, REPORT_TABS, servicesTables, type ReportTab } from "@/lib/reports/tables";
 import type { AdLevel } from "@/lib/reports/calc";
+import { visasTable } from "@/lib/reports/visas";
 import { sp, type SearchParams } from "@/lib/leads/query";
 import { requireUser } from "@/lib/session";
 import { cn } from "@/lib/utils";
@@ -61,6 +62,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
       {tab === "ads" && <AdsReport f={f} level={level} tabHref={tabHref("ads")} />}
       {tab === "managers" && <ManagersReport f={f} />}
       {tab === "services" && <ServicesReport f={f} />}
+      {tab === "visas" && <VisasReport f={f} />}
     </div>
   );
 }
@@ -215,6 +217,35 @@ async function ManagersReport({ f }: { f: F }) {
           </CardContent>
         </Card>
       )}
+    </div>
+  );
+}
+
+async function VisasReport({ f }: { f: F }) {
+  const { table, totals, noCount } = await visasTable(f);
+  const tiles = [
+    { label: f.t("rt.visas.tileApplications"), value: totals.applications },
+    { label: f.t("rt.visas.tileSales"), value: totals.sales },
+    { label: f.t("rt.visas.tileCountries"), value: totals.countries },
+  ];
+  return (
+    <div className="space-y-5">
+      <div className="grid grid-cols-3 gap-3 lg:gap-4">
+        {tiles.map((tl) => (
+          <Card key={tl.label} className="p-4">
+            <div className="text-xs font-medium text-muted-foreground">{tl.label}</div>
+            <div className="mt-1.5 text-xl font-semibold tabular-nums">{formatNumber(tl.value)}</div>
+          </Card>
+        ))}
+      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>{table.title}</CardTitle>
+          <span className="text-xs text-muted-foreground">{table.note}</span>
+        </CardHeader>
+        {table.rows.length ? <ReportTable table={table} currency={f.currency} /> : <p className="px-5 pb-5 text-sm text-muted-foreground">{f.t("rt.visas.empty")}</p>}
+        {noCount > 0 && <p className="px-5 py-3 text-xs text-amber-700">{f.t("rt.visas.noCount", { n: noCount })}</p>}
+      </Card>
     </div>
   );
 }

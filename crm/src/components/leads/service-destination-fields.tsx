@@ -10,9 +10,10 @@ const OTHER = "__other";
 
 /**
  * «Тип услуги» и «Направление». Для визовой поддержки направление выбирается из списка стран,
- * а при «Другое» появляется поле для страны. В форму уходят обычные serviceType и destination.
+ * а при «Другое» появляется поле для страны; ещё указывается количество заявлений.
+ * В форму уходят обычные serviceType, destination и visaApplications.
  */
-export function ServiceDestinationFields({ service, destination, placeholder }: { service?: string | null; destination?: string | null; placeholder?: string }) {
+export function ServiceDestinationFields({ service, destination, applications, placeholder }: { service?: string | null; destination?: string | null; applications?: number | null; placeholder?: string }) {
   const { t, locale } = useI18n();
   const [type, setType] = useState(service ?? "");
   const known = matchVisaCountry(destination);
@@ -53,6 +54,11 @@ export function ServiceDestinationFields({ service, destination, placeholder }: 
           <Input value={text} onChange={(e) => setText(e.target.value)} placeholder={placeholder} aria-label={t("lead.field.destination")} />
         )}
       </Field>
+      {visa && (
+        <Field label={t("lead.field.visaApplications")}>
+          <Input name="visaApplications" type="number" min={1} max={500} defaultValue={applications ?? ""} placeholder="1" />
+        </Field>
+      )}
     </>
   );
 }

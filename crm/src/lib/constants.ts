@@ -77,6 +77,7 @@ export const FIELD_LABELS: Record<string, string> = {
   travelFrom: "Дата поездки с",
   travelTo: "Дата поездки по",
   travelers: "Кол-во туристов",
+  visaApplications: "Кол-во заявлений",
   lossReason: "Причина отказа",
   lossComment: "Комментарий к отказу",
   source: "Источник",

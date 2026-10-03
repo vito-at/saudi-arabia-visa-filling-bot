@@ -5,6 +5,7 @@ import { readFilters } from "@/lib/reports/data";
 import { buildWorkbook } from "@/lib/reports/excel";
 import { AD_LEVELS, adsTable, clientsTable, dashboardTables, funnelTable, lossesTables, managersTable, REPORT_TABS, servicesTables, type ReportTab, type Table } from "@/lib/reports/tables";
 import type { AdLevel } from "@/lib/reports/calc";
+import { visasTable } from "@/lib/reports/visas";
 
 export const dynamic = "force-dynamic";
 
@@ -43,6 +44,9 @@ export async function GET(req: NextRequest) {
       tables = [t.services, t.destinations];
       break;
     }
+    case "visas":
+      tables = [(await visasTable(f)).table];
+      break;
   }
   const to = new Date(f.period.to.getTime() - 1);
   const buf = await buildWorkbook(tables, {
