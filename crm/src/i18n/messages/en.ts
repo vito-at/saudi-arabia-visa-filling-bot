@@ -2,6 +2,26 @@
 import type { Messages } from "./ru";
 
 export const en: Messages = {
+  ads: {
+    title: "Ads",
+    subtitle: "{from} — {to} · compared with {pfrom} — {pto} · amounts in {cur}",
+    noSpend: "Ad spend hasn’t been loaded yet — cost per lead and ROI can’t be calculated.",
+    noSpendLink: "Connect Marketing API",
+    conversion: "Lead-to-sale conversion",
+    cplHint: "Spend for the period / ad leads for the period",
+    byPeriodTitle: "Cost per lead by period",
+    footnote: "Ad leads are leads with a Meta campaign created in the period ({leads}); sales and profit come from all their deals (revenue {revenue}, profit {profit}). ROI = (profit − spend) / spend. Spend uses the $ buy rate of its day.",
+    group: {
+      day: "Days",
+      week: "Weeks",
+      month: "Months",
+    },
+    col: {
+      day: "Day",
+      week: "Week",
+      month: "Month",
+    },
+  },
   auth: {
     invalid: "Invalid username or password",
     login: "Username",
@@ -593,6 +613,7 @@ export const en: Messages = {
     tokenValid: "The token is valid",
   },
   nav: {
+    ads: "Ads",
     clients: "Clients",
     dashboard: "Dashboard",
     day: "Day",
