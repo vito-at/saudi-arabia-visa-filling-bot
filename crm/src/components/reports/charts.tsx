@@ -27,6 +27,24 @@ export function CountBars({ data, label }: { data: { x: string; value: number }[
   );
 }
 
+/** Один денежный показатель по периодам (расход, цена лида); пустые периоды — без столбика */
+export function MoneyValueBars({ data, currency, label }: { data: { x: string; value: number | null }[]; currency: "UZS" | "USD"; label: string }) {
+  const { c, tick, tip } = useChart();
+  const { t, f } = useI18n();
+  const short = (v: number) => (currency === "UZS" ? t("chart.millions", { v: formatNumber(v / 1_000_000, 1) }) : v >= 1000 ? `$${formatNumber(v / 1000, 1)}k` : `$${formatNumber(v)}`);
+  return (
+    <ResponsiveContainer width="100%" height={220}>
+      <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }} barCategoryGap={2}>
+        <CartesianGrid vertical={false} stroke={c.grid} />
+        <XAxis dataKey="x" tick={tick} tickLine={false} axisLine={{ stroke: c.grid }} interval="preserveStartEnd" minTickGap={16} />
+        <YAxis tick={tick} tickLine={false} axisLine={false} width={56} tickFormatter={short} />
+        <Tooltip {...tip} cursor={{ fill: c.cursor }} formatter={(v) => [v === null || v === undefined ? "—" : f.money(Number(v), currency), label]} />
+        <Bar dataKey="value" name={label} fill={c.single} radius={[4, 4, 0, 0]} maxBarSize={28} />
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
 /** Выручка и прибыль по дням/неделям — два ряда одной единицы, одна ось */
 export function MoneyBars({ data, currency }: { data: { x: string; revenue: number; profit: number }[]; currency: "UZS" | "USD" }) {
   const { c, tick, tip } = useChart();

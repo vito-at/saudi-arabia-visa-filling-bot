@@ -2,6 +2,26 @@
 import type { Messages } from "./ru";
 
 export const uz: Messages = {
+  ads: {
+    title: "Reklama",
+    subtitle: "{from} — {to} · {pfrom} — {pto} bilan taqqoslash · summalar {cur} da",
+    noSpend: "Reklama xarajati hali yuklanmagan — lid narxi va ROI hisoblanmaydi.",
+    noSpendLink: "Marketing API ni ulash",
+    conversion: "Sotuvga konversiya",
+    cplHint: "Davr xarajati / davrdagi reklama lidlari",
+    byPeriodTitle: "Davrlar bo‘yicha lid narxi",
+    footnote: "Reklama lidlari — Meta kampaniyasi bilan, davrda yaratilgan ({leads}); sotuvlar va foyda — ularning barcha bitimlari bo‘yicha (tushum {revenue}, foyda {profit}). ROI = (foyda − xarajat) / xarajat. Xarajat — o‘z kunidagi $ sotib olish kursi bo‘yicha.",
+    group: {
+      day: "Kunlar",
+      week: "Haftalar",
+      month: "Oylar",
+    },
+    col: {
+      day: "Kun",
+      week: "Hafta",
+      month: "Oy",
+    },
+  },
   auth: {
     invalid: "Login yoki parol noto‘g‘ri",
     login: "Login",
@@ -593,6 +613,7 @@ export const uz: Messages = {
     tokenValid: "Token yaroqli",
   },
   nav: {
+    ads: "Reklama",
     clients: "Mijozlar",
     dashboard: "Boshqaruv paneli",
     day: "Kun",

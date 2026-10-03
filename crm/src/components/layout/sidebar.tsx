@@ -4,7 +4,7 @@ import { RateWidget } from "./rate-widget";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { BarChart3, CheckSquare, Columns3, LayoutDashboard, LogOut, Menu, Settings, Users, Inbox, Wallet, X } from "lucide-react";
+import { BarChart3, CheckSquare, Columns3, Inbox, LayoutDashboard, LogOut, Megaphone, Menu, Settings, Users, Wallet, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "./logo";
 import { ThemeToggle } from "./theme-toggle";
@@ -19,6 +19,7 @@ const NAV = [
   { href: "/clients", label: "nav.clients", icon: Users, badge: null },
   { href: "/tasks", label: "nav.tasks", icon: CheckSquare, badge: "tasks" },
   { href: "/reports", label: "nav.reports", icon: BarChart3, badge: null },
+  { href: "/ads", label: "nav.ads", icon: Megaphone, badge: null, admin: true },
   { href: "/finance", label: "nav.finance", icon: Wallet, badge: "finance", admin: true },
   { href: "/settings", label: "nav.settings", icon: Settings, badge: null, admin: true },
 ] as const;
