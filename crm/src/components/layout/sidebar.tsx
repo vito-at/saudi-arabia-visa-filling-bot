@@ -4,7 +4,7 @@ import { RateWidget } from "./rate-widget";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { BarChart3, CheckSquare, Columns3, Inbox, LayoutDashboard, LogOut, Megaphone, Menu, Settings, Users, Wallet, X } from "lucide-react";
+import { BarChart3, CheckSquare, Inbox, LayoutDashboard, LogOut, Megaphone, Menu, Settings, Users, Wallet, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "./logo";
 import { ThemeToggle } from "./theme-toggle";
@@ -15,7 +15,8 @@ import type { TKey } from "@/i18n/core";
 const NAV = [
   { href: "/", label: "nav.dashboard", icon: LayoutDashboard, badge: null },
   { href: "/leads", label: "nav.leads", icon: Inbox, badge: "leads" },
-  { href: "/kanban", label: "nav.kanban", icon: Columns3, badge: null },
+  // канбан убран из меню (менеджеры им не пользуются); страница осталась по адресу /kanban — вернуть можно этой строкой:
+  // { href: "/kanban", label: "nav.kanban", icon: Columns3, badge: null },
   { href: "/clients", label: "nav.clients", icon: Users, badge: null },
   { href: "/tasks", label: "nav.tasks", icon: CheckSquare, badge: "tasks" },
   { href: "/reports", label: "nav.reports", icon: BarChart3, badge: null },

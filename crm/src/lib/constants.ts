@@ -94,3 +94,22 @@ export const CALLBACK_REMIND_MIN = 10;
 /** «Постоянный клиент» — у клиента от 3 сделок (покупок любых услуг) */
 export const REGULAR_CLIENT_MIN_DEALS = 3;
 export const isRegularClient = (deals: number) => deals >= REGULAR_CLIENT_MIN_DEALS;
+
+/**
+ * Страны для «Визовой поддержки». В лиде сохраняется русское название (поле «Направление»);
+ * aliases — написания, которые встречаются в старых записях и формах Meta.
+ */
+export const VISA_COUNTRIES = [
+  { ru: "Сингапур", uz: "Singapur", en: "Singapore", aliases: ["singapore", "singapur", "сингапур"] },
+  { ru: "Таиланд", uz: "Tailand", en: "Thailand", aliases: ["тайланд", "таиланд", "thailand", "tailand", "tayland"] },
+  { ru: "Вьетнам", uz: "Vyetnam", en: "Vietnam", aliases: ["вьетнам", "vietnam", "vyetnam", "vetnam"] },
+  { ru: "Саудовская Аравия", uz: "Saudiya Arabistoni", en: "Saudi Arabia", aliases: ["саудовская аравия", "саудия", "saudi arabia", "saudiya arabistoni", "saudiya"] },
+  { ru: "Кыргызстан", uz: "Qirg‘iziston", en: "Kyrgyzstan", aliases: ["кыргызстан", "киргизия", "kyrgyzstan", "qirg‘iziston", "qirgiziston"] },
+] as const;
+
+/** Русское название страны из списка по любому известному написанию, иначе null */
+export function matchVisaCountry(value: string | null | undefined): string | null {
+  const v = value?.trim().toLowerCase();
+  if (!v) return null;
+  return VISA_COUNTRIES.find((c) => c.ru.toLowerCase() === v || c.aliases.some((a) => a === v))?.ru ?? null;
+}

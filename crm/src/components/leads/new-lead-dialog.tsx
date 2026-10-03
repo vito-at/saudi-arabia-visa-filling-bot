@@ -7,8 +7,9 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { Field, Input, NativeSelect, Textarea } from "@/components/ui/input";
-import { MANUAL_SOURCES, SERVICE_TYPES } from "@/lib/constants";
-import { serviceLabel, sourceLabel } from "@/i18n/labels";
+import { MANUAL_SOURCES } from "@/lib/constants";
+import { sourceLabel } from "@/i18n/labels";
+import { ServiceDestinationFields } from "./service-destination-fields";
 import { useI18n } from "@/i18n/client";
 import { createLeadAction } from "@/app/(app)/leads/actions";
 
@@ -55,19 +56,7 @@ export function NewLeadDialog({ managers, isAdmin, roundRobin }: { managers: { i
           <Field label={t("lead.field.email")}>
             <Input name="email" type="email" />
           </Field>
-          <Field label={t("lead.field.service")}>
-            <NativeSelect name="serviceType" defaultValue="">
-              <option value="">—</option>
-              {SERVICE_TYPES.map((k) => (
-                <option key={k} value={k}>
-                  {serviceLabel(t, k)}
-                </option>
-              ))}
-            </NativeSelect>
-          </Field>
-          <Field label={t("lead.field.destination")}>
-            <Input name="destination" placeholder={t("newLead.destinationPh")} />
-          </Field>
+          <ServiceDestinationFields placeholder={t("newLead.destinationPh")} />
           <Field label={t("lead.field.travelFrom")}>
             <Input name="travelFrom" type="date" />
           </Field>
