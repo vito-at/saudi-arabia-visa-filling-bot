@@ -36,7 +36,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   return (
     <RoleProvider role={user.role} costRate={Number(settings?.usdRateCost ?? 0)}>
     <div className="min-h-screen">
-      <Sidebar user={user} counters={{ leads: newLeads, tasks, finance: pendingCosts }} logout={logout} />
+      <Sidebar
+        user={user}
+        counters={{ leads: newLeads, tasks, finance: pendingCosts }}
+        rate={{ value: Number(settings?.usdRateCost ?? 0), updatedAt: settings?.usdRateUpdatedAt?.toISOString() ?? null }}
+        logout={logout}
+      />
       <main className="lg:pl-60">
         {tokenProblem && (
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 lg:px-8">

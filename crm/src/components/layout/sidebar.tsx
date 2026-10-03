@@ -1,5 +1,6 @@
 "use client";
 
+import { RateWidget } from "./rate-widget";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
@@ -25,6 +26,8 @@ const NAV = [
 type SidebarProps = {
   user: { name: string; role: "ADMIN" | "MANAGER" };
   counters: { leads: number; tasks: number; finance: number };
+  /** курс $ для расчёта цен клиентам */
+  rate: { value: number; updatedAt: string | null };
   logout: () => Promise<void>;
 };
 
@@ -79,7 +82,7 @@ export function Sidebar(props: SidebarProps) {
   );
 }
 
-function SidebarContent({ user, counters, logout }: SidebarProps) {
+function SidebarContent({ user, counters, logout, rate }: SidebarProps) {
   const pathname = usePathname();
   const { t } = useI18n();
   return (
@@ -113,6 +116,7 @@ function SidebarContent({ user, counters, logout }: SidebarProps) {
         })}
       </nav>
       <div className="space-y-3 border-t border-sidebar-border p-3">
+        <RateWidget rate={rate.value} updatedAt={rate.updatedAt} />
         <ThemeToggle />
         <LanguageSwitcher />
         <div className="flex items-center gap-3 px-1">
