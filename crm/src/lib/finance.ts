@@ -12,6 +12,8 @@ export interface FinanceDeal {
   amount: number;
   cost: number;
   currency: Currency;
+  /** валюта себестоимости */
+  costCurrency: Currency;
   paidAt: string;
   revenue: number; // в валюте отчёта
   profit: number; // в валюте отчёта
@@ -58,6 +60,7 @@ export function groupDealsByLead(
     amount: number;
     cost: number;
     currency: Currency;
+    costCurrency?: Currency;
     paidAt: Date;
     costConfirmed?: boolean;
     lead: {
@@ -78,7 +81,7 @@ export function groupDealsByLead(
     // курсы дня оплаты: выручка по минимуму, себестоимость по максимуму
     const r = resolveRates(rates, costRate, d.paidAt);
     const revenue = convertRevenue(d.amount, d.currency, to, r);
-    const cost = convertCost(d.cost, d.currency, to, r);
+    const cost = convertCost(d.cost, d.costCurrency ?? d.currency, to, r);
     const row =
       map.get(d.lead.id) ??
       ({
@@ -102,6 +105,7 @@ export function groupDealsByLead(
       amount: d.amount,
       cost: d.cost,
       currency: d.currency,
+      costCurrency: d.costCurrency ?? d.currency,
       paidAt: d.paidAt.toISOString(),
       revenue,
       profit: round2(revenue - cost),
@@ -151,6 +155,7 @@ export async function loadFinanceLeads(f: ReportFilters): Promise<FinanceLead[]>
       amount: true,
       cost: true,
       currency: true,
+      costCurrency: true,
       paidAt: true,
       costConfirmed: true,
       lead: {

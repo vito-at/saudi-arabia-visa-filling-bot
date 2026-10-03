@@ -49,7 +49,7 @@ export async function loadVisaSales(f: ReportFilters): Promise<VisaSale[]> {
   const managerId = f.managerId && f.managerId !== "none" ? f.managerId : null;
   const leads = await prisma.lead.findMany({
     where: { serviceType: "VISA", deals: { some: inPeriod }, ...(f.managerId === "none" ? { managerId: null } : managerId ? { managerId } : {}) },
-    select: { destination: true, visaApplications: true, deals: { where: inPeriod, select: { amount: true, cost: true, currency: true, paidAt: true, managerId: true } } },
+    select: { destination: true, visaApplications: true, deals: { where: inPeriod, select: { amount: true, cost: true, currency: true, costCurrency: true, paidAt: true, managerId: true } } },
   });
   const m = money(f);
   return leads.map((l) => {

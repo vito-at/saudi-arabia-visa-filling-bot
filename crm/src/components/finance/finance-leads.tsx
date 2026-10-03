@@ -71,9 +71,10 @@ export function FinanceLeads({ leads, currency, rate }: { leads: FinanceLead[]; 
         <span className="text-muted-foreground">{t("finance.revenue")}:</span> {f.money(d.amount, d.currency)}
       </div>
       <div className="text-xs">
-        <span className="text-muted-foreground">{t("finance.cost")}:</span> {d.costConfirmed ? f.money(d.cost, d.currency) : <span className="text-amber-600">{t("finance.pendingBadge")}</span>}
+        <span className="text-muted-foreground">{t("finance.cost")}:</span> {d.costConfirmed ? f.money(d.cost, d.costCurrency) : <span className="text-amber-600">{t("finance.pendingBadge")}</span>}
       </div>
-      <div className={cn("text-xs font-medium", profitCls(d.amount - d.cost))}>{f.money(d.amount - d.cost, d.currency)}</div>
+      {/* прибыль — в валюте отчёта: продажа и себестоимость могут быть в разных валютах */}
+      <div className={cn("text-xs font-medium", profitCls(d.profit))}>{money(d.profit)}</div>
       <Button size="sm" variant="outline" onClick={() => setEditing({ leadId, deal: d })}>
         <Pencil /> {t("common.edit")}
       </Button>
@@ -213,6 +214,7 @@ export function FinanceLeads({ leads, currency, rate }: { leads: FinanceLead[]; 
             amount: String(editing.deal.amount),
             cost: String(editing.deal.cost),
             currency: editing.deal.currency,
+            costCurrency: editing.deal.costCurrency,
             paidAt: toInputDate(new Date(editing.deal.paidAt)),
             product: editing.deal.product,
           }}

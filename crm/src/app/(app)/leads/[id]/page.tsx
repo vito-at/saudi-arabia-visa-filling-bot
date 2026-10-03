@@ -16,7 +16,8 @@ import { leadScope } from "@/lib/access";
 import { fieldLabel, historyValue, reasonName, sourceLabel, statusName } from "@/i18n/labels";
 import { getI18n } from "@/i18n/server";
 import { formatDateTime, toInputDate } from "@/lib/format";
-import { sumDeals, toNum } from "@/lib/money";
+import { dealProfitInSale, sumDeals, toNum } from "@/lib/money";
+import { ratesOn } from "@/lib/rate-book";
 import { prettyPhone, telegramLink, whatsappLink } from "@/lib/phone";
 import { getLossReasons, getManagers, getSettings, getStatuses } from "@/lib/refs";
 import { isOverdueNew } from "@/lib/leads/query";
@@ -48,7 +49,8 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
   const rate = toNum(settings.usdRate);
   const answers = (Array.isArray(lead.formAnswers) ? lead.formAnswers : []) as Answer[];
   const overdue = isOverdueNew(lead, settings.unprocessedAlertMin);
-  const clientTotals = sumDeals(lead.client.deals, "USD", await loadRateBook(settings));
+  const book = await loadRateBook(settings);
+  const clientTotals = sumDeals(lead.client.deals, "USD", book);
   const otherLeads = lead.client.leads.filter((l) => l.id !== lead.id && (user.role === "ADMIN" || l.managerId === user.id || (!l.managerId && !l.hiddenFromManagers)));
   const wa = whatsappLink(lead.phone);
   const tg = telegramLink(lead.phone);
@@ -263,6 +265,8 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
                   amount: toNum(d.amount),
                   cost: toNum(d.cost),
                   currency: d.currency,
+                  costCurrency: d.costCurrency,
+                  profit: dealProfitInSale(d, ratesOn(book, d.paidAt)),
                   paidAt: d.paidAt.toISOString(),
                   manager: d.manager?.name ?? null,
                   costConfirmed: d.costConfirmed,

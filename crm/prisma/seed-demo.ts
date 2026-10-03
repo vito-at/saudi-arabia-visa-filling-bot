@@ -206,6 +206,7 @@ export async function seedDemo(prisma: PrismaClient, count = 100) {
             amount,
             cost,
             currency: inUsd ? "USD" : "UZS",
+            costCurrency: inUsd ? "USD" : "UZS",
             paidAt: statusChangedAt,
             product: d === 0 ? `${camp.dest.length > 1 ? dest : camp.name}: ${travelers} чел.` : "Страховка и трансфер",
           },

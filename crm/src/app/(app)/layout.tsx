@@ -34,7 +34,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const tokenProblem = meta?.enabled && !meta.tokenValid;
 
   return (
-    <RoleProvider role={user.role} costRate={Number(settings?.usdRateCost ?? 0)}>
+    <RoleProvider role={user.role} costRate={Number(settings?.usdRateCost ?? 0)} saleRate={Number(settings?.usdRate ?? 0)}>
     <div className="min-h-screen">
       <Sidebar
         user={user}

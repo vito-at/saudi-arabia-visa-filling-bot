@@ -238,7 +238,10 @@ model Deal {
   managerId     String?
   amount        Decimal  @db.Decimal(18, 2)
   cost          Decimal  @db.Decimal(18, 2)
+  /// валюта суммы продажи
   currency      Currency
+  /// валюта себестоимости (может отличаться от валюты продажи)
+  costCurrency  Currency
   paidAt        DateTime
   product       String
   /// false — сделку закрыл менеджер, себестоимость ещё не указал администратор

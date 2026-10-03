@@ -10,6 +10,8 @@ export interface RDeal {
   amount: number | string;
   cost: number | string;
   currency: Currency;
+  /** валюта себестоимости; если не задана — как у продажи */
+  costCurrency?: Currency;
   paidAt: Date;
   managerId: string | null;
 }
@@ -56,7 +58,7 @@ export function dealRevenue(d: RDeal, m: Money) {
 }
 export function dealProfit(d: RDeal, m: Money) {
   const r = dayRates(m, d);
-  return round2(convertRevenue(d.amount, d.currency, m.currency, r) - convertCost(d.cost, d.currency, m.currency, r));
+  return round2(convertRevenue(d.amount, d.currency, m.currency, r) - convertCost(d.cost, d.costCurrency ?? d.currency, m.currency, r));
 }
 
 export const isWon = (l: Pick<RLead, "statusKind" | "deals">) => l.statusKind === "WON";

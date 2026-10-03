@@ -72,7 +72,7 @@ export async function loadLeads(period: { from: Date; to: Date }, managerId: str
       destination: true,
       firstResponseAt: true,
       history: { where: { toStatusId: { not: null } }, select: { toStatusId: true } },
-      deals: { select: { amount: true, cost: true, currency: true, paidAt: true, managerId: true } },
+      deals: { select: { amount: true, cost: true, currency: true, costCurrency: true, paidAt: true, managerId: true } },
     },
   });
   return rows.map((r) => ({
@@ -87,7 +87,7 @@ export async function loadLeads(period: { from: Date; to: Date }, managerId: str
 export async function loadDeals(period: { from: Date; to: Date }, managerId: string | null): Promise<RDeal[]> {
   const rows = await prisma.deal.findMany({
     where: { paidAt: { gte: period.from, lt: period.to }, ...(managerId ? { managerId: managerId === "none" ? null : managerId } : {}) },
-    select: { amount: true, cost: true, currency: true, paidAt: true, managerId: true },
+    select: { amount: true, cost: true, currency: true, costCurrency: true, paidAt: true, managerId: true },
   });
   return rows.map((d) => ({ ...d, amount: toNum(d.amount), cost: toNum(d.cost) }));
 }
