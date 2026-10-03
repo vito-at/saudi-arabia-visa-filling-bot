@@ -75,7 +75,7 @@ export function LeadsFilters({
         <Search className="pointer-events-none absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
         <Input className="pl-8" placeholder={t("leads.search")} value={q} onChange={(e) => setQ(e.target.value)} />
       </div>
-      {sel("status", t("leads.allStatuses"), statuses)}
+      {params.get("view") !== "lost" && sel("status", t("leads.allStatuses"), statuses)}
       {showManager && sel("manager", t("common.allManagers"), managers, [{ id: "none", name: t("common.notAssignedOption") }])}
       {sel("source", t("leads.allSources"), sources)}
       {campaigns.length > 0 && sel("campaign", t("leads.allCampaigns"), campaigns)}
@@ -97,7 +97,8 @@ export function LeadsFilters({
           size="sm"
           onClick={() => {
             setQ("");
-            router.push(pathname);
+            // вкладку («Лиды» / «Отказы») сбрасывать не нужно
+            router.push(params.get("view") === "lost" ? `${pathname}?view=lost` : pathname);
           }}
         >
           <X /> {t("common.reset")}

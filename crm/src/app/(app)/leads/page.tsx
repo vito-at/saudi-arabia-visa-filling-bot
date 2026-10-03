@@ -15,7 +15,8 @@ import { SOURCES } from "@/lib/constants";
 import { sourceLabel, statusName } from "@/i18n/labels";
 import { getI18n } from "@/i18n/server";
 import { getAdFilters, getManagers, getSettings, getStatuses } from "@/lib/refs";
-import { buildLeadOrder, buildLeadWhere, isOverdueNew, PAGE_SIZE, sp, type SearchParams } from "@/lib/leads/query";
+import { buildLeadOrder, buildLeadWhere, isOverdueNew, leadsView, PAGE_SIZE, sp, viewWhere, type SearchParams } from "@/lib/leads/query";
+import { LeadsTabs } from "@/components/leads/leads-tabs";
 import { requireUser } from "@/lib/session";
 
 export default async function LeadsPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
@@ -24,10 +25,15 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
   const isAdmin = user.role === "ADMIN";
   const { t } = await getI18n();
   const page = Math.max(1, Number(sp(params, "page")) || 1);
-  const where = { AND: [leadScope(user), buildLeadWhere(params)] };
+  const view = leadsView(params);
+  const base = [leadScope(user), buildLeadWhere(params)];
+  const where = { AND: [...base, viewWhere(params, view)] };
+  const searching = view === "active" && !!(sp(params, "q")?.trim() || sp(params, "status"));
 
-  const [total, leads, statuses, users, settings, ad, meta, callbacks] = await Promise.all([
+  const [total, activeCount, lostCount, leads, statuses, users, settings, ad, meta, callbacks] = await Promise.all([
     prisma.lead.count({ where }),
+    prisma.lead.count({ where: { AND: [...base, viewWhere(params, "active")] } }),
+    prisma.lead.count({ where: { AND: [...base, viewWhere(params, "lost")] } }),
     prisma.lead.findMany({
       where,
       orderBy: buildLeadOrder(params),
@@ -80,6 +86,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
       />
       <UpcomingCallbacks items={callbacks} />
       <Card>
+        <LeadsTabs view={view} active={activeCount} lost={lostCount} params={params} searching={searching} />
         <div className="border-b p-4">
           <Suspense>
             <LeadsFilters

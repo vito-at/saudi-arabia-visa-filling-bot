@@ -41,6 +41,20 @@ export function buildLeadWhere(params: SearchParams): Prisma.LeadWhereInput {
   return and.length ? { AND: and } : {};
 }
 
+export type LeadsView = "active" | "lost";
+
+export const leadsView = (params: SearchParams): LeadsView => (sp(params, "view") === "lost" ? "lost" : "active");
+
+/**
+ * Вкладки списка лидов: «Лиды» — без отказов, «Отказы» — только отказы.
+ * Поиск по имени/телефону и явный выбор статуса во вкладке «Лиды» ищут по всем лидам, включая отказы.
+ */
+export function viewWhere(params: SearchParams, view: LeadsView = leadsView(params)): Prisma.LeadWhereInput {
+  if (view === "lost") return { status: { kind: "LOST" } };
+  if (sp(params, "q")?.trim() || sp(params, "status")) return {};
+  return { status: { kind: { not: "LOST" } } };
+}
+
 const SORTS = {
   createdAt: (dir: Prisma.SortOrder) => ({ createdAt: dir }),
   name: (dir: Prisma.SortOrder) => ({ name: dir }),
