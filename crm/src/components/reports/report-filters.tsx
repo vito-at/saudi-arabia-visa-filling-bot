@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Download } from "lucide-react";
+import { CalendarDays, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NativeSelect } from "@/components/ui/input";
 import { PeriodRange } from "@/components/common/period-range";
@@ -31,20 +31,28 @@ export function ReportFilters({ managers, exportHref, defaultPeriod = "30d" }: {
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <div className="no-scrollbar flex max-w-full overflow-x-auto rounded-lg bg-slate-200/60 p-1 text-sm">
-        {PERIODS.map((p) => (
-          <button
-            key={p}
-            onClick={() => set({ period: p, ...(p !== "custom" ? { from: null, to: null } : {}) })}
-            className={cn("rounded-md px-2.5 py-1 cursor-pointer whitespace-nowrap", period === p ? "bg-card font-medium shadow-xs" : "text-muted-foreground hover:text-foreground")}
-          >
-            {t(`period.${p}` as TKey)}
-          </button>
-        ))}
-      </div>
+      {/* период — одна кнопка со списком (на телефоне открывается системный список) */}
+      <label className="relative w-[calc(50%-0.25rem)] sm:w-44">
+        <CalendarDays className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+        <NativeSelect
+          className="pl-8"
+          aria-label={t("period.label")}
+          value={PERIODS.includes(period) ? period : defaultPeriod}
+          onChange={(e) => {
+            const p = e.target.value as PeriodKey;
+            set({ period: p, ...(p !== "custom" ? { from: null, to: null } : {}) });
+          }}
+        >
+          {PERIODS.map((p) => (
+            <option key={p} value={p}>
+              {t(`period.${p}` as TKey)}
+            </option>
+          ))}
+        </NativeSelect>
+      </label>
       {period === "custom" && <PeriodRange from={params.get("from") ?? ""} to={params.get("to") ?? ""} onApply={(from, to) => set({ period: "custom", from, to })} />}
       {managers && (
-        <NativeSelect className="w-full sm:w-52" value={params.get("manager") ?? ""} onChange={(e) => set({ manager: e.target.value })}>
+        <NativeSelect className="w-[calc(50%-0.25rem)] sm:w-52" value={params.get("manager") ?? ""} onChange={(e) => set({ manager: e.target.value })}>
           <option value="">{t("common.allManagers")}</option>
           <option value="none">{t("common.notAssignedOption")}</option>
           {managers.map((m) => (
