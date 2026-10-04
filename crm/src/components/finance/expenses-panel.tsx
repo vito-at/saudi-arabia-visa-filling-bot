@@ -28,8 +28,19 @@ export function ExpensesPanel({ rows, byCategory, categories, currency }: { rows
   const router = useRouter();
   const [form, setForm] = useState<ExpenseInput>(empty);
   const [pending, start] = useTransition();
-  const presets = [t("finance.catTaxi"), t("finance.catFood"), t("finance.catUtilities"), t("finance.catRent"), t("finance.catSalary"), t("finance.catTax"), t("finance.catAds"), t("finance.catOther")];
-  const suggestions = [...new Set([...presets, ...categories])];
+  const presets = [
+    t("finance.catTaxi"),
+    t("finance.catFood"),
+    t("finance.catUtilities"),
+    t("finance.catRent"),
+    t("finance.catSalary"),
+    t("finance.catTax"),
+    t("finance.catAds"),
+    t("finance.catCharity"),
+    t("finance.catOther"),
+  ];
+  // статьи из готового списка + уже встречавшиеся, чтобы старые записи можно было открыть и сохранить без изменений
+  const options = [...new Set([...presets, ...categories, ...(form.category ? [form.category] : [])])];
   const set = (patch: Partial<ExpenseInput>) => setForm({ ...form, ...patch });
   const total = byCategory.reduce((s, c) => s + c.total, 0);
   const drawsTotal = rows.filter((r) => r.ownerDraw).reduce((s, r) => s + r.converted, 0);
@@ -94,12 +105,16 @@ export function ExpensesPanel({ rows, byCategory, categories, currency }: { rows
             <p className="col-span-2 self-end rounded-lg bg-violet-50 p-2.5 text-xs text-violet-800 sm:col-span-1">{t("finance.ownerDrawNote")}</p>
           ) : (
             <Field label={t("finance.category")} className="col-span-2 sm:col-span-1">
-              <Input list="expense-categories" value={form.category} placeholder={t("finance.categoryPh")} onChange={(e) => set({ category: e.target.value })} required />
-              <datalist id="expense-categories">
-                {suggestions.map((c) => (
-                  <option key={c} value={c} />
+              <NativeSelect name="category" value={form.category} onChange={(e) => set({ category: e.target.value })} required>
+                <option value="" disabled>
+                  {t("finance.categoryChoose")}
+                </option>
+                {options.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
                 ))}
-              </datalist>
+              </NativeSelect>
             </Field>
           )}
           <Field label={t("finance.amount")}>
@@ -111,21 +126,6 @@ export function ExpensesPanel({ rows, byCategory, categories, currency }: { rows
               <option value="USD">USD</option>
             </NativeSelect>
           </Field>
-          {!form.ownerDraw && (
-            <div className="col-span-2 flex flex-wrap items-center gap-1.5 text-xs sm:col-span-4">
-              <span className="text-muted-foreground">{t("finance.quickCats")}</span>
-              {presets.map((c) => (
-                <button
-                  key={c}
-                  type="button"
-                  onClick={() => set({ category: c })}
-                  className={cn("rounded-full border px-2.5 py-1", form.category === c ? "border-primary bg-primary/10 text-primary" : "hover:bg-muted")}
-                >
-                  {c}
-                </button>
-              ))}
-            </div>
-          )}
           <Field label={t("finance.note")} className="col-span-2 sm:col-span-3">
             <Input value={form.note} placeholder={t("finance.notePh")} onChange={(e) => set({ note: e.target.value })} />
           </Field>

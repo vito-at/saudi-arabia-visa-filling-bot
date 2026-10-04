@@ -1,4 +1,4 @@
-import type { Currency, LeadSource } from "@prisma/client";
+import type { Currency, LeadSource, ServiceType } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { convertCost, convertRevenue, round2, toNum } from "@/lib/money";
 import type { ReportFilters } from "@/lib/reports/data";
@@ -26,6 +26,8 @@ export interface FinanceLead {
   phone: string | null;
   manager: string | null;
   source: LeadSource;
+  /** тип услуги лида — продукт, по которому считается разбивка прибыли */
+  serviceType: ServiceType | null;
   campaign: string | null;
   lastPaidAt: string;
   deals: FinanceDeal[];
@@ -68,6 +70,7 @@ export function groupDealsByLead(
       name: string;
       phone: string | null;
       source: LeadSource;
+      serviceType?: ServiceType | null;
       campaignName: string | null;
       manager: { name: string } | null;
     };
@@ -90,6 +93,7 @@ export function groupDealsByLead(
         phone: d.lead.phone,
         manager: d.lead.manager?.name ?? null,
         source: d.lead.source,
+        serviceType: d.lead.serviceType ?? null,
         campaign: d.lead.campaignName,
         lastPaidAt: d.paidAt.toISOString(),
         deals: [],
@@ -141,6 +145,39 @@ export function financeSummary(leads: FinanceLead[], adSpend: number | null, exp
   };
 }
 
+export interface ServiceProfit {
+  /** null — у лида не указан тип услуги */
+  service: ServiceType | null;
+  revenue: number;
+  cost: number;
+  profit: number;
+  margin: number | null;
+  /** доля в общей прибыли (0..1); null, если общая прибыль не положительна */
+  share: number | null;
+  deals: number;
+  leads: number;
+}
+
+const SERVICE_ORDER: (ServiceType | null)[] = ["FLIGHTS", "TOUR", "VISA", "OTHER", null];
+
+/** Прибыль по продуктам (тип услуги лида): сколько заработали на авиабилетах, турах, визах и т. д. — по убыванию прибыли */
+export function profitByService(leads: FinanceLead[]): ServiceProfit[] {
+  const map = new Map<ServiceType | null, ServiceProfit>();
+  for (const l of leads) {
+    const row = map.get(l.serviceType) ?? { service: l.serviceType, revenue: 0, cost: 0, profit: 0, margin: null, share: null, deals: 0, leads: 0 };
+    row.revenue = round2(row.revenue + l.revenue);
+    row.cost = round2(row.cost + l.cost);
+    row.profit = round2(row.revenue - row.cost);
+    row.deals += l.deals.length;
+    row.leads += 1;
+    map.set(l.serviceType, row);
+  }
+  const total = [...map.values()].reduce((s, r) => s + r.profit, 0);
+  return [...map.values()]
+    .map((r) => ({ ...r, margin: r.revenue > 0 ? r.profit / r.revenue : null, share: total > 0 ? Math.max(0, r.profit) / total : null }))
+    .sort((a, b) => b.profit - a.profit || SERVICE_ORDER.indexOf(a.service) - SERVICE_ORDER.indexOf(b.service));
+}
+
 /** Сделки, оплаченные в периоде, сгруппированные по лидам (фильтр по менеджеру сделки) */
 export async function loadFinanceLeads(f: ReportFilters): Promise<FinanceLead[]> {
   const rows = await prisma.deal.findMany({
@@ -164,6 +201,7 @@ export async function loadFinanceLeads(f: ReportFilters): Promise<FinanceLead[]>
           name: true,
           phone: true,
           source: true,
+          serviceType: true,
           campaignName: true,
           manager: { select: { name: true } },
         },
