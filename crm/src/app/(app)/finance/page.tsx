@@ -38,8 +38,7 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
 
   const [leads, adSpend, expenses, categories, managers, pendingDeals] = await Promise.all([loadFinanceLeads(f), loadAdSpendTotal(f), loadExpenses(f), expenseCategories(), getManagers(), loadPendingDeals()]);
   const pendingInPeriod = leads.reduce((s, l) => s + l.deals.filter((d) => !d.costConfirmed).length, 0);
-  const sumOf = (draw: boolean) => expenses.filter((e) => e.ownerDraw === draw).reduce((s, e) => s + e.converted, 0);
-  const summary = financeSummary(leads, adSpend, sumOf(false), sumOf(true));
+  const summary = financeSummary(leads, adSpend, expenses.reduce((s, e) => s + e.converted, 0));
   const byCategory = expensesByCategory(expenses);
   const allExpenses = (summary.adSpend ?? 0) + summary.expenses;
 
@@ -60,13 +59,12 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
       { label: t("finance.expenses"), value: money(summary.expenses) },
       { label: t("finance.adSpend"), value: adValue, hint: summary.adSpend === null ? t("finance.adSpendOff") : undefined },
       { label: t("finance.expensesAll"), value: money(allExpenses), tone: "neg" },
-      { label: t("finance.ownerDraws"), value: money(summary.ownerDraws), tone: "muted", hint: t("finance.ownerDrawsHint") },
     ],
     net: [
       { label: t("finance.grossProfit"), value: money(summary.grossProfit), tone: tone(summary.grossProfit) },
       { label: t("finance.expensesAll"), value: `− ${money(allExpenses)}`, tone: "muted" },
       { label: t("finance.netProfit"), value: money(summary.netProfit), tone: tone(summary.netProfit), hint: t("finance.netHint") },
-      { label: t("finance.retained"), value: money(summary.retained), tone: tone(summary.retained), hint: t("finance.retainedHint") },
+      { label: t("finance.netMargin"), value: formatPercent(summary.revenue > 0 ? summary.netProfit / summary.revenue : null), hint: t("finance.netMarginHint") },
     ],
   };
 
@@ -110,7 +108,7 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
         </Suspense>
       </div>
 
-      <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className={cn("mb-5 grid grid-cols-2 gap-3", tiles[tab].length === 3 ? "sm:grid-cols-3" : "sm:grid-cols-4")}>
         {tiles[tab].map((tl) => (
           <Card key={tl.label} className="p-4" title={tl.hint}>
             <div className="text-xs font-medium text-muted-foreground">{tl.label}</div>
@@ -163,8 +161,6 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
               <PnlLine key={c.category} label={c.category} value={`− ${money(c.total)}`} sub />
             ))}
             <PnlLine label={t("finance.netProfit")} value={money(summary.netProfit)} total big tone={tone(summary.netProfit)} />
-            <PnlLine label={t("finance.ownerDraws")} value={`− ${money(summary.ownerDraws)}`} muted />
-            <PnlLine label={t("finance.retained")} value={money(summary.retained)} total tone={tone(summary.retained)} />
           </div>
         </Card>
       )}
