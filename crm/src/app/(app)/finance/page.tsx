@@ -2,86 +2,71 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { Lock } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
-import { Card } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { ReportFilters } from "@/components/reports/report-filters";
 import { FinanceLeads } from "@/components/finance/finance-leads";
 import { ExpensesPanel } from "@/components/finance/expenses-panel";
 import { PendingCosts } from "@/components/finance/pending-costs";
-import { formatDate, formatNumber } from "@/lib/format";
+import { formatDate, formatNumber, formatPercent } from "@/lib/format";
 import { getManagers } from "@/lib/refs";
-import { readFilters } from "@/lib/reports/data";
-import { expenseCategories, expensesByCategory, financeSummary, loadAdSpendTotal, loadExpenses, loadFinanceLeads, loadPendingDeals } from "@/lib/finance";
+import { readFilters, type ReportFilters as Filters } from "@/lib/reports/data";
+import { expenseCategories, expensesByCategory, financeSummary, loadAdSpendTotal, loadExpenses, loadFinanceLeads, loadPendingDeals, profitByService, type ServiceProfit } from "@/lib/finance";
 import { sp, type SearchParams } from "@/lib/leads/query";
 import { requireAdmin } from "@/lib/session";
 import { cn } from "@/lib/utils";
 import { formatters } from "@/i18n/core";
 
-type Tab = "leads" | "expenses";
+type Tab = "profit" | "expenses" | "net";
+const TABS: Tab[] = ["profit", "expenses", "net"];
+const TAB_LABEL = { profit: "finance.tabProfit", expenses: "finance.tabExpenses", net: "finance.tabNet" } as const;
 
-/** «Финансы» — только для администратора: прибыль по каждому лиду, расходы компании и чистая прибыль */
+type Tile = { label: string; value: string; tone?: "pos" | "neg" | "muted"; hint?: string };
+
+/** «Финансы» — только для администратора: прибыль (по продуктам и лидам), расходы и чистая прибыль */
 export default async function FinancePage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const params = await searchParams;
   const user = await requireAdmin();
-  const tab: Tab = sp(params, "tab") === "expenses" ? "expenses" : "leads";
-  const f = await readFilters(params, user);
+  const raw = sp(params, "tab");
+  // tab=leads — старая ссылка на «Прибыль по лидам»
+  const tab: Tab = raw === "expenses" || raw === "net" ? raw : "profit";
+  const filters = await readFilters(params, user);
+  // фильтр по менеджеру есть только у прибыли; расходы и чистая прибыль — по всей компании
+  const f = tab === "profit" ? filters : { ...filters, managerId: null };
   const { t } = f;
   const fm = formatters(f.locale);
   const money = (n: number) => fm.money(n, f.currency);
 
   const [leads, adSpend, expenses, categories, managers, pendingDeals] = await Promise.all([loadFinanceLeads(f), loadAdSpendTotal(f), loadExpenses(f), expenseCategories(), getManagers(), loadPendingDeals()]);
   const pendingInPeriod = leads.reduce((s, l) => s + l.deals.filter((d) => !d.costConfirmed).length, 0);
-  // итоги считаем по всем сделкам периода; при фильтре по менеджеру реклама и расходы компании не вычитаются
-  const byManager = !!f.managerId;
-  const sumOf = (draw: boolean) => expenses.filter((e) => e.ownerDraw === draw).reduce((s, e) => s + e.converted, 0);
-  const summary = financeSummary(leads, byManager ? null : adSpend, byManager ? 0 : sumOf(false), byManager ? 0 : sumOf(true));
+  const summary = financeSummary(leads, adSpend, expenses.reduce((s, e) => s + e.converted, 0));
+  const byCategory = expensesByCategory(expenses);
+  const allExpenses = (summary.adSpend ?? 0) + summary.expenses;
 
   const keep = new URLSearchParams();
-  for (const [k, v] of Object.entries(params)) if (typeof v === "string" && k !== "tab") keep.set(k, v);
+  for (const [k, v] of Object.entries(params)) if (typeof v === "string" && k !== "tab" && (tab === "profit" || k !== "manager")) keep.set(k, v);
   const tabHref = (tb: Tab) => `/finance?tab=${tb}${keep.size ? `&${keep.toString()}` : ""}`;
+  const tone = (n: number): "pos" | "neg" => (n < 0 ? "neg" : "pos");
+  const adValue = summary.adSpend === null ? "—" : money(summary.adSpend);
 
-  const tiles: {
-    label: string;
-    value: string;
-    tone?: "pos" | "neg" | "muted";
-    hint?: string;
-  }[] = [
-    { label: t("finance.revenue"), value: money(summary.revenue) },
-    { label: t("finance.cost"), value: money(summary.cost), tone: "muted" },
-    {
-      label: t("finance.grossProfit"),
-      value: money(summary.grossProfit),
-      tone: summary.grossProfit < 0 ? "neg" : "pos",
-    },
-    {
-      label: t("finance.adSpend"),
-      value: byManager || summary.adSpend === null ? "—" : `− ${money(summary.adSpend)}`,
-      tone: "muted",
-      hint: summary.adSpend === null && !byManager ? t("finance.adSpendOff") : undefined,
-    },
-    {
-      label: t("finance.expenses"),
-      value: byManager ? "—" : `− ${money(summary.expenses)}`,
-      tone: "muted",
-    },
-    {
-      label: t("finance.netProfit"),
-      value: byManager ? "—" : money(summary.netProfit),
-      tone: summary.netProfit < 0 ? "neg" : "pos",
-      hint: t("finance.netHint"),
-    },
-    {
-      label: t("finance.ownerDraws"),
-      value: byManager ? "—" : `− ${money(summary.ownerDraws)}`,
-      tone: "muted",
-      hint: t("finance.ownerDrawsHint"),
-    },
-    {
-      label: t("finance.retained"),
-      value: byManager ? "—" : money(summary.retained),
-      tone: summary.retained < 0 ? "neg" : "pos",
-      hint: t("finance.retainedHint"),
-    },
-  ];
+  const tiles: Record<Tab, Tile[]> = {
+    profit: [
+      { label: t("finance.revenue"), value: money(summary.revenue) },
+      { label: t("finance.cost"), value: money(summary.cost), tone: "muted" },
+      { label: t("finance.profit"), value: money(summary.grossProfit), tone: tone(summary.grossProfit) },
+      { label: t("finance.margin"), value: formatPercent(summary.revenue > 0 ? summary.grossProfit / summary.revenue : null) },
+    ],
+    expenses: [
+      { label: t("finance.expenses"), value: money(summary.expenses) },
+      { label: t("finance.adSpend"), value: adValue, hint: summary.adSpend === null ? t("finance.adSpendOff") : undefined },
+      { label: t("finance.expensesAll"), value: money(allExpenses), tone: "neg" },
+    ],
+    net: [
+      { label: t("finance.grossProfit"), value: money(summary.grossProfit), tone: tone(summary.grossProfit) },
+      { label: t("finance.expensesAll"), value: `− ${money(allExpenses)}`, tone: "muted" },
+      { label: t("finance.netProfit"), value: money(summary.netProfit), tone: tone(summary.netProfit), hint: t("finance.netHint") },
+      { label: t("finance.netMargin"), value: formatPercent(summary.revenue > 0 ? summary.netProfit / summary.revenue : null), hint: t("finance.netMarginHint") },
+    ],
+  };
 
   return (
     <div>
@@ -105,26 +90,26 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
           </span>
         }
       />
-      <PendingCosts deals={pendingDeals} />
+      {tab === "profit" && <PendingCosts deals={pendingDeals} />}
       <div className="no-scrollbar -mx-3 mb-4 flex gap-1 overflow-x-auto whitespace-nowrap border-b px-3 sm:mx-0 sm:px-0">
-        {(["leads", "expenses"] as Tab[]).map((tb) => (
+        {TABS.map((tb) => (
           <Link
             key={tb}
             href={tabHref(tb)}
             className={cn("-mb-px border-b-2 px-3 py-2 text-sm", tab === tb ? "border-primary font-medium text-primary" : "border-transparent text-muted-foreground hover:text-foreground")}
           >
-            {t(tb === "leads" ? "finance.tabLeads" : "finance.tabExpenses")}
+            {t(TAB_LABEL[tb])}
           </Link>
         ))}
       </div>
       <div className="mb-5">
         <Suspense>
-          <ReportFilters managers={tab === "leads" ? managers.map((m) => ({ id: m.id, name: m.name })) : null} />
+          <ReportFilters managers={tab === "profit" ? managers.map((m) => ({ id: m.id, name: m.name })) : null} />
         </Suspense>
       </div>
 
-      <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {tiles.map((tl) => (
+      <div className={cn("mb-5 grid grid-cols-2 gap-3", tiles[tab].length === 3 ? "sm:grid-cols-3" : "sm:grid-cols-4")}>
+        {tiles[tab].map((tl) => (
           <Card key={tl.label} className="p-4" title={tl.hint}>
             <div className="text-xs font-medium text-muted-foreground">{tl.label}</div>
             <div
@@ -142,15 +127,94 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
         ))}
       </div>
 
-      {pendingInPeriod > 0 && <p className="-mt-2 mb-4 text-xs font-medium text-amber-700">{t("finance.pendingWarn", { n: pendingInPeriod })}</p>}
-      {tab === "leads" ? (
-        <Card>
-          <div className="border-b px-4 py-3 text-xs text-muted-foreground">{t("finance.leadsCount", { n: summary.leads, d: summary.deals })}</div>
-          <FinanceLeads leads={leads} currency={f.currency} rate={f.rate} />
-        </Card>
-      ) : (
-        <ExpensesPanel rows={expenses} byCategory={expensesByCategory(expenses)} categories={categories} currency={f.currency} />
+      {pendingInPeriod > 0 && tab !== "expenses" && <p className="-mt-2 mb-4 text-xs font-medium text-amber-700">{t("finance.pendingWarn", { n: pendingInPeriod })}</p>}
+      {tab === "profit" && (
+        <div className="space-y-5">
+          <Card>
+            <CardHeader>
+              <CardTitle>{t("finance.byService")}</CardTitle>
+            </CardHeader>
+            <ServiceProfitTable rows={profitByService(leads)} money={money} t={t} />
+          </Card>
+          <Card>
+            <CardHeader className="flex-wrap gap-x-3 gap-y-1">
+              <CardTitle className="whitespace-nowrap">{t("finance.byLead")}</CardTitle>
+              <span className="text-xs text-muted-foreground">{t("finance.leadsCount", { n: summary.leads, d: summary.deals })}</span>
+            </CardHeader>
+            <FinanceLeads leads={leads} currency={f.currency} rate={f.rate} />
+          </Card>
+        </div>
       )}
+      {tab === "expenses" && <ExpensesPanel rows={expenses} byCategory={byCategory} categories={categories} currency={f.currency} />}
+      {tab === "net" && (
+        <Card className="max-w-2xl">
+          <CardHeader>
+            <CardTitle>{t("finance.pnlTitle")}</CardTitle>
+          </CardHeader>
+          <div className="px-5 pb-5 text-sm">
+            <PnlLine label={t("finance.revenue")} value={money(summary.revenue)} />
+            <PnlLine label={t("finance.cost")} value={`− ${money(summary.cost)}`} muted />
+            <PnlLine label={t("finance.grossProfit")} value={money(summary.grossProfit)} total tone={tone(summary.grossProfit)} />
+            <PnlLine label={t("finance.adSpend")} value={summary.adSpend === null ? t("finance.adSpendOff") : `− ${money(summary.adSpend)}`} muted />
+            <PnlLine label={t("finance.expenses")} value={`− ${money(summary.expenses)}`} muted />
+            {byCategory.map((c) => (
+              <PnlLine key={c.category} label={c.category} value={`− ${money(c.total)}`} sub />
+            ))}
+            <PnlLine label={t("finance.netProfit")} value={money(summary.netProfit)} total big tone={tone(summary.netProfit)} />
+          </div>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+/** Строка расчёта чистой прибыли; total — итог с чертой сверху, sub — расшифровка статьи */
+function PnlLine({ label, value, muted, total, big, sub, tone }: { label: string; value: string; muted?: boolean; total?: boolean; big?: boolean; sub?: boolean; tone?: "pos" | "neg" }) {
+  return (
+    <div className={cn("flex items-baseline justify-between gap-4 py-1.5", total && "mt-1 border-t pt-2.5 font-semibold", sub && "py-0.5 pl-4 text-xs text-muted-foreground", big && "text-base")}>
+      <span className="min-w-0 truncate">{label}</span>
+      <span className={cn("whitespace-nowrap tabular-nums", muted && "text-muted-foreground", tone === "pos" && "text-emerald-700", tone === "neg" && "text-red-600")}>{value}</span>
+    </div>
+  );
+}
+
+/** Прибыль по продуктам: выручка, себестоимость, прибыль, маржа и доля в общей прибыли */
+function ServiceProfitTable({ rows, money, t }: { rows: ServiceProfit[]; money: (n: number) => string; t: Filters["t"] }) {
+  if (rows.length === 0) return <div className="px-5 pb-5 text-sm text-muted-foreground">{t("finance.empty")}</div>;
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[560px] text-sm">
+        <thead>
+          <tr className="border-y bg-muted/40 text-left text-xs text-muted-foreground">
+            <th className="px-4 py-2 font-medium">{t("lead.field.service")}</th>
+            <th className="px-3 py-2 text-right font-medium">{t("finance.revenue")}</th>
+            <th className="px-3 py-2 text-right font-medium">{t("finance.cost")}</th>
+            <th className="px-3 py-2 text-right font-medium">{t("finance.profit")}</th>
+            <th className="px-3 py-2 text-right font-medium">{t("finance.margin")}</th>
+            <th className="px-4 py-2 text-right font-medium">{t("finance.deals")}</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y">
+          {rows.map((r) => (
+            <tr key={r.service ?? "none"}>
+              <td className="px-4 py-2.5">
+                <div className="font-medium">{r.service ? t(`service.${r.service}`) : t("finance.noService")}</div>
+                <div className="mt-1 flex items-center gap-2" title={t("finance.share")}>
+                  <div className="h-1.5 w-24 rounded-full bg-slate-100">
+                    <div className="h-1.5 rounded-full bg-brand" style={{ width: `${r.share === null ? 0 : Math.max(r.share > 0 ? 2 : 0, r.share * 100)}%` }} />
+                  </div>
+                  <span className="text-[11px] text-muted-foreground tabular-nums">{formatPercent(r.share, 0)}</span>
+                </div>
+              </td>
+              <td className="px-3 py-2.5 text-right whitespace-nowrap tabular-nums">{money(r.revenue)}</td>
+              <td className="px-3 py-2.5 text-right whitespace-nowrap text-muted-foreground tabular-nums">{money(r.cost)}</td>
+              <td className={cn("px-3 py-2.5 text-right font-semibold whitespace-nowrap tabular-nums", r.profit < 0 ? "text-red-600" : "text-emerald-700")}>{money(r.profit)}</td>
+              <td className="px-3 py-2.5 text-right tabular-nums">{formatPercent(r.margin)}</td>
+              <td className="px-4 py-2.5 text-right tabular-nums">{r.deals}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
