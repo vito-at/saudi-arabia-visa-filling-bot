@@ -120,6 +120,51 @@ export function LossPie({ data }: { data: { name: string; count: number; share: 
   );
 }
 
+/** Кольцо денежных долей (структура расходов, источники прибыли): до 7 долей + «Прочие», в центре — итог; легенда с суммами и долями.
+ *  Отрицательные значения (убыточный продукт) в кольцо не входят. */
+export function MoneyPie({ data, currency }: { data: { name: string; value: number }[]; currency: "UZS" | "USD" }) {
+  const { c, tip } = useChart();
+  const { t, f } = useI18n();
+  const others = t("chart.others");
+  const sorted = data.filter((d) => d.value > 0).sort((a, b) => b.value - a.value);
+  const total = sorted.reduce((s, d) => s + d.value, 0);
+  const top = sorted.slice(0, 7);
+  const rest = sorted.slice(7);
+  const slices = (rest.length ? [...top, { name: others, value: rest.reduce((s, r) => s + r.value, 0) }] : top).map((d) => ({ ...d, share: total > 0 ? d.value / total : null }));
+  const color = (i: number, name: string) => (name === others ? c.other : c.series[i % c.series.length]);
+  if (!slices.length) return <div className="text-sm text-muted-foreground">—</div>;
+  return (
+    <div className="space-y-4">
+      <div className="relative mx-auto h-52 w-52">
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie data={slices} dataKey="value" nameKey="name" innerRadius="62%" outerRadius="98%" paddingAngle={1} stroke={c.surface} strokeWidth={2} isAnimationActive={false}>
+              {slices.map((s, i) => (
+                <Cell key={s.name} fill={color(i, s.name)} />
+              ))}
+            </Pie>
+            <Tooltip {...tip} formatter={(v, n, p) => [`${f.money(Number(v), currency)} (${formatPercent(p.payload.share)})`, n]} />
+          </PieChart>
+        </ResponsiveContainer>
+        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
+          <span className="text-[11px] text-muted-foreground">{t("finance.total")}</span>
+          <span className="text-sm font-semibold tabular-nums">{f.money(total, currency)}</span>
+        </div>
+      </div>
+      <ul className="space-y-1.5 text-sm">
+        {slices.map((s, i) => (
+          <li key={s.name} className="flex items-center gap-2">
+            <span className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: color(i, s.name) }} />
+            <span className="min-w-0 flex-1 truncate">{s.name}</span>
+            <span className="whitespace-nowrap text-right font-medium tabular-nums">{f.money(s.value, currency)}</span>
+            <span className="w-12 text-right text-muted-foreground tabular-nums">{s.share !== null && s.share > 0 && s.share < 0.005 ? "<1%" : formatPercent(s.share, 0)}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 /** Горизонтальные полосы одного показателя (прибыль по менеджерам, выручка по услугам) */
 export function HBars({ data, currency, label }: { data: { name: string; value: number }[]; currency: "UZS" | "USD"; label: string }) {
   const { c, catTick, tip } = useChart();

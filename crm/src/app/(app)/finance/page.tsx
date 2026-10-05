@@ -7,6 +7,7 @@ import { ReportFilters } from "@/components/reports/report-filters";
 import { FinanceLeads } from "@/components/finance/finance-leads";
 import { ExpensesPanel } from "@/components/finance/expenses-panel";
 import { PendingCosts } from "@/components/finance/pending-costs";
+import { MoneyPie } from "@/components/reports/charts";
 import { formatDate, formatNumber, formatPercent } from "@/lib/format";
 import { getManagers } from "@/lib/refs";
 import { readFilters, type ReportFilters as Filters } from "@/lib/reports/data";
@@ -40,6 +41,8 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
   const pendingInPeriod = leads.reduce((s, l) => s + l.deals.filter((d) => !d.costConfirmed).length, 0);
   const summary = financeSummary(leads, adSpend, expenses.reduce((s, e) => s + e.converted, 0));
   const byCategory = expensesByCategory(expenses);
+  const services = profitByService(leads);
+  const serviceName = (sv: ServiceProfit["service"]) => (sv ? t(`service.${sv}`) : t("finance.noService"));
   const allExpenses = (summary.adSpend ?? 0) + summary.expenses;
 
   const keep = new URLSearchParams();
@@ -130,12 +133,18 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
       {pendingInPeriod > 0 && tab !== "expenses" && <p className="-mt-2 mb-4 text-xs font-medium text-amber-700">{t("finance.pendingWarn", { n: pendingInPeriod })}</p>}
       {tab === "profit" && (
         <div className="space-y-5">
-          <Card>
-            <CardHeader>
-              <CardTitle>{t("finance.byService")}</CardTitle>
-            </CardHeader>
-            <ServiceProfitTable rows={profitByService(leads)} money={money} t={t} />
-          </Card>
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
+            <Card className="min-w-0">
+              <CardHeader>
+                <CardTitle>{t("finance.byService")}</CardTitle>
+              </CardHeader>
+              <ServiceProfitTable rows={services} money={money} t={t} />
+            </Card>
+            <Card className="h-fit p-4">
+              <div className="mb-3 text-sm font-semibold">{t("finance.profitSources")}</div>
+              <MoneyPie currency={f.currency} data={services.map((r) => ({ name: serviceName(r.service), value: r.profit }))} />
+            </Card>
+          </div>
           <Card>
             <CardHeader className="flex-wrap gap-x-3 gap-y-1">
               <CardTitle className="whitespace-nowrap">{t("finance.byLead")}</CardTitle>
@@ -145,7 +154,7 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
           </Card>
         </div>
       )}
-      {tab === "expenses" && <ExpensesPanel rows={expenses} byCategory={byCategory} categories={categories} currency={f.currency} />}
+      {tab === "expenses" && <ExpensesPanel rows={expenses} byCategory={byCategory} adSpend={summary.adSpend} categories={categories} currency={f.currency} />}
       {tab === "net" && (
         <Card className="max-w-2xl">
           <CardHeader>

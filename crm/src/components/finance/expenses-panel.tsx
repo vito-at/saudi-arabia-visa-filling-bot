@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Field, Input, NativeSelect } from "@/components/ui/input";
 import { Empty } from "@/components/ui/empty";
+import { MoneyPie } from "@/components/reports/charts";
 import { formatDate, toInputDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/i18n/client";
@@ -22,7 +23,20 @@ const empty = (): ExpenseInput => ({
 });
 
 /** Расходы компании: форма добавления/правки, список за период и итоги по статьям */
-export function ExpensesPanel({ rows, byCategory, categories, currency }: { rows: ExpenseRow[]; byCategory: { category: string; total: number }[]; categories: string[]; currency: "UZS" | "USD" }) {
+export function ExpensesPanel({
+  rows,
+  byCategory,
+  adSpend,
+  categories,
+  currency,
+}: {
+  rows: ExpenseRow[];
+  byCategory: { category: string; total: number }[];
+  /** расход на рекламу Meta — отдельная доля в структуре расходов */
+  adSpend: number | null;
+  categories: string[];
+  currency: "UZS" | "USD";
+}) {
   const { t, f } = useI18n();
   const router = useRouter();
   const [form, setForm] = useState<ExpenseInput>(empty);
@@ -42,7 +56,6 @@ export function ExpensesPanel({ rows, byCategory, categories, currency }: { rows
   // статьи из готового списка + уже встречавшиеся, чтобы старые записи можно было открыть и сохранить без изменений
   const options = [...new Set([...presets, ...categories, ...(form.category ? [form.category] : [])])];
   const set = (patch: Partial<ExpenseInput>) => setForm({ ...form, ...patch });
-  const total = byCategory.reduce((s, c) => s + c.total, 0);
 
   function save() {
     start(async () => {
@@ -171,33 +184,11 @@ export function ExpensesPanel({ rows, byCategory, categories, currency }: { rows
       </div>
 
       <div className="h-fit rounded-xl border bg-card p-4">
-        <div className="mb-3 text-sm font-semibold">{t("finance.byCategory")}</div>
-        {byCategory.length === 0 ? (
-          <div className="text-sm text-muted-foreground">—</div>
-        ) : (
-          <div className="space-y-2 text-sm">
-            {byCategory.map((c) => (
-              <div key={c.category}>
-                <div className="flex justify-between gap-3">
-                  <span className="truncate">{c.category}</span>
-                  <span className="font-medium tabular-nums">{f.money(c.total, currency)}</span>
-                </div>
-                <div className="mt-1 h-1.5 rounded-full bg-slate-100">
-                  <div
-                    className="h-1.5 rounded-full bg-brand"
-                    style={{
-                      width: `${total > 0 ? Math.max(2, (c.total / total) * 100) : 0}%`,
-                    }}
-                  />
-                </div>
-              </div>
-            ))}
-            <div className="flex justify-between border-t pt-2 font-semibold">
-              <span>{t("finance.total")}</span>
-              <span className="tabular-nums">{f.money(total, currency)}</span>
-            </div>
-          </div>
-        )}
+        <div className="mb-3 text-sm font-semibold">{t("finance.structure")}</div>
+        <MoneyPie
+          currency={currency}
+          data={[...(adSpend ? [{ name: t("finance.adSpend"), value: adSpend }] : []), ...byCategory.map((c) => ({ name: c.category, value: c.total }))]}
+        />
       </div>
     </div>
   );
