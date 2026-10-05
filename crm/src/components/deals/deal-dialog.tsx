@@ -4,12 +4,16 @@ import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { Field, Input, NativeSelect, Textarea } from "@/components/ui/input";
+import { Field, Input, NativeSelect } from "@/components/ui/input";
 import { formatNumber, toInputDate } from "@/lib/format";
 import { useI18n } from "@/i18n/client";
 import { convertCost, convertRevenue, dealProfitInSale } from "@/lib/money";
 import { createDealAction, updateDealAction, type DealInput } from "@/app/(app)/deals/actions";
 import { useIsAdmin, useRates } from "@/components/layout/role-context";
+import type { ServiceType } from "@prisma/client";
+import { SERVICE_TYPES } from "@/lib/constants";
+import { serviceLabel } from "@/i18n/labels";
+import { composeProduct, splitProduct } from "@/lib/deals";
 
 export interface DealDialogProps {
   open: boolean;
@@ -31,6 +35,9 @@ export function DealDialog({ open, onOpenChange, leadId, wonStatusId, rate, deal
   );
   const { t, f } = useI18n();
   const [pending, start] = useTransition();
+  // продукт: тип услуги из списка + необязательные подробности
+  const labels = Object.fromEntries(SERVICE_TYPES.map((s) => [s, serviceLabel(t, s)])) as Record<ServiceType, string>;
+  const [product, setProduct] = useState(() => splitProduct(deal?.product ?? "", labels));
   // менеджер указывает только сумму продажи — себестоимость вносит администратор
   const isAdmin = useIsAdmin();
   const ctx = useRates();
@@ -55,7 +62,9 @@ export function DealDialog({ open, onOpenChange, leadId, wonStatusId, rate, deal
   function submit(e: React.FormEvent) {
     e.preventDefault();
     start(async () => {
-      const res = deal ? await updateDealAction(deal.id, form) : await createDealAction(leadId, form, wonStatusId);
+      if (!product.service) return void toast.error(t("deal.productChoose"));
+      const input = { ...form, product: composeProduct(labels[product.service], product.details), service: product.service };
+      const res = deal ? await updateDealAction(deal.id, input) : await createDealAction(leadId, input, wonStatusId);
       if (!res.ok) return void toast.error(res.error);
       toast.success(deal ? t("deal.updated") : wonStatusId ? t("deal.savedWon") : t("deal.added"));
       onSaved?.();
@@ -67,8 +76,20 @@ export function DealDialog({ open, onOpenChange, leadId, wonStatusId, rate, deal
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent title={deal ? t("deal.editTitle") : t("deal.title")} description={wonStatusId ? t("deal.wonHint") : undefined}>
         <form onSubmit={submit} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field label={t("deal.product")} className="sm:col-span-2">
-            <Textarea rows={2} value={form.product} onChange={set("product")} placeholder={t("deal.productPh")} required />
+          <Field label={t("deal.product")}>
+            <NativeSelect name="service" value={product.service} onChange={(e) => setProduct({ ...product, service: e.target.value as ServiceType })} required>
+              <option value="" disabled>
+                {t("deal.productChoose")}
+              </option>
+              {SERVICE_TYPES.map((s) => (
+                <option key={s} value={s}>
+                  {labels[s]}
+                </option>
+              ))}
+            </NativeSelect>
+          </Field>
+          <Field label={t("deal.details")}>
+            <Input name="details" value={product.details} onChange={(e) => setProduct({ ...product, details: e.target.value })} placeholder={t("deal.productPh")} />
           </Field>
           <Field label={t("deal.amount")}>
             <Input value={form.amount} onChange={set("amount")} inputMode="decimal" required />
