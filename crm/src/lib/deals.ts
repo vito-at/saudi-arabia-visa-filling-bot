@@ -1,11 +1,11 @@
-import type { Role, ServiceType } from "@prisma/client";
+import type { ServiceType } from "@prisma/client";
 
 /**
- * Сделка закрывается сразу, без ожидания себестоимости от администратора:
- * если её вносит администратор, или это визовая поддержка — расходы на визы учитываются в расходах компании.
+ * Сделка закрывается сразу, без ожидания себестоимости от администратора, только для визовой поддержки —
+ * расходы на визы учитываются в расходах компании. Остальные сделки ждут себестоимость.
  */
-export function dealClosesWithoutCost(role: Role, serviceType: ServiceType | null): boolean {
-  return role === "ADMIN" || serviceType === "VISA";
+export function dealClosesWithoutCost(serviceType: ServiceType | null): boolean {
+  return serviceType === "VISA";
 }
 
 /** Название продукта сделки: тип услуги из списка и, если указаны, подробности — «Тур: Дубай, 7 ночей» */

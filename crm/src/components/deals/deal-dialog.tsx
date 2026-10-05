@@ -56,6 +56,8 @@ export function DealDialog({ open, onOpenChange, leadId, wonStatusId, rate, deal
   const prefilled = !deal && !!lead && (!!lead.serviceType || !!lead.destination);
   // менеджер указывает только сумму продажи — себестоимость вносит администратор
   const isAdmin = useIsAdmin();
+  // при закрытии сделки себестоимость не вводится — её указывает администратор потом («Ждут себестоимость»); правит только он
+  const showCost = isAdmin && !!deal;
   const ctx = useRates();
   const rates = { sale: ctx.sale || rate, cost: ctx.cost || rate };
   const set = (k: keyof DealInput) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
@@ -154,7 +156,7 @@ export function DealDialog({ open, onOpenChange, leadId, wonStatusId, rate, deal
               <option value="UZS">{t("currency.UZS")}</option>
             </NativeSelect>
           </Field>
-          {isAdmin && (
+          {showCost && (
             <>
               <Field label={t("deal.cost")} hint={t("deal.costHint")}>
                 <Input value={form.cost} onChange={set("cost")} inputMode="decimal" />
@@ -176,8 +178,8 @@ export function DealDialog({ open, onOpenChange, leadId, wonStatusId, rate, deal
           <Field label={t("deal.paidAt")}>
             <Input type="date" value={form.paidAt} onChange={set("paidAt")} required />
           </Field>
-          {!isAdmin && <p className="rounded-lg bg-slate-50 p-3 text-sm text-muted-foreground sm:col-span-2">{t("deal.costByAdmin")}</p>}
-          {isAdmin && (
+          {!deal && <p className="rounded-lg bg-slate-50 p-3 text-sm text-muted-foreground sm:col-span-2">{t("deal.costByAdmin")}</p>}
+          {showCost && (
           <div className="sm:col-span-2 rounded-lg bg-slate-50 p-3 text-sm">
             <div className="flex justify-between">
               <span className="text-muted-foreground">{t("deal.profit")}</span>

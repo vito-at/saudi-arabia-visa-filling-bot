@@ -60,13 +60,12 @@ export async function createDealAction(leadId: string, input: DealInput, wonStat
   return runAction(async () => {
     const user = await requireUser();
     const lead = await getLeadForUser(user, leadId);
-    const isAdmin = user.role === "ADMIN";
     const service = input.service && SERVICE_TYPES.includes(input.service) ? input.service : null;
     // тип услуги лида берём из продукта сделки, если он ещё не указан, — по нему считается прибыль по продуктам
     const serviceType = lead.serviceType ?? service;
-    const costConfirmed = dealClosesWithoutCost(user.role, serviceType) || service === "VISA";
-    // менеджер указывает только сумму продажи; себестоимость потом вносит администратор
-    const d = parseDeal(isAdmin ? input : { ...input, cost: "0", costCurrency: input.currency });
+    const costConfirmed = dealClosesWithoutCost(serviceType) || service === "VISA";
+    // при закрытии указывается только сумма продажи; себестоимость потом вносит администратор
+    const d = parseDeal({ ...input, cost: "0", costCurrency: input.currency });
     await prisma.$transaction(async (tx) => {
       const deal = await tx.deal.create({ data: { ...d, costConfirmed, leadId, clientId: lead.clientId, managerId: lead.managerId ?? user.id } });
       const leadPatch = {
@@ -79,11 +78,9 @@ export async function createDealAction(leadId: string, input: DealInput, wonStat
           leadId,
           userId: user.id,
           field: "deal",
-          newValue: isAdmin
-            ? dealText(d)
-            : costConfirmed
-              ? `${d.product}: ${formatMoney(d.amount, d.currency)}, расходы на визы — в расходах компании`
-              : `${d.product}: ${formatMoney(d.amount, d.currency)}, себестоимость укажет администратор`,
+          newValue: costConfirmed
+            ? `${d.product}: ${formatMoney(d.amount, d.currency)}, расходы на визы — в расходах компании`
+            : `${d.product}: ${formatMoney(d.amount, d.currency)}, себестоимость укажет администратор`,
         },
       });
       return deal;

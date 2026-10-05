@@ -186,7 +186,7 @@ export const uz: Messages = {
     amount: "Sotuv summasi *",
     applicationsShort: "{n} ariza",
     cost: "Tannarx",
-    costByAdmin: "Tannarxni administrator kiritadi — bitim uning «Moliya» bo‘limida paydo bo‘ladi. Viza ko‘magi sotuvlari darhol yopiladi: viza xarajatlari kompaniya xarajatlarida hisobga olinadi.",
+    costByAdmin: "Tannarx keyinroq «Moliya» bo‘limida kiritiladi — bitim «Tannarx kutilmoqda» ro‘yxatida paydo bo‘ladi. Viza ko‘magi sotuvlari darhol yopiladi: viza xarajatlari kompaniya xarajatlarida hisobga olinadi.",
     costConverted: "{cur} dagi tannarx sotuv valyutasiga {rate} {sum} kursi bo‘yicha qayta hisoblandi — u kattaroq chiqadigan kurs bo‘yicha",
     costCurrency: "Tannarx valyutasi",
     costHint: "Yetkazib beruvchi / turoperatorga to‘lov",

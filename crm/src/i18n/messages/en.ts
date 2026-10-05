@@ -186,7 +186,7 @@ export const en: Messages = {
     amount: "Sale amount *",
     applicationsShort: "{n} appl.",
     cost: "Cost",
-    costByAdmin: "The administrator will enter the cost — the deal appears in their Finance section. Visa support sales close right away: visa costs are recorded as company expenses.",
+    costByAdmin: "The cost is entered later in Finance — the deal appears under “Awaiting cost”. Visa support sales close right away: visa costs are recorded as company expenses.",
     costConverted: "The cost in {cur} is converted into the sale currency at {rate} {sum} — the rate that gives the higher cost",
     costCurrency: "Cost currency",
     costHint: "Paid to supplier / tour operator",
