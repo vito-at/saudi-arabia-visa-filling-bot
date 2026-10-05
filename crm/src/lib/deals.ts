@@ -23,3 +23,34 @@ export function splitProduct(product: string, labels: Record<ServiceType, string
   }
   return { service: "", details: p };
 }
+
+/** Данные лида, которыми заполняется окно сделки */
+export interface LeadPrefill {
+  serviceType: ServiceType | null;
+  destination: string | null;
+  travelFrom: string; // YYYY-MM-DD или ""
+  travelTo: string;
+  travelers: number | null;
+  visaApplications: number | null;
+}
+
+/** Части подробностей через запятую, пустые пропускаются: «Дубай, 10.10.2026 — 17.10.2026, 2 чел.» */
+export function joinDetails(parts: (string | null | undefined | false)[]): string {
+  return parts
+    .map((p) => (p || "").trim())
+    .filter(Boolean)
+    .join(", ");
+}
+
+/** Что из визовых данных сделки записать в лид: только незаполненные поля */
+export function visaLeadPatch(
+  lead: { destination: string | null; visaApplications: number | null },
+  input: { destination?: string | null; visaApplications?: number | null },
+): { destination?: string; visaApplications?: number } {
+  const patch: { destination?: string; visaApplications?: number } = {};
+  const dest = input.destination?.trim();
+  if (!lead.destination?.trim() && dest) patch.destination = dest.slice(0, 120);
+  const n = input.visaApplications;
+  if (lead.visaApplications == null && n != null && Number.isInteger(n) && n >= 1 && n <= 500) patch.visaApplications = n;
+  return patch;
+}

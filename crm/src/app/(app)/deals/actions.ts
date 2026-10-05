@@ -9,7 +9,7 @@ import { formatMoney, parseInputDate } from "@/lib/format";
 import { requireUser, AccessError } from "@/lib/session";
 import { changeStatus, ValidationError } from "@/lib/leads/service";
 import { SERVICE_TYPES } from "@/lib/constants";
-import { dealClosesWithoutCost } from "@/lib/deals";
+import { dealClosesWithoutCost, visaLeadPatch } from "@/lib/deals";
 
 export interface DealInput {
   amount: string;
@@ -22,6 +22,9 @@ export interface DealInput {
   product: string;
   /** тип услуги, выбранный в списке «Продукт» */
   service?: ServiceType | "";
+  /** для визы: страна и количество заявлений — записываются в лид, если там ещё не указаны */
+  destination?: string | null;
+  visaApplications?: number | null;
 }
 
 const isCurrency = (c: unknown): c is Currency => c === "UZS" || c === "USD";
@@ -66,7 +69,11 @@ export async function createDealAction(leadId: string, input: DealInput, wonStat
     const d = parseDeal(isAdmin ? input : { ...input, cost: "0", costCurrency: input.currency });
     await prisma.$transaction(async (tx) => {
       const deal = await tx.deal.create({ data: { ...d, costConfirmed, leadId, clientId: lead.clientId, managerId: lead.managerId ?? user.id } });
-      if (!lead.serviceType && service) await tx.lead.update({ where: { id: leadId }, data: { serviceType: service } });
+      const leadPatch = {
+        ...(!lead.serviceType && service ? { serviceType: service } : {}),
+        ...(serviceType === "VISA" ? visaLeadPatch(lead, input) : {}),
+      };
+      if (Object.keys(leadPatch).length) await tx.lead.update({ where: { id: leadId }, data: leadPatch });
       await tx.leadHistory.create({
         data: {
           leadId,

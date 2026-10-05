@@ -7,6 +7,7 @@ import { useI18n } from "@/i18n/client";
 import { changeStatusAction } from "@/app/(app)/leads/actions";
 import { LossDialog } from "./loss-dialog";
 import { DealDialog, type DealDialogProps } from "@/components/deals/deal-dialog";
+import type { LeadPrefill } from "@/lib/deals";
 import { CallbackDialog } from "@/components/callbacks/callback-dialog";
 import { CallbackBadge } from "@/components/callbacks/callback-badge";
 import { Button } from "@/components/ui/button";
@@ -17,7 +18,7 @@ type Status = { id: string; name: string; color: string; kind: string };
  * Хук смены статуса: сам открывает диалог причины отказа или сделки, если это нужно.
  * Используется и в карточке, и на канбане.
  */
-export function useStatusChanger({ reasons, rate }: { reasons: { id: string; name: string }[]; rate: number }) {
+export function useStatusChanger({ reasons, rate, lead }: { reasons: { id: string; name: string }[]; rate: number; lead?: LeadPrefill | null }) {
   const { t } = useI18n();
   const [pending, start] = useTransition();
   const [loss, setLoss] = useState<{ leadId: string; statusId: string; onDone?: (ok: boolean) => void } | null>(null);
@@ -88,6 +89,7 @@ export function useStatusChanger({ reasons, rate }: { reasons: { id: string; nam
           leadId={deal.leadId}
           wonStatusId={deal.statusId}
           rate={rate}
+          lead={lead}
           onOpenChange={(v: boolean) => {
             if (!v) {
               deal.onDone?.(false);
@@ -113,6 +115,7 @@ export function StatusControl({
   reasons,
   rate,
   callbackAt,
+  lead,
 }: {
   leadId: string;
   current: Status;
@@ -120,8 +123,10 @@ export function StatusControl({
   reasons: { id: string; name: string }[];
   rate: number;
   callbackAt?: string | null;
+  /** данные лида для окна сделки */
+  lead?: LeadPrefill | null;
 }) {
-  const { change, pending, dialogs } = useStatusChanger({ reasons, rate });
+  const { change, pending, dialogs } = useStatusChanger({ reasons, rate, lead });
   const { t } = useI18n();
   return (
     <>
