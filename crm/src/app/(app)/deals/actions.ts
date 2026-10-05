@@ -1,13 +1,14 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import type { Currency } from "@prisma/client";
+import type { Currency, ServiceType } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { getLeadForUser } from "@/lib/access";
 import { runAction } from "@/lib/actions";
 import { formatMoney, parseInputDate } from "@/lib/format";
 import { requireUser, AccessError } from "@/lib/session";
 import { changeStatus, ValidationError } from "@/lib/leads/service";
+import { SERVICE_TYPES } from "@/lib/constants";
 import { dealClosesWithoutCost } from "@/lib/deals";
 
 export interface DealInput {
@@ -19,6 +20,8 @@ export interface DealInput {
   costCurrency?: Currency;
   paidAt: string;
   product: string;
+  /** тип услуги, выбранный в списке «Продукт» */
+  service?: ServiceType | "";
 }
 
 const isCurrency = (c: unknown): c is Currency => c === "UZS" || c === "USD";
@@ -55,11 +58,15 @@ export async function createDealAction(leadId: string, input: DealInput, wonStat
     const user = await requireUser();
     const lead = await getLeadForUser(user, leadId);
     const isAdmin = user.role === "ADMIN";
-    const costConfirmed = dealClosesWithoutCost(user.role, lead.serviceType);
+    const service = input.service && SERVICE_TYPES.includes(input.service) ? input.service : null;
+    // тип услуги лида берём из продукта сделки, если он ещё не указан, — по нему считается прибыль по продуктам
+    const serviceType = lead.serviceType ?? service;
+    const costConfirmed = dealClosesWithoutCost(user.role, serviceType) || service === "VISA";
     // менеджер указывает только сумму продажи; себестоимость потом вносит администратор
     const d = parseDeal(isAdmin ? input : { ...input, cost: "0", costCurrency: input.currency });
     await prisma.$transaction(async (tx) => {
       const deal = await tx.deal.create({ data: { ...d, costConfirmed, leadId, clientId: lead.clientId, managerId: lead.managerId ?? user.id } });
+      if (!lead.serviceType && service) await tx.lead.update({ where: { id: leadId }, data: { serviceType: service } });
       await tx.leadHistory.create({
         data: {
           leadId,

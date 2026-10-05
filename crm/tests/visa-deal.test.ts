@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dealClosesWithoutCost } from "@/lib/deals";
+import { composeProduct, dealClosesWithoutCost, splitProduct } from "@/lib/deals";
 
 describe("сделка без ожидания себестоимости", () => {
   it("визовая поддержка у менеджера закрывается сразу", () => {
@@ -10,5 +10,18 @@ describe("сделка без ожидания себестоимости", () =
   });
   it("сделка администратора всегда закрыта", () => {
     expect(dealClosesWithoutCost("ADMIN", "TOUR")).toBe(true);
+  });
+});
+
+describe("продукт сделки из списка", () => {
+  const labels = { FLIGHTS: "Авиабилеты", TOUR: "Тур", VISA: "Визовая поддержка", OTHER: "Другое" } as const;
+  it("собирает название из типа услуги и подробностей", () => {
+    expect(composeProduct("Тур", " Дубай, 7 ночей ")).toBe("Тур: Дубай, 7 ночей");
+    expect(composeProduct("Визовая поддержка", "")).toBe("Визовая поддержка");
+  });
+  it("разбирает название обратно, старое произвольное — в подробности", () => {
+    expect(splitProduct("Тур: Дубай, 7 ночей", labels)).toEqual({ service: "TOUR", details: "Дубай, 7 ночей" });
+    expect(splitProduct("Визовая поддержка", labels)).toEqual({ service: "VISA", details: "" });
+    expect(splitProduct("Тур в Стамбул", labels)).toEqual({ service: "", details: "Тур в Стамбул" });
   });
 });
