@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { NativeSelect } from "@/components/ui/input";
 import { DealDialog } from "@/components/deals/deal-dialog";
+import type { LeadPrefill } from "@/lib/deals";
 import { formatDate, toInputDate } from "@/lib/format";
 import { assignManagerAction, deleteLeadAction, takeLeadAction } from "@/app/(app)/leads/actions";
 import { deleteDealAction } from "@/app/(app)/deals/actions";
@@ -71,7 +72,7 @@ export interface DealItem {
   costConfirmed: boolean;
 }
 
-export function DealsPanel({ leadId, deals, rate, canManage }: { leadId: string; deals: DealItem[]; rate: number; canManage: boolean }) {
+export function DealsPanel({ leadId, deals, rate, canManage, lead }: { leadId: string; deals: DealItem[]; rate: number; canManage: boolean; lead?: LeadPrefill | null }) {
   const { t, f } = useI18n();
   const [editing, setEditing] = useState<DealItem | "new" | null>(null);
   const [pending, start] = useTransition();
@@ -139,6 +140,7 @@ export function DealsPanel({ leadId, deals, rate, canManage }: { leadId: string;
           onOpenChange={(v) => !v && setEditing(null)}
           leadId={leadId}
           rate={rate}
+          lead={lead}
           deal={
             editing === "new"
               ? undefined

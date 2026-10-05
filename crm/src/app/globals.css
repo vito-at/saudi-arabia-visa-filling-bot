@@ -133,6 +133,20 @@
   input[type="datetime-local"] {
     color-scheme: inherit;
   }
+  /* iOS Safari: поле даты не сжимается по ширине и вылезает за экран; пустое — схлопывается по высоте */
+  @supports (-webkit-touch-callout: none) {
+    input[type="date"],
+    input[type="datetime-local"] {
+      -webkit-appearance: none;
+      appearance: none;
+      min-width: 0;
+      max-width: 100%;
+    }
+    input[type="date"]::-webkit-date-and-time-value,
+    input[type="datetime-local"]::-webkit-date-and-time-value {
+      text-align: left;
+    }
+  }
 }
 
 /* горизонтальная прокрутка вкладок на телефоне без полосы прокрутки */

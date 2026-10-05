@@ -21,6 +21,7 @@ import { ratesOn } from "@/lib/rate-book";
 import { prettyPhone, telegramLink, whatsappLink } from "@/lib/phone";
 import { getLossReasons, getManagers, getSettings, getStatuses } from "@/lib/refs";
 import { isOverdueNew } from "@/lib/leads/query";
+import type { LeadPrefill } from "@/lib/deals";
 import { requireUser } from "@/lib/session";
 
 type Answer = { key: string; label?: string; value: string };
@@ -47,6 +48,15 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
 
   const [statuses, reasons, users, settings] = await Promise.all([getStatuses(), getLossReasons(), getManagers(), getSettings()]);
   const rate = toNum(settings.usdRate);
+  // данные лида, которыми заполняется окно сделки
+  const prefill: LeadPrefill = {
+    serviceType: lead.serviceType,
+    destination: lead.destination,
+    travelFrom: toInputDate(lead.travelFrom),
+    travelTo: toInputDate(lead.travelTo),
+    travelers: lead.travelers,
+    visaApplications: lead.visaApplications,
+  };
   const answers = (Array.isArray(lead.formAnswers) ? lead.formAnswers : []) as Answer[];
   const overdue = isOverdueNew(lead, settings.unprocessedAlertMin);
   const book = await loadRateBook(settings);
@@ -119,6 +129,7 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
             reasons={reasons.map((r) => ({ id: r.id, name: reasonName(t, r.name) }))}
             rate={rate}
             callbackAt={lead.callbackAt?.toISOString() ?? null}
+            lead={prefill}
           />
           {lead.status.kind === "LOST" && lead.lossReason && (
             <div className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">
@@ -142,7 +153,6 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
                   name: lead.name,
                   phone: lead.phone,
                   phoneRaw: lead.phoneRaw,
-                  email: lead.email,
                   serviceType: lead.serviceType,
                   destination: lead.destination,
                   travelFrom: toInputDate(lead.travelFrom),
@@ -258,6 +268,7 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
               <DealsPanel
                 leadId={lead.id}
                 rate={rate}
+                lead={prefill}
                 canManage={isAdmin}
                 deals={lead.deals.map((d) => ({
                   id: d.id,

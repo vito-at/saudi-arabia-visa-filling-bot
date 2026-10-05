@@ -5,15 +5,15 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Field, Input, NativeSelect } from "@/components/ui/input";
-import { formatNumber, toInputDate } from "@/lib/format";
+import { formatDate, formatNumber, toInputDate } from "@/lib/format";
 import { useI18n } from "@/i18n/client";
 import { convertCost, convertRevenue, dealProfitInSale } from "@/lib/money";
 import { createDealAction, updateDealAction, type DealInput } from "@/app/(app)/deals/actions";
 import { useIsAdmin, useRates } from "@/components/layout/role-context";
 import type { ServiceType } from "@prisma/client";
-import { SERVICE_TYPES } from "@/lib/constants";
+import { matchVisaCountry, SERVICE_TYPES, VISA_COUNTRIES } from "@/lib/constants";
 import { serviceLabel } from "@/i18n/labels";
-import { composeProduct, splitProduct } from "@/lib/deals";
+import { composeProduct, joinDetails, splitProduct, type LeadPrefill } from "@/lib/deals";
 
 export interface DealDialogProps {
   open: boolean;
@@ -24,22 +24,40 @@ export interface DealDialogProps {
   /** курс продажи $; себестоимость пересчитывается по курсу покупки $ из контекста */
   rate: number;
   deal?: { id: string } & DealInput;
+  /** данные лида: новая сделка заполняется ими (продукт, направление, даты, туристы, страна визы) */
+  lead?: LeadPrefill | null;
   onSaved?: () => void;
 }
 
+const OTHER_COUNTRY = "__other";
+
 const parse = (s: string) => Number(String(s).replace(/\s/g, "").replace(",", ".")) || 0;
 
-export function DealDialog({ open, onOpenChange, leadId, wonStatusId, rate, deal, onSaved }: DealDialogProps) {
+export function DealDialog({ open, onOpenChange, leadId, wonStatusId, rate, deal, lead, onSaved }: DealDialogProps) {
   const [form, setForm] = useState<DealInput>(
     deal ?? { amount: "", cost: "", currency: "USD", costCurrency: "USD", paidAt: toInputDate(new Date()), product: "" },
   );
-  const { t, f } = useI18n();
+  const { t, f, locale } = useI18n();
   const [pending, start] = useTransition();
-  // продукт: тип услуги из списка + необязательные подробности
+  // продукт: тип услуги из списка + необязательные подробности; новая сделка заполняется данными лида
   const labels = Object.fromEntries(SERVICE_TYPES.map((s) => [s, serviceLabel(t, s)])) as Record<ServiceType, string>;
-  const [product, setProduct] = useState(() => splitProduct(deal?.product ?? "", labels));
+  const day = (d: string) => (d ? formatDate(`${d}T00:00:00+05:00`) : "");
+  const tripText = (l: LeadPrefill) =>
+    joinDetails([l.destination, l.travelFrom || l.travelTo ? `${day(l.travelFrom) || "…"} — ${day(l.travelTo) || "…"}` : null, l.travelers ? t("deal.people", { n: l.travelers }) : null]);
+  const [product, setProduct] = useState(() =>
+    deal ? splitProduct(deal.product, labels) : { service: (lead?.serviceType ?? "") as ServiceType | "", details: lead && lead.serviceType !== "VISA" ? tripText(lead) : "" },
+  );
+  // виза (только новая сделка): страна из списка и количество заявлений — как в карточке лида
+  const visaMode = !deal && product.service === "VISA";
+  const knownCountry = matchVisaCountry(lead?.destination);
+  const [country, setCountry] = useState(knownCountry ?? (lead?.destination ? OTHER_COUNTRY : ""));
+  const [otherCountry, setOtherCountry] = useState(knownCountry ? "" : (lead?.destination ?? ""));
+  const [applications, setApplications] = useState(lead?.visaApplications ? String(lead.visaApplications) : "");
+  const prefilled = !deal && !!lead && (!!lead.serviceType || !!lead.destination);
   // менеджер указывает только сумму продажи — себестоимость вносит администратор
   const isAdmin = useIsAdmin();
+  // при закрытии сделки себестоимость не вводится — её указывает администратор потом («Ждут себестоимость»); правит только он
+  const showCost = isAdmin && !!deal;
   const ctx = useRates();
   const rates = { sale: ctx.sale || rate, cost: ctx.cost || rate };
   const set = (k: keyof DealInput) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
@@ -63,7 +81,14 @@ export function DealDialog({ open, onOpenChange, leadId, wonStatusId, rate, deal
     e.preventDefault();
     start(async () => {
       if (!product.service) return void toast.error(t("deal.productChoose"));
-      const input = { ...form, product: composeProduct(labels[product.service], product.details), service: product.service };
+      let input: DealInput = { ...form, product: composeProduct(labels[product.service], product.details), service: product.service };
+      if (visaMode) {
+        const destination = country === OTHER_COUNTRY ? otherCountry.trim() : country;
+        const known = VISA_COUNTRIES.find((c) => c.ru === destination);
+        const n = Number(applications) || null;
+        const details = joinDetails([known ? (known[locale] ?? known.ru) : destination, n ? t("deal.applicationsShort", { n }) : null]);
+        input = { ...input, product: composeProduct(labels.VISA, details), destination: destination || null, visaApplications: n };
+      }
       const res = deal ? await updateDealAction(deal.id, input) : await createDealAction(leadId, input, wonStatusId);
       if (!res.ok) return void toast.error(res.error);
       toast.success(deal ? t("deal.updated") : wonStatusId ? t("deal.savedWon") : t("deal.added"));
@@ -88,9 +113,34 @@ export function DealDialog({ open, onOpenChange, leadId, wonStatusId, rate, deal
               ))}
             </NativeSelect>
           </Field>
-          <Field label={t("deal.details")}>
-            <Input name="details" value={product.details} onChange={(e) => setProduct({ ...product, details: e.target.value })} placeholder={t("deal.productPh")} />
-          </Field>
+          {visaMode ? (
+            <>
+              <Field label={t("lead.visaCountry")}>
+                <div className="space-y-2">
+                  <NativeSelect name="visaCountry" value={country} onChange={(e) => setCountry(e.target.value)}>
+                    <option value="">—</option>
+                    {VISA_COUNTRIES.map((c) => (
+                      <option key={c.ru} value={c.ru}>
+                        {c[locale] ?? c.ru}
+                      </option>
+                    ))}
+                    <option value={OTHER_COUNTRY}>{t("lead.visaOther")}</option>
+                  </NativeSelect>
+                  {country === OTHER_COUNTRY && (
+                    <Input value={otherCountry} onChange={(e) => setOtherCountry(e.target.value)} placeholder={t("lead.visaOtherPh")} aria-label={t("lead.visaOtherPh")} required />
+                  )}
+                </div>
+              </Field>
+              <Field label={t("lead.field.visaApplications")}>
+                <Input name="visaApplications" type="number" min={1} max={500} value={applications} onChange={(e) => setApplications(e.target.value)} placeholder="1" />
+              </Field>
+            </>
+          ) : (
+            <Field label={t("deal.details")}>
+              <Input name="details" value={product.details} onChange={(e) => setProduct({ ...product, details: e.target.value })} placeholder={t("deal.productPh")} />
+            </Field>
+          )}
+          {prefilled && <p className="-mt-2 text-xs text-muted-foreground sm:col-span-2">{t("deal.prefillHint")}</p>}
           <Field label={t("deal.amount")}>
             <Input value={form.amount} onChange={set("amount")} inputMode="decimal" required />
           </Field>
@@ -106,7 +156,7 @@ export function DealDialog({ open, onOpenChange, leadId, wonStatusId, rate, deal
               <option value="UZS">{t("currency.UZS")}</option>
             </NativeSelect>
           </Field>
-          {isAdmin && (
+          {showCost && (
             <>
               <Field label={t("deal.cost")} hint={t("deal.costHint")}>
                 <Input value={form.cost} onChange={set("cost")} inputMode="decimal" />
@@ -128,8 +178,8 @@ export function DealDialog({ open, onOpenChange, leadId, wonStatusId, rate, deal
           <Field label={t("deal.paidAt")}>
             <Input type="date" value={form.paidAt} onChange={set("paidAt")} required />
           </Field>
-          {!isAdmin && <p className="rounded-lg bg-slate-50 p-3 text-sm text-muted-foreground sm:col-span-2">{t("deal.costByAdmin")}</p>}
-          {isAdmin && (
+          {!deal && <p className="rounded-lg bg-slate-50 p-3 text-sm text-muted-foreground sm:col-span-2">{t("deal.costByAdmin")}</p>}
+          {showCost && (
           <div className="sm:col-span-2 rounded-lg bg-slate-50 p-3 text-sm">
             <div className="flex justify-between">
               <span className="text-muted-foreground">{t("deal.profit")}</span>
