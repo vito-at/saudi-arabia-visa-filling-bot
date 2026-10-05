@@ -142,7 +142,6 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
                   name: lead.name,
                   phone: lead.phone,
                   phoneRaw: lead.phoneRaw,
-                  email: lead.email,
                   serviceType: lead.serviceType,
                   destination: lead.destination,
                   travelFrom: toInputDate(lead.travelFrom),

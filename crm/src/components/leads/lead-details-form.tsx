@@ -17,7 +17,6 @@ export interface LeadDetails {
   name: string;
   phone: string | null;
   phoneRaw: string | null;
-  email: string | null;
   serviceType: string | null;
   destination: string | null;
   travelFrom: string; // YYYY-MM-DD
@@ -50,14 +49,13 @@ export function LeadDetailsForm({ lead }: { lead: LeadDetails }) {
         </div>
         <Row label={t("lead.field.name")}>{lead.name}</Row>
         <Row label={t("lead.field.phone")}>{lead.phone ? prettyPhone(lead.phone) : lead.phoneRaw}</Row>
-        <Row label={t("lead.field.email")}>{lead.email}</Row>
         <Row label={t("lead.field.service")}>{lead.serviceType ? serviceLabel(t, lead.serviceType) : null}</Row>
         <Row label={lead.serviceType === "VISA" ? t("lead.visaCountry") : t("lead.field.destination")}>{lead.destination}</Row>
         {lead.serviceType === "VISA" && <Row label={t("lead.field.visaApplications")}>{lead.visaApplications}</Row>}
         <Row label={t("lead.field.dates")}>
           {lead.travelFrom || lead.travelTo ? `${lead.travelFrom ? formatDate(`${lead.travelFrom}T00:00:00+05:00`) : "…"} — ${lead.travelTo ? formatDate(`${lead.travelTo}T00:00:00+05:00`) : "…"}` : null}
         </Row>
-        <Row label={t("lead.field.travelers")}>{lead.travelers}</Row>
+        {lead.serviceType !== "VISA" && <Row label={t("lead.field.travelers")}>{lead.travelers}</Row>}
       </div>
     );
   }
@@ -80,13 +78,7 @@ export function LeadDetailsForm({ lead }: { lead: LeadDetails }) {
       <Field label={t("lead.field.phone")}>
         <Input name="phone" defaultValue={lead.phone ?? lead.phoneRaw ?? ""} />
       </Field>
-      <Field label={t("lead.field.email")}>
-        <Input name="email" type="email" defaultValue={lead.email ?? ""} />
-      </Field>
-      <ServiceDestinationFields service={lead.serviceType} destination={lead.destination} applications={lead.visaApplications} />
-      <Field label={t("lead.field.travelers")}>
-        <Input name="travelers" type="number" min={1} defaultValue={lead.travelers ?? ""} />
-      </Field>
+      <ServiceDestinationFields service={lead.serviceType} destination={lead.destination} applications={lead.visaApplications} travelers={lead.travelers} />
       <Field label={t("lead.field.travelFrom")}>
         <Input name="travelFrom" type="date" defaultValue={lead.travelFrom} />
       </Field>

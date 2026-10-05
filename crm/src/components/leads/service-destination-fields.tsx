@@ -11,9 +11,22 @@ const OTHER = "__other";
 /**
  * «Тип услуги» и «Направление». Для визовой поддержки направление выбирается из списка стран,
  * а при «Другое» появляется поле для страны; ещё указывается количество заявлений.
- * В форму уходят обычные serviceType, destination и visaApplications.
+ * Для визы вместо «Туристов» — «Заявлений на визу» (это одно и то же число).
+ * В форму уходят обычные serviceType, destination, visaApplications и travelers.
  */
-export function ServiceDestinationFields({ service, destination, applications, placeholder }: { service?: string | null; destination?: string | null; applications?: number | null; placeholder?: string }) {
+export function ServiceDestinationFields({
+  service,
+  destination,
+  applications,
+  travelers,
+  placeholder,
+}: {
+  service?: string | null;
+  destination?: string | null;
+  applications?: number | null;
+  travelers?: number | null;
+  placeholder?: string;
+}) {
   const { t, locale } = useI18n();
   const [type, setType] = useState(service ?? "");
   const known = matchVisaCountry(destination);
@@ -54,9 +67,13 @@ export function ServiceDestinationFields({ service, destination, applications, p
           <Input value={text} onChange={(e) => setText(e.target.value)} placeholder={placeholder} aria-label={t("lead.field.destination")} />
         )}
       </Field>
-      {visa && (
+      {visa ? (
         <Field label={t("lead.field.visaApplications")}>
           <Input name="visaApplications" type="number" min={1} max={500} defaultValue={applications ?? ""} placeholder="1" />
+        </Field>
+      ) : (
+        <Field label={t("lead.field.travelers")}>
+          <Input name="travelers" type="number" min={1} max={500} defaultValue={travelers ?? ""} />
         </Field>
       )}
     </>

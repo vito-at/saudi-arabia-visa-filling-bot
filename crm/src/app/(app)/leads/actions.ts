@@ -108,12 +108,13 @@ export async function updateLeadAction(leadId: string, formData: FormData) {
       {
         name,
         phone: str(formData.get("phone")),
-        email: str(formData.get("email")),
+        // полей нет в форме (email убран, «Туристов» скрыто для виз) — значения не трогаем
+        email: formData.has("email") ? str(formData.get("email")) : undefined,
         serviceType: parseService(formData.get("serviceType")),
         destination: str(formData.get("destination")),
         travelFrom,
         travelTo,
-        travelers: parseTravelers(formData.get("travelers")),
+        travelers: formData.has("travelers") ? parseTravelers(formData.get("travelers")) : undefined,
         visaApplications: parseVisaApplications(formData),
       },
       user.id,
