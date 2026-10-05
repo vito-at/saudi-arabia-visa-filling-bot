@@ -8,6 +8,7 @@ import { runAction } from "@/lib/actions";
 import { formatMoney, parseInputDate } from "@/lib/format";
 import { requireUser, AccessError } from "@/lib/session";
 import { changeStatus, ValidationError } from "@/lib/leads/service";
+import { dealClosesWithoutCost } from "@/lib/deals";
 
 export interface DealInput {
   amount: string;
@@ -54,10 +55,11 @@ export async function createDealAction(leadId: string, input: DealInput, wonStat
     const user = await requireUser();
     const lead = await getLeadForUser(user, leadId);
     const isAdmin = user.role === "ADMIN";
+    const costConfirmed = dealClosesWithoutCost(user.role, lead.serviceType);
     // менеджер указывает только сумму продажи; себестоимость потом вносит администратор
     const d = parseDeal(isAdmin ? input : { ...input, cost: "0", costCurrency: input.currency });
     await prisma.$transaction(async (tx) => {
-      const deal = await tx.deal.create({ data: { ...d, costConfirmed: isAdmin, leadId, clientId: lead.clientId, managerId: lead.managerId ?? user.id } });
+      const deal = await tx.deal.create({ data: { ...d, costConfirmed, leadId, clientId: lead.clientId, managerId: lead.managerId ?? user.id } });
       await tx.leadHistory.create({
         data: {
           leadId,
@@ -65,7 +67,9 @@ export async function createDealAction(leadId: string, input: DealInput, wonStat
           field: "deal",
           newValue: isAdmin
             ? dealText(d)
-            : `${d.product}: ${formatMoney(d.amount, d.currency)}, себестоимость укажет администратор`,
+            : costConfirmed
+              ? `${d.product}: ${formatMoney(d.amount, d.currency)}, расходы на визы — в расходах компании`
+              : `${d.product}: ${formatMoney(d.amount, d.currency)}, себестоимость укажет администратор`,
         },
       });
       return deal;

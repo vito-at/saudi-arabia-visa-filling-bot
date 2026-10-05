@@ -28,6 +28,7 @@ export function ExpensesPanel({ rows, byCategory, categories, currency }: { rows
   const [form, setForm] = useState<ExpenseInput>(empty);
   const [pending, start] = useTransition();
   const presets = [
+    t("finance.catVisa"),
     t("finance.catTaxi"),
     t("finance.catFood"),
     t("finance.catUtilities"),
