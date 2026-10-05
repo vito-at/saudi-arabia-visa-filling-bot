@@ -6,6 +6,7 @@ import cron from "node-cron";
 import { prisma } from "../src/lib/db";
 import { syncLeads } from "../src/lib/meta/sync";
 import { syncSpend } from "../src/lib/meta/insights";
+import { sendPendingConversions } from "../src/lib/meta/capi";
 import { isRateStale, RATE_RETRY_UNTIL_HOUR, updateUsdRate } from "../src/lib/rates";
 import { i18nFor } from "../src/i18n/instance";
 import type { TKey } from "../src/i18n/core";
@@ -63,7 +64,18 @@ async function tickRate(force = false) {
   }
 }
 
+/** Conversions API: повтор событий, которые не ушли сразу при смене статуса */
+async function tickConversions() {
+  try {
+    const r = await sendPendingConversions();
+    if (r.sent || r.failed) log("Conversions API:", r);
+  } catch (e) {
+    log("Ошибка Conversions API:", e);
+  }
+}
+
 cron.schedule("* * * * *", tickLeads);
+cron.schedule("*/5 * * * *", tickConversions);
 cron.schedule("17 * * * *", tickSpend);
 cron.schedule("0 7 * * *", () => tickRate(true), { timezone: "Asia/Tashkent" });
 cron.schedule(`*/30 7-${RATE_RETRY_UNTIL_HOUR - 1} * * *`, () => tickRate(), { timezone: "Asia/Tashkent" });

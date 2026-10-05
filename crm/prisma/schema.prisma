@@ -170,6 +170,7 @@ model Lead {
   history  LeadHistory[]
   tasks    Task[]
   deals    Deal[]
+  conversions ConversionEvent[]
 
   @@index([statusId])
   @@index([managerId])
@@ -276,6 +277,42 @@ model MetaIntegration {
   tokenValid      Boolean   @default(true)
   tokenError      String?
   tokenExpiresAt  DateTime?
+  /// Conversions API для CRM: набор данных (Dataset) в Events Manager и его маркер доступа —
+  /// CRM сообщает Meta, что стало с лидом из формы (квалифицирован / продажа / отказ)
+  capiDatasetId   String?
+  capiTokenEnc    String?
+  /// Код тестовых событий из Events Manager (вкладка «Тестовые события»); пусто — боевой режим
+  capiTestCode    String?
+  capiEnabled     Boolean   @default(false)
+  capiLastError   String?
+  capiLastSentAt  DateTime?
+}
+
+enum ConversionStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+/// Событие воронки для Meta Conversions API: каждая стадия отправляется по лиду один раз
+model ConversionEvent {
+  id        String           @id @default(cuid())
+  leadId    String
+  leadgenId String
+  eventName String
+  eventTime DateTime         @default(now())
+  /// сумма продажи (для «Converted») в USD
+  value     Decimal?         @db.Decimal(14, 2)
+  status    ConversionStatus @default(PENDING)
+  attempts  Int              @default(0)
+  error     String?
+  sentAt    DateTime?
+  updatedAt DateTime         @updatedAt
+
+  lead Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@unique([leadId, eventName])
+  @@index([status])
 }
 
 /// Лиды Meta, удалённые администратором: не загружаем их повторно при синхронизации

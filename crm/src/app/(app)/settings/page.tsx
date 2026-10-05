@@ -66,6 +66,9 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
 async function IntegrationTab() {
   const { t } = await getI18n();
   const i = await getIntegration();
+  const capiCounts = await prisma.conversionEvent.groupBy({ by: ["status"], _count: { _all: true } });
+  const capiCount = (st: string) => capiCounts.find((c) => c.status === st)?._count._all ?? 0;
+  const capiStats = { sent: capiCount("SENT"), pending: capiCount("PENDING"), failed: capiCount("FAILED") };
   const base = (process.env.APP_URL || "http://localhost:3000").replace(/\/$/, "");
   let pageTokenMask = "";
   try {
@@ -106,6 +109,12 @@ async function IntegrationTab() {
               pageTokenMask,
               hasAdsToken: !!i.adsTokenEnc,
               webhookUrl: `${base}/api/webhooks/meta`,
+              capiDatasetId: i.capiDatasetId ?? "",
+              hasCapiToken: !!i.capiTokenEnc,
+              capiTestCode: i.capiTestCode ?? "",
+              capiEnabled: i.capiEnabled,
+              capiStats,
+              capiLastError: i.capiLastError,
             }}
           />
         </CardContent>

@@ -1,9 +1,10 @@
-import type { LeadSource, Prisma, ServiceType } from "@prisma/client";
+import type { LeadSource, Prisma, ServiceType, StatusKind } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { normalizePhone } from "@/lib/phone";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { SERVICE_LABELS, SOURCE_LABELS } from "@/lib/constants";
 import { pickNextManager } from "./distribution";
+import { queueConversions } from "@/lib/meta/capi";
 import type { TKey, TVars } from "@/i18n/core";
 
 type Tx = Prisma.TransactionClient;
@@ -177,10 +178,12 @@ export interface StatusChange {
 
 /** Смена статуса с проверками: «Отказ» требует причину, «Продано» — сделку, «Перезвонить» — время звонка. */
 export async function changeStatus(leadId: string, change: StatusChange, actor: { id: string; role: string }) {
-  return prisma.$transaction(async (tx) => {
+  let reached: { kind: StatusKind; inFunnel: boolean } | null = null;
+  const result = await prisma.$transaction(async (tx) => {
     const lead = await tx.lead.findUniqueOrThrow({ where: { id: leadId }, include: { status: true, _count: { select: { deals: true } } } });
     const target = await tx.leadStatus.findUnique({ where: { id: change.statusId } });
     if (!target) throw new ValidationError("err.statusNotFound");
+    reached = target;
     // «Перезвонить» можно выбрать повторно — это перенос звонка
     if (target.id === lead.statusId && target.kind !== "LOST" && target.kind !== "CALLBACK") return lead;
 
@@ -241,6 +244,11 @@ export async function changeStatus(leadId: string, change: StatusChange, actor: 
     }
     return updated;
   });
+  // Meta Conversions API: сообщаем, что стало с лидом из формы; сбой отправки не мешает смене статуса (повторит воркер)
+  // (reached присваивается внутри транзакции — TypeScript этого не видит)
+  const to = reached as { kind: StatusKind; inFunnel: boolean } | null;
+  if (to) await queueConversions(leadId, to).catch((e) => console.error("Conversions API:", e));
+  return result;
 }
 
 /** Назначение ответственного (одного или нескольких лидов). */
