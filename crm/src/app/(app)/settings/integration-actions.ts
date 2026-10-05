@@ -11,6 +11,8 @@ import { ValidationError } from "@/lib/leads/service";
 import { getIntegration, inspectToken, pageClient, readSecrets } from "@/lib/meta/integration";
 import { syncLeads } from "@/lib/meta/sync";
 import { syncSpend } from "@/lib/meta/insights";
+import { checkCapi, sendPendingConversions } from "@/lib/meta/capi";
+import { decrypt } from "@/lib/crypto";
 import { getI18n } from "@/i18n/server";
 
 const str = (v: FormDataEntryValue | null) => (typeof v === "string" ? v.trim() : "");
@@ -34,6 +36,12 @@ export async function saveIntegrationAction(formData: FormData) {
     const initialDays = Number(formData.get("initialDays"));
     if (!Number.isInteger(initialDays) || initialDays < 1 || initialDays > 90) throw new ValidationError("err.initialDays");
 
+    const capiDatasetId = str(formData.get("capiDatasetId"));
+    if (capiDatasetId && !/^\d+$/.test(capiDatasetId)) throw new ValidationError("err.capiDataset");
+    const capiToken = str(formData.get("capiToken"));
+    const capiEnabled = formData.get("capiEnabled") === "on";
+    if (capiEnabled && (!capiDatasetId || (!capiToken && !current.capiTokenEnc))) throw new ValidationError("err.capiSetup");
+
     const appSecret = str(formData.get("appSecret"));
     const pageToken = str(formData.get("pageToken"));
     const adsToken = str(formData.get("adsToken"));
@@ -53,6 +61,10 @@ export async function saveIntegrationAction(formData: FormData) {
         ...(pageToken ? { pageTokenEnc: encrypt(pageToken), tokenValid: true, tokenError: null, tokenExpiresAt: null } : {}),
         ...(adsToken ? { adsTokenEnc: encrypt(adsToken) } : {}),
         ...(formData.get("clearAdsToken") === "on" ? { adsTokenEnc: null } : {}),
+        capiDatasetId: capiDatasetId || null,
+        capiTestCode: str(formData.get("capiTestCode")) || null,
+        capiEnabled,
+        ...(capiToken ? { capiTokenEnc: encrypt(capiToken), capiLastError: null } : {}),
         // при смене страницы начинаем загрузку заново
         ...(pageId && pageId !== current.pageId ? { lastSyncAt: null } : {}),
       },
@@ -119,5 +131,28 @@ export async function syncSpendAction() {
     if ("skipped" in r && r.skipped) throw new ValidationError(r.skipped);
     if (!r.ok) throw new ValidationError("err.spendFailed", { error: "error" in r ? r.error ?? "" : "" });
     return (await getI18n()).t("msg.spendRows", { n: r.rows });
+  });
+}
+
+/** Проверка Conversions API: набор данных доступен по маркеру; заодно отправляем события из очереди */
+export async function checkCapiAction() {
+  return runAction(async () => {
+    await requireAdmin();
+    const i = await getIntegration();
+    const token = decrypt(i.capiTokenEnc);
+    if (!i.capiDatasetId || !token) throw new ValidationError("err.capiSetup");
+    let name: string;
+    try {
+      name = await checkCapi({ datasetId: i.capiDatasetId, token });
+    } catch (e) {
+      const error = e instanceof Error ? e.message : String(e);
+      await prisma.metaIntegration.update({ where: { id: 1 }, data: { capiLastError: error.slice(0, 500) } });
+      revalidateAll();
+      throw new ValidationError("err.capiCheck", { error });
+    }
+    const r = await sendPendingConversions();
+    revalidateAll();
+    const { t } = await getI18n();
+    return t("msg.capiOk", { name }) + (r.sent ? ` ${t("msg.capiSent", { n: r.sent })}` : "");
   });
 }

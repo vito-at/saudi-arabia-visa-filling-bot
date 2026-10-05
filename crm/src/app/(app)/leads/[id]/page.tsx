@@ -42,6 +42,7 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
       history: { include: { user: { select: { name: true } } }, orderBy: { createdAt: "desc" } },
       tasks: { include: { assignee: { select: { name: true } } }, orderBy: [{ doneAt: { sort: "asc", nulls: "first" } }, { dueAt: "asc" }] },
       deals: { include: { manager: { select: { name: true } } }, orderBy: { paidAt: "desc" } },
+      conversions: { orderBy: { eventTime: "asc" } },
     },
   });
   if (!lead) notFound();
@@ -135,6 +136,21 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
             <div className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">
               {t("lead.lossReason")} <b>{reasonName(t, lead.lossReason.name)}</b>
               {lead.lossComment && <span> — {lead.lossComment}</span>}
+            </div>
+          )}
+          {/* Conversions API: что CRM уже сообщила Meta по этому лиду (видит администратор) */}
+          {isAdmin && lead.conversions.length > 0 && (
+            <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+              <span>{t("lead.capiTitle")}</span>
+              {lead.conversions.map((c) => (
+                <span
+                  key={c.id}
+                  title={c.error ?? (c.sentAt ? formatDateTime(c.sentAt) : undefined)}
+                  className={c.status === "SENT" ? "text-emerald-700" : c.status === "FAILED" ? "text-red-600" : "text-amber-700"}
+                >
+                  {c.status === "SENT" ? "✓" : c.status === "FAILED" ? "✕" : "…"} {t(`lead.capi.${c.eventName}` as Parameters<typeof t>[0])}
+                </span>
+              ))}
             </div>
           )}
         </div>

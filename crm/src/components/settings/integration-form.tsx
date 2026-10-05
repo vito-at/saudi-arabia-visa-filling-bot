@@ -1,12 +1,13 @@
 "use client";
 
 import { useTransition } from "react";
-import { CheckCircle2, Copy, RefreshCw, ShieldCheck, Webhook, Wallet } from "lucide-react";
+import { CheckCircle2, Copy, RefreshCw, ShieldCheck, Target, Webhook, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/input";
 import type { ActionResult } from "@/lib/actions";
 import {
+  checkCapiAction,
   checkTokenAction,
   saveIntegrationAction,
   subscribeWebhookAction,
@@ -27,6 +28,12 @@ export interface IntegrationView {
   pageTokenMask: string;
   hasAdsToken: boolean;
   webhookUrl: string;
+  capiDatasetId: string;
+  hasCapiToken: boolean;
+  capiTestCode: string;
+  capiEnabled: boolean;
+  capiStats: { sent: number; pending: number; failed: number };
+  capiLastError: string | null;
 }
 
 function useRun() {
@@ -91,6 +98,29 @@ export function IntegrationForm({ v }: { v: IntegrationView }) {
         </div>
 
         <div className="rounded-lg border p-4">
+          <div className="mb-1 text-sm font-semibold">{t("integ.capiTitle")}</div>
+          <p className="mb-3 text-xs text-muted-foreground">{t("integ.capiHint")}</p>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Field label={t("integ.capiDataset")}>
+              <Input name="capiDatasetId" defaultValue={v.capiDatasetId} autoComplete="off" data-1p-ignore data-lpignore="true" inputMode="numeric" placeholder="1234567890123456" />
+            </Field>
+            <Field label={t("integ.capiToken")} hint={v.hasCapiToken ? t("integ.capiTokenSaved") : t("integ.capiTokenHint")}>
+              <Input name="capiToken" type="password" autoComplete="new-password" data-1p-ignore data-lpignore="true" placeholder={v.hasCapiToken ? "••••••••" : "EAAG…"} />
+            </Field>
+            <Field label={t("integ.capiTestCode")} hint={t("integ.capiTestCodeHint")}>
+              <Input name="capiTestCode" defaultValue={v.capiTestCode} autoComplete="off" data-1p-ignore data-lpignore="true" placeholder="TEST12345" />
+            </Field>
+          </div>
+          <label className="mt-3 flex items-center gap-2 text-sm">
+            <input type="checkbox" name="capiEnabled" defaultChecked={v.capiEnabled} /> {t("integ.capiEnabled")}
+          </label>
+          {(v.capiEnabled || v.capiStats.sent + v.capiStats.pending + v.capiStats.failed > 0) && (
+            <p className="mt-2 text-xs text-muted-foreground">{t("integ.capiStats", v.capiStats)}</p>
+          )}
+          {v.capiLastError && <p className="mt-1 text-xs text-red-600">{t("integ.capiLastError", { error: v.capiLastError })}</p>}
+        </div>
+
+        <div className="rounded-lg border p-4">
           <div className="mb-3 text-sm font-semibold">{t("integ.webhookTitle")}</div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Callback URL">
@@ -134,6 +164,9 @@ export function IntegrationForm({ v }: { v: IntegrationView }) {
         </Button>
         <Button variant="outline" disabled={pending || !v.adAccountId} onClick={() => run(syncSpendAction)}>
           <Wallet /> {t("integ.syncSpend")}
+        </Button>
+        <Button variant="outline" disabled={pending || !v.capiDatasetId || !v.hasCapiToken} onClick={() => run(checkCapiAction)}>
+          <Target /> {t("integ.capiCheck")}
         </Button>
       </div>
     </div>

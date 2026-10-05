@@ -66,6 +66,11 @@ export class GraphClient {
     return this.request<T>(this.url(path, params), { method: "POST" });
   }
 
+  /** POST с JSON-телом (Conversions API); body — уже готовая JSON-строка */
+  postJson<T>(path: string, body: string): Promise<T> {
+    return this.request<T>(this.url(path), { method: "POST", body, headers: { "Content-Type": "application/json" } });
+  }
+
   /** Обход всех страниц курсора: следуем paging.next, пока он есть */
   async *paginate<T>(path: string, params?: Record<string, string | number | undefined>, maxPages = 200): AsyncGenerator<T> {
     let next: string | undefined = this.url(path, params);
