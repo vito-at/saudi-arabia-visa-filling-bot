@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildCapiPayload, conversionEventsFor } from "@/lib/meta/capi";
+import { buildCapiPayload, checkCapi, conversionEventsFor } from "@/lib/meta/capi";
 
 describe("Conversions API: какие события отправлять", () => {
   it("этап воронки — Qualified, попытки дозвона — ничего", () => {
@@ -37,5 +37,20 @@ describe("Conversions API: тело запроса", () => {
   });
   it("без кода тестовых событий поле не передаётся", () => {
     expect(JSON.parse(buildCapiPayload([], null))).toEqual({ data: [] });
+  });
+});
+
+describe("Conversions API: проверка маркера", () => {
+  const reply = (status: number, body: unknown) => (async () => new Response(JSON.stringify(body), { status })) as unknown as typeof fetch;
+  it("маркер с правом только на отправку (Missing Permission) — не ошибка", async () => {
+    const f = reply(400, { error: { message: "(#100) Missing Permission", code: 100, type: "OAuthException" } });
+    await expect(checkCapi({ datasetId: "1", token: "t" }, f)).resolves.toEqual({ ok: true, name: null, writeOnly: true });
+  });
+  it("набор доступен — возвращаем название", async () => {
+    await expect(checkCapi({ datasetId: "1", token: "t" }, reply(200, { id: "1", name: "Orient Travel Leads" }))).resolves.toEqual({ ok: true, name: "Orient Travel Leads" });
+  });
+  it("недействительный маркер — ошибка", async () => {
+    const f = reply(400, { error: { message: "Invalid OAuth access token", code: 190, type: "OAuthException" } });
+    await expect(checkCapi({ datasetId: "1", token: "t" }, f)).rejects.toThrow(/Invalid OAuth/);
   });
 });

@@ -634,6 +634,8 @@ export const en: Messages = {
   msg: {
     capiOk: "Connected: dataset “{name}”.",
     capiSent: "Events sent: {n}.",
+    capiWriteOnlyOk: "Connected: Meta accepts events (sent: {n}).",
+    capiWriteOnlyWait: "Token saved. The connection is confirmed once the first event is sent — after a Meta form lead changes status.",
     deleted: "Deleted",
     integrationSaved: "Settings saved",
     integrationSavedToken: "Settings saved, token updated",
