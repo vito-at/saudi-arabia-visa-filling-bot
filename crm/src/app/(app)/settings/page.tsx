@@ -42,12 +42,12 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   return (
     <div className="max-w-5xl">
       <PageHeader title={t("settings.title")} />
-      <div className="no-scrollbar -mx-3 mb-5 flex gap-1 overflow-x-auto whitespace-nowrap border-b px-3 sm:mx-0 sm:px-0">
+      <div className="no-scrollbar -mx-3 mb-5 flex gap-1 overflow-x-auto overflow-y-hidden overscroll-x-contain whitespace-nowrap px-3 shadow-[inset_0_-1px_0_var(--border)] sm:mx-0 sm:px-0">
         {(Object.keys(TABS) as Tab[]).map((k) => (
           <Link
             key={k}
             href={`/settings?tab=${k}`}
-            className={cn("-mb-px border-b-2 px-3 py-2 text-sm", active === k ? "border-primary font-medium text-primary" : "border-transparent text-muted-foreground hover:text-foreground")}
+            className={cn("shrink-0 border-b-2 px-3 py-2 text-sm", active === k ? "border-primary font-medium text-primary" : "border-transparent text-muted-foreground hover:text-foreground")}
           >
             {t(TABS[k])}
           </Link>

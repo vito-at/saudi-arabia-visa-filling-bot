@@ -94,12 +94,12 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
         }
       />
       {tab === "profit" && <PendingCosts deals={pendingDeals} />}
-      <div className="no-scrollbar -mx-3 mb-4 flex gap-1 overflow-x-auto whitespace-nowrap border-b px-3 sm:mx-0 sm:px-0">
+      <div className="no-scrollbar -mx-3 mb-4 flex gap-1 overflow-x-auto overflow-y-hidden overscroll-x-contain whitespace-nowrap px-3 shadow-[inset_0_-1px_0_var(--border)] sm:mx-0 sm:px-0">
         {TABS.map((tb) => (
           <Link
             key={tb}
             href={tabHref(tb)}
-            className={cn("-mb-px border-b-2 px-3 py-2 text-sm", tab === tb ? "border-primary font-medium text-primary" : "border-transparent text-muted-foreground hover:text-foreground")}
+            className={cn("shrink-0 border-b-2 px-3 py-2 text-sm", tab === tb ? "border-primary font-medium text-primary" : "border-transparent text-muted-foreground hover:text-foreground")}
           >
             {t(TAB_LABEL[tb])}
           </Link>
