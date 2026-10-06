@@ -65,9 +65,9 @@ export function GeneralForm({ v }: { v: GeneralView }) {
       </Card>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="flex-wrap items-start gap-y-2">
           <CardTitle>{t("general.rateTitle")}</CardTitle>
-          <div className="text-right text-sm">
+          <div className="text-sm sm:text-right">
             <div className="font-semibold">
               {t("general.rateSale")}: 1 $ = {formatNumber(v.usdRate, 2)} {f.sum}
             </div>
@@ -121,7 +121,7 @@ export function GeneralForm({ v }: { v: GeneralView }) {
             </Field>
             <input type="hidden" name="usdRate" value={manualRate} />
             <input type="hidden" name="usdRateCost" value={manualCost} />
-            <div className="sm:col-span-2 flex gap-2">
+            <div className="sm:col-span-2 flex flex-wrap gap-2">
               <Button type="submit" disabled={pending}>
                 {t("common.save")}
               </Button>

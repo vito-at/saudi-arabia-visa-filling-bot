@@ -43,9 +43,9 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
           </>
         }
       />
-      <div className="no-scrollbar -mx-3 mb-4 flex gap-1 overflow-x-auto whitespace-nowrap border-b px-3 sm:mx-0 sm:px-0">
+      <div className="no-scrollbar -mx-3 mb-4 flex gap-1 overflow-x-auto overflow-y-hidden overscroll-x-contain whitespace-nowrap px-3 shadow-[inset_0_-1px_0_var(--border)] sm:mx-0 sm:px-0">
         {(Object.keys(REPORT_TABS) as ReportTab[]).filter((tb) => tb !== "dashboard").map((tb) => (
-          <Link key={tb} href={tabHref(tb)} className={cn("-mb-px border-b-2 px-3 py-2 text-sm", tab === tb ? "border-primary font-medium text-primary" : "border-transparent text-muted-foreground hover:text-foreground")}>
+          <Link key={tb} href={tabHref(tb)} className={cn("shrink-0 border-b-2 px-3 py-2 text-sm", tab === tb ? "border-primary font-medium text-primary" : "border-transparent text-muted-foreground hover:text-foreground")}>
             {t(REPORT_TABS[tb])}
           </Link>
         ))}
