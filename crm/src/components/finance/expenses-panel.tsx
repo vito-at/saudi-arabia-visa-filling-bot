@@ -81,7 +81,7 @@ export function ExpensesPanel({
     <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
       <div className="min-w-0 space-y-4">
         <form
-          className="grid grid-cols-2 gap-3 rounded-xl border bg-card p-4 sm:grid-cols-[150px_minmax(0,1fr)_140px_100px]"
+          className="grid grid-cols-2 gap-3 rounded-xl border bg-card p-4 sm:grid-cols-[150px_minmax(0,1fr)_140px_100px] [&>*]:min-w-0"
           onSubmit={(e) => {
             e.preventDefault();
             save();
@@ -141,19 +141,22 @@ export function ExpensesPanel({
           ) : (
             <ul className="divide-y">
               {rows.map((r) => (
-                <li key={r.id} className={"flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 text-sm" + (form.id === r.id ? " bg-accent" : "")}>
-                  <div className="w-24 shrink-0 text-muted-foreground">{formatDate(`${r.date}T12:00:00Z`)}</div>
-                  <div className="min-w-0 flex-1">
-                    <div className="font-medium">{r.category}</div>
-                    {(r.note || r.createdBy) && (
-                      <div className="truncate text-xs text-muted-foreground">{[r.note, r.createdBy && t("finance.addedBy", { name: r.createdBy })].filter(Boolean).join(" · ")}</div>
-                    )}
+                <li key={r.id} className={"flex items-center gap-2 px-4 py-3 text-sm sm:gap-4" + (form.id === r.id ? " bg-accent" : "")}>
+                  {/* статья и сумма — первая строка, дата и комментарий — вторая: на телефоне ничего не наезжает */}
+                  <div className="min-w-0 flex-1 space-y-0.5">
+                    {/* не помещается в строку — сумма целиком переезжает ниже, вправо */}
+                    <div className="flex flex-wrap items-baseline gap-x-3">
+                      <span className="min-w-0 font-medium">{r.category}</span>
+                      <span className="ml-auto whitespace-nowrap font-semibold tabular-nums">{f.money(r.amount, r.currency)}</span>
+                    </div>
+                    <div className="flex items-baseline justify-between gap-3 text-xs text-muted-foreground">
+                      <span className="min-w-0 truncate">
+                        {[formatDate(`${r.date}T12:00:00Z`), r.note, r.createdBy && t("finance.addedBy", { name: r.createdBy })].filter(Boolean).join(" · ")}
+                      </span>
+                      {r.currency !== currency && <span className="shrink-0 whitespace-nowrap tabular-nums">≈ {f.money(r.converted, currency)}</span>}
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <div className="font-semibold tabular-nums">{f.money(r.amount, r.currency)}</div>
-                    {r.currency !== currency && <div className="text-xs text-muted-foreground tabular-nums">≈ {f.money(r.converted, currency)}</div>}
-                  </div>
-                  <div className="flex gap-1">
+                  <div className="flex shrink-0 gap-0.5">
                     <Button
                       size="icon-sm"
                       variant="ghost"
