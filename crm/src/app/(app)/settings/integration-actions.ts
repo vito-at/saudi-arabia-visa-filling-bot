@@ -141,9 +141,9 @@ export async function checkCapiAction() {
     const i = await getIntegration();
     const token = decrypt(i.capiTokenEnc);
     if (!i.capiDatasetId || !token) throw new ValidationError("err.capiSetup");
-    let name: string;
+    let check: Awaited<ReturnType<typeof checkCapi>>;
     try {
-      name = await checkCapi({ datasetId: i.capiDatasetId, token });
+      check = await checkCapi({ datasetId: i.capiDatasetId, token });
     } catch (e) {
       const error = e instanceof Error ? e.message : String(e);
       await prisma.metaIntegration.update({ where: { id: 1 }, data: { capiLastError: error.slice(0, 500) } });
@@ -151,8 +151,16 @@ export async function checkCapiAction() {
       throw new ValidationError("err.capiCheck", { error });
     }
     const r = await sendPendingConversions();
+    const sentTotal = await prisma.conversionEvent.count({ where: { status: "SENT" } });
+    // проверка прошла — старую ошибку проверки больше не показываем
+    if (!r.failed) await prisma.metaIntegration.update({ where: { id: 1 }, data: { capiLastError: null } });
     revalidateAll();
     const { t } = await getI18n();
+    if (check.name === null) {
+      if (r.failed) throw new ValidationError("err.capiCheck", { error: (await getIntegration()).capiLastError ?? "" });
+      return sentTotal ? t("msg.capiWriteOnlyOk", { n: sentTotal }) : t("msg.capiWriteOnlyWait");
+    }
+    const name = check.name;
     return t("msg.capiOk", { name }) + (r.sent ? ` ${t("msg.capiSent", { n: r.sent })}` : "");
   });
 }

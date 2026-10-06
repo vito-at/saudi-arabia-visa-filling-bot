@@ -634,6 +634,8 @@ export const uz: Messages = {
   msg: {
     capiOk: "Ulandi: «{name}» ma’lumotlar to‘plami.",
     capiSent: "Yuborilgan hodisalar: {n}.",
+    capiWriteOnlyOk: "Ulandi: Meta hodisalarni qabul qilmoqda (yuborildi: {n}).",
+    capiWriteOnlyWait: "Token saqlandi. Ulanish birinchi hodisa yuborilganda tasdiqlanadi — Meta formasidan kelgan lid statusi o‘zgargach.",
     deleted: "O‘chirildi",
     integrationSaved: "Sozlamalar saqlandi",
     integrationSavedToken: "Sozlamalar saqlandi, token yangilandi",

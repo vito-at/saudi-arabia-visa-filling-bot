@@ -139,8 +139,21 @@ export async function sendPendingConversions(fetchFn?: FetchFn): Promise<{ sent:
   return { sent, failed };
 }
 
-/** Проверка набора данных и маркера: Meta отдаёт название набора, если доступ есть */
-export async function checkCapi(cfg: { datasetId: string; token: string }, fetchFn?: FetchFn): Promise<string> {
-  const r = await new GraphClient(cfg.token, fetchFn).get<{ id: string; name?: string }>(cfg.datasetId, { fields: "id,name" });
-  return r.name || r.id;
+/**
+ * Проверка набора данных и маркера. Маркер Conversions API из Events Manager умеет только отправлять события —
+ * прочитать набор он не может (Meta отвечает «Missing Permission»). Поэтому ответ «нет прав на чтение» — не ошибка:
+ * тогда о подключении говорят уже отправленные события. Ошибкой считаем только недействительный маркер или чужой набор.
+ */
+export type CapiCheck = { ok: true; name: string } | { ok: true; name: null; writeOnly: true };
+
+export async function checkCapi(cfg: { datasetId: string; token: string }, fetchFn?: FetchFn): Promise<CapiCheck> {
+  try {
+    const r = await new GraphClient(cfg.token, fetchFn).get<{ id: string; name?: string }>(cfg.datasetId, { fields: "id,name" });
+    return { ok: true, name: r.name || r.id };
+  } catch (e) {
+    if (e instanceof GraphError && !e.isTokenError && (e.code === 100 || e.isPermissionError) && /permission/i.test(e.message)) {
+      return { ok: true, name: null, writeOnly: true };
+    }
+    throw e;
+  }
 }
