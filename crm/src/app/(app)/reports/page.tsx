@@ -11,6 +11,7 @@ import { readFilters } from "@/lib/reports/data";
 import { AD_LEVELS, adsTable, clientsTable, funnelTable, lossesTables, managersTable, REPORT_TABS, servicesTables, type ReportTab } from "@/lib/reports/tables";
 import type { AdLevel } from "@/lib/reports/calc";
 import { visasTable } from "@/lib/reports/visas";
+import { productsByManagerTable } from "@/lib/reports/products";
 import { sp, type SearchParams } from "@/lib/leads/query";
 import { requireUser } from "@/lib/session";
 import { cn } from "@/lib/utils";
@@ -197,7 +198,7 @@ async function AdsReport({ f, level, tabHref }: { f: F; level: AdLevel; tabHref:
 }
 
 async function ManagersReport({ f }: { f: F }) {
-  const { table, rows } = await managersTable(f);
+  const [{ table, rows }, products] = await Promise.all([managersTable(f), productsByManagerTable(f)]);
   return (
     <div className="space-y-5">
       <Card>
@@ -206,6 +207,13 @@ async function ManagersReport({ f }: { f: F }) {
         </CardHeader>
         <ReportTable table={table} currency={f.currency} />
         <p className="px-5 py-3 text-xs text-muted-foreground">{table.note}</p>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>{products.title}</CardTitle>
+        </CardHeader>
+        <ReportTable table={products} currency={f.currency} />
+        <p className="px-5 py-3 text-xs text-muted-foreground">{products.note}</p>
       </Card>
       {rows.length > 1 && (
         <Card>
