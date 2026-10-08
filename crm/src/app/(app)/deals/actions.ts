@@ -25,6 +25,8 @@ export interface DealInput {
   /** для визы: страна и количество заявлений — записываются в лид, если там ещё не указаны */
   destination?: string | null;
   visaApplications?: number | null;
+  /** количество продаж в сделке; учитывается только от администратора */
+  quantity?: string | number;
 }
 
 const isCurrency = (c: unknown): c is Currency => c === "UZS" || c === "USD";
@@ -46,7 +48,16 @@ function parseDeal(input: DealInput) {
   if (!paidAt) throw new ValidationError("err.paidAt");
   const product = input.product.trim();
   if (!product) throw new ValidationError("err.product");
-  return { amount, cost, currency: input.currency, costCurrency, paidAt, product };
+  const quantity = parseQuantity(input.quantity);
+  return { amount, cost, currency: input.currency, costCurrency, paidAt, product, quantity };
+}
+
+/** Количество продаж: целое 1–500, пусто — 1 */
+function parseQuantity(v: string | number | null | undefined): number {
+  if (v === undefined || v === null || String(v).trim() === "") return 1;
+  const n = Number(String(v).trim());
+  if (!Number.isInteger(n) || n < 1 || n > 500) throw new ValidationError("err.quantity");
+  return n;
 }
 
 function revalidate(leadId: string, clientId: string) {
@@ -64,8 +75,10 @@ export async function createDealAction(leadId: string, input: DealInput, wonStat
     // тип услуги лида берём из продукта сделки, если он ещё не указан, — по нему считается прибыль по продуктам
     const serviceType = lead.serviceType ?? service;
     const costConfirmed = dealClosesWithoutCost(serviceType) || service === "VISA";
-    // при закрытии указывается только сумма продажи; себестоимость потом вносит администратор
-    const d = parseDeal({ ...input, cost: "0", costCurrency: input.currency });
+    // при закрытии указывается только сумма продажи; себестоимость потом вносит администратор.
+    // Количество продаж меняет только администратор; у менеджера — число заявлений для визы, иначе 1
+    const quantity = user.role === "ADMIN" ? input.quantity : serviceType === "VISA" && input.visaApplications ? input.visaApplications : 1;
+    const d = parseDeal({ ...input, cost: "0", costCurrency: input.currency, quantity });
     await prisma.$transaction(async (tx) => {
       const deal = await tx.deal.create({ data: { ...d, costConfirmed, leadId, clientId: lead.clientId, managerId: lead.managerId ?? user.id } });
       const leadPatch = {

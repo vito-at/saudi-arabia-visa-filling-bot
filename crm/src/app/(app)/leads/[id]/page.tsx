@@ -289,6 +289,7 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
                 deals={lead.deals.map((d) => ({
                   id: d.id,
                   product: d.product,
+                  quantity: d.quantity,
                   amount: toNum(d.amount),
                   cost: toNum(d.cost),
                   currency: d.currency,

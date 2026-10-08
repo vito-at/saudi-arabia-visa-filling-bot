@@ -41,9 +41,8 @@ export function DealDialog({ open, onOpenChange, leadId, wonStatusId, rate, deal
   const [pending, start] = useTransition();
   // продукт: тип услуги из списка + необязательные подробности; новая сделка заполняется данными лида
   const labels = Object.fromEntries(SERVICE_TYPES.map((s) => [s, serviceLabel(t, s)])) as Record<ServiceType, string>;
-  const day = (d: string) => (d ? formatDate(`${d}T00:00:00+05:00`) : "");
   const tripText = (l: LeadPrefill) =>
-    joinDetails([l.destination, l.travelFrom || l.travelTo ? `${day(l.travelFrom) || "…"} — ${day(l.travelTo) || "…"}` : null, l.travelers ? t("deal.people", { n: l.travelers }) : null]);
+    joinDetails([l.destination, l.travelers ? t("deal.people", { n: l.travelers }) : null]);
   const [product, setProduct] = useState(() =>
     deal ? splitProduct(deal.product, labels) : { service: (lead?.serviceType ?? "") as ServiceType | "", details: lead && lead.serviceType !== "VISA" ? tripText(lead) : "" },
   );
@@ -53,6 +52,9 @@ export function DealDialog({ open, onOpenChange, leadId, wonStatusId, rate, deal
   const [country, setCountry] = useState(knownCountry ?? (lead?.destination ? OTHER_COUNTRY : ""));
   const [otherCountry, setOtherCountry] = useState(knownCountry ? "" : (lead?.destination ?? ""));
   const [applications, setApplications] = useState(lead?.visaApplications ? String(lead.visaApplications) : "");
+  // количество продаж (виза на 6 человек — 6) меняет только администратор; пока его не трогали, у визы оно равно числу заявлений
+  const [quantity, setQuantity] = useState(deal?.quantity ? String(deal.quantity) : "");
+  const quantityValue = quantity || (visaMode && applications ? applications : "1");
   const prefilled = !deal && !!lead && (!!lead.serviceType || !!lead.destination);
   // менеджер указывает только сумму продажи — себестоимость вносит администратор
   const isAdmin = useIsAdmin();
@@ -89,6 +91,7 @@ export function DealDialog({ open, onOpenChange, leadId, wonStatusId, rate, deal
         const details = joinDetails([known ? (known[locale] ?? known.ru) : destination, n ? t("deal.applicationsShort", { n }) : null]);
         input = { ...input, product: composeProduct(labels.VISA, details), destination: destination || null, visaApplications: n };
       }
+      if (isAdmin) input = { ...input, quantity: quantityValue };
       const res = deal ? await updateDealAction(deal.id, input) : await createDealAction(leadId, input, wonStatusId);
       if (!res.ok) return void toast.error(res.error);
       toast.success(deal ? t("deal.updated") : wonStatusId ? t("deal.savedWon") : t("deal.added"));
@@ -141,6 +144,11 @@ export function DealDialog({ open, onOpenChange, leadId, wonStatusId, rate, deal
             </Field>
           )}
           {prefilled && <p className="-mt-2 text-xs text-muted-foreground sm:col-span-2">{t("deal.prefillHint")}</p>}
+          {isAdmin && (
+            <Field label={t("deal.quantity")} hint={t("deal.quantityHint")} className="sm:col-span-2">
+              <Input name="quantity" type="number" min={1} max={500} value={quantityValue} onChange={(e) => setQuantity(e.target.value)} />
+            </Field>
+          )}
           <Field label={t("deal.amount")}>
             <Input value={form.amount} onChange={set("amount")} inputMode="decimal" required />
           </Field>

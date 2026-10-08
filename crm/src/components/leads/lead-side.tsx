@@ -61,6 +61,8 @@ export function TakeButton({ leadId }: { leadId: string }) {
 export interface DealItem {
   id: string;
   product: string;
+  /** количество продаж в сделке */
+  quantity: number;
   amount: number;
   cost: number;
   currency: "UZS" | "USD";
@@ -83,7 +85,10 @@ export function DealsPanel({ leadId, deals, rate, canManage, lead }: { leadId: s
         return (
           <div key={d.id} className="group rounded-lg border p-3 text-sm">
             <div className="flex items-start gap-2">
-              <div className="flex-1 font-medium">{d.product}</div>
+              <div className="flex-1 font-medium">
+                {d.product}
+                {d.quantity > 1 && <span className="ml-1.5 rounded bg-muted px-1.5 py-0.5 text-xs font-normal text-muted-foreground tabular-nums">× {d.quantity}</span>}
+              </div>
               {canManage && (
                 <button className="text-muted-foreground cursor-pointer sm:opacity-0 sm:group-hover:opacity-100" title={t("common.edit")} onClick={() => setEditing(d)}>
                   <Pencil className="size-3.5" />
@@ -144,7 +149,7 @@ export function DealsPanel({ leadId, deals, rate, canManage, lead }: { leadId: s
           deal={
             editing === "new"
               ? undefined
-              : { id: editing.id, amount: String(editing.amount), cost: String(editing.cost), currency: editing.currency, costCurrency: editing.costCurrency, paidAt: toInputDate(editing.paidAt), product: editing.product }
+              : { id: editing.id, amount: String(editing.amount), cost: String(editing.cost), currency: editing.currency, costCurrency: editing.costCurrency, paidAt: toInputDate(editing.paidAt), product: editing.product, quantity: editing.quantity }
           }
         />
       )}

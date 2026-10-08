@@ -32,3 +32,12 @@ describe("продажи по продуктам у менеджеров", () =>
     expect(rows.map((r) => r.id)).toEqual(["m1", "m2", null]);
   });
 });
+
+describe("количество в сделке", () => {
+  it("виза на 6 человек считается как 6 продаж", () => {
+    const [row] = productsByManager([{ ...deal("m1", "VISA", 600), quantity: 6 }, deal("m1", "TOUR", 100)], m);
+    expect(row.counts).toMatchObject({ VISA: 6, TOUR: 1 });
+    expect(row.sales).toBe(7);
+    expect(row.revenue).toBe(700); // выручка — по сумме сделки, не умножается
+  });
+});

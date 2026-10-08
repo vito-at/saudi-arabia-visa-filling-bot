@@ -54,12 +54,6 @@ export function NewLeadDialog({ managers, isAdmin, roundRobin }: { managers: { i
             </NativeSelect>
           </Field>
           <ServiceDestinationFields placeholder={t("newLead.destinationPh")} />
-          <Field label={t("lead.field.travelFrom")}>
-            <Input name="travelFrom" type="date" />
-          </Field>
-          <Field label={t("lead.field.travelTo")}>
-            <Input name="travelTo" type="date" />
-          </Field>
           <Field label={t("newLead.owner")}>
             <NativeSelect name="managerId" defaultValue={isAdmin ? (roundRobin ? "auto" : "none") : "me"}>
               {isAdmin ? (

@@ -1,6 +1,7 @@
 /**
  * «Продажи по продуктам»: сколько и каких продуктов продал каждый менеджер за период.
  * Продукт — тип услуги лида (его же заполняет выбор продукта в окне сделки); сделка относится к менеджеру сделки.
+ * Продажи считаются по количеству в сделке: виза на 6 человек — 6 продаж.
  */
 import type { ServiceType } from "@prisma/client";
 import { prisma } from "@/lib/db";
@@ -17,6 +18,8 @@ export const PRODUCT_KEYS: ProductKey[] = [...SERVICE_TYPES, "none"];
 
 export interface ProductDeal extends RDeal {
   serviceType: ServiceType | null;
+  /** количество продаж в сделке (виза на 6 человек — 6); по умолчанию 1 */
+  quantity?: number;
 }
 
 export interface ManagerProducts {
@@ -34,8 +37,9 @@ export function productsByManager(deals: ProductDeal[], m: Money): ManagerProduc
   const map = new Map<string | null, ManagerProducts>();
   for (const d of deals) {
     const row = map.get(d.managerId) ?? { id: d.managerId, counts: emptyCounts(), sales: 0, revenue: 0, profit: 0 };
-    row.counts[d.serviceType ?? "none"] += 1;
-    row.sales += 1;
+    const q = d.quantity ?? 1;
+    row.counts[d.serviceType ?? "none"] += q;
+    row.sales += q;
     row.revenue = round2(row.revenue + dealRevenue(d, m));
     row.profit = round2(row.profit + dealProfit(d, m));
     map.set(d.managerId, row);
@@ -48,7 +52,7 @@ export async function productsByManagerTable(f: ReportFilters): Promise<Table> {
   const [rows, users] = await Promise.all([
     prisma.deal.findMany({
       where: { paidAt: { gte: f.period.from, lt: f.period.to }, ...(f.managerId ? { managerId: f.managerId === "none" ? null : f.managerId } : {}) },
-      select: { amount: true, cost: true, currency: true, costCurrency: true, paidAt: true, managerId: true, lead: { select: { serviceType: true } } },
+      select: { amount: true, cost: true, currency: true, costCurrency: true, paidAt: true, managerId: true, quantity: true, lead: { select: { serviceType: true } } },
     }),
     getManagers(),
   ]);

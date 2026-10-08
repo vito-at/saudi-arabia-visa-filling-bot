@@ -100,8 +100,9 @@ export async function updateLeadAction(leadId: string, formData: FormData) {
     await getLeadForUser(user, leadId);
     const name = str(formData.get("name"));
     if (!name) throw new ValidationError("err.name");
-    const travelFrom = parseInputDate(str(formData.get("travelFrom")));
-    const travelTo = parseInputDate(str(formData.get("travelTo")));
+    // полей дат поездки в форме больше нет — уже сохранённые даты не трогаем
+    const travelFrom = formData.has("travelFrom") ? parseInputDate(str(formData.get("travelFrom"))) : undefined;
+    const travelTo = formData.has("travelTo") ? parseInputDate(str(formData.get("travelTo"))) : undefined;
     if (travelFrom && travelTo && travelTo < travelFrom) throw new ValidationError("err.travelDates");
     await updateLeadFields(
       leadId,

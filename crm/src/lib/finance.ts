@@ -9,6 +9,8 @@ import { dateColumnKey, ratesOn, resolveRates, type RateBook } from "@/lib/rate-
 export interface FinanceDeal {
   id: string;
   product: string;
+  /** количество продаж в сделке */
+  quantity: number;
   amount: number;
   cost: number;
   currency: Currency;
@@ -55,6 +57,7 @@ export function groupDealsByLead(
   deals: Array<{
     id: string;
     product: string;
+    quantity?: number;
     amount: number;
     cost: number;
     currency: Currency;
@@ -102,6 +105,7 @@ export function groupDealsByLead(
     row.deals.push({
       id: d.id,
       product: d.product,
+      quantity: d.quantity ?? 1,
       amount: d.amount,
       cost: d.cost,
       currency: d.currency,
@@ -183,6 +187,7 @@ export async function loadFinanceLeads(f: ReportFilters): Promise<FinanceLead[]>
     select: {
       id: true,
       product: true,
+      quantity: true,
       amount: true,
       cost: true,
       currency: true,
