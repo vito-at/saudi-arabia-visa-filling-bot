@@ -9,7 +9,6 @@ import { Field, Input, NativeSelect } from "@/components/ui/input";
 import { Empty } from "@/components/ui/empty";
 import { MoneyPie } from "@/components/reports/charts";
 import { formatDate, toInputDate } from "@/lib/format";
-import { cn } from "@/lib/utils";
 import { useI18n } from "@/i18n/client";
 import { deleteExpenseAction, saveExpenseAction, type ExpenseInput } from "@/app/(app)/finance/actions";
 import type { ExpenseRow } from "@/lib/finance";

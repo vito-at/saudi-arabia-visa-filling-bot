@@ -218,6 +218,7 @@ export const en: Messages = {
     justAsking: "Just asking",
     noAnswer: "Unreachable / not answering",
     noSeats: "No seats available",
+    notApplied: "Didn’t submit a request",
     other: "Other",
     postponed: "Changed mind / postponed the trip",
     spam: "Low-quality lead / spam",
