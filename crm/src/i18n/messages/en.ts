@@ -857,6 +857,11 @@ export const en: Messages = {
       response: "First response (avg.)",
       title: "Managers",
     },
+    products: {
+      note: "Deals paid in the period. Product is the lead’s service type.",
+      title: "Sales by product",
+      total: "Total sales",
+    },
     services: {
       destTitle: "Destinations",
       destination: "Destination",

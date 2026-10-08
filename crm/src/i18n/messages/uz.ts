@@ -857,6 +857,11 @@ export const uz: Messages = {
       response: "Birinchi javob (o‘rt.)",
       title: "Menejerlar",
     },
+    products: {
+      note: "Davrda to‘langan bitimlar. Mahsulot — lidning xizmat turi.",
+      title: "Mahsulotlar bo‘yicha sotuvlar",
+      total: "Jami sotuvlar",
+    },
     services: {
       destTitle: "Yo‘nalishlar",
       destination: "Yo‘nalish",
