@@ -25,6 +25,7 @@ const DEFAULT_REASON_KEYS: Record<string, TKey> = {
   "Купил у конкурентов": "defaultReason.competitor",
   "Передумал / отложил поездку": "defaultReason.postponed",
   "Не дозвонились / не отвечает": "defaultReason.noAnswer",
+  "Не оставлял заявку": "defaultReason.notApplied",
   "Не устроили даты": "defaultReason.dates",
   "Нет мест": "defaultReason.noSeats",
   "Отказ в визе": "defaultReason.visaDenied",

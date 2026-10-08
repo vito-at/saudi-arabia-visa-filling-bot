@@ -218,6 +218,7 @@ export const uz: Messages = {
     justAsking: "Shunchaki qiziqdi",
     noAnswer: "Bog‘lanib bo‘lmadi / javob bermayapti",
     noSeats: "Joy yo‘q",
+    notApplied: "Ariza qoldirmagan",
     other: "Boshqa",
     postponed: "Fikridan qaytdi / safarni kechiktirdi",
     spam: "Sifatsiz lid / spam",
