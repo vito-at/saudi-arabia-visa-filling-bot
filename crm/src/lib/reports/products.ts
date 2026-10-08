@@ -6,15 +6,14 @@
 import type { ServiceType } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { round2, toNum } from "@/lib/money";
-import { SERVICE_TYPES } from "@/lib/constants";
 import { serviceLabel } from "@/i18n/labels";
 import { getManagers } from "@/lib/refs";
 import { dealProfit, dealRevenue, type Money, type RDeal } from "./calc";
 import { money, type ReportFilters } from "./data";
 import type { Column, Table } from "./tables";
 
-export type ProductKey = ServiceType | "none";
-export const PRODUCT_KEYS: ProductKey[] = [...SERVICE_TYPES, "none"];
+import { PRODUCT_KEYS, type ProductKey } from "./products-keys";
+export { PRODUCT_KEYS, type ProductKey };
 
 export interface ProductDeal extends RDeal {
   serviceType: ServiceType | null;
@@ -75,6 +74,8 @@ export async function productsByManagerTable(f: ReportFilters): Promise<Table> {
     note: t("rt.products.note"),
     columns,
     rows: data.map((r) => ({
+      // id менеджера (не колонка) — чтобы администратор мог открыть сделки ячейки
+      mid: r.id ?? "none",
       name: r.id ? names.get(r.id) ?? "—" : t("rt.losses.unassigned"),
       ...Object.fromEntries(keys.map((k) => [k, r.counts[k]])),
       sales: r.sales,

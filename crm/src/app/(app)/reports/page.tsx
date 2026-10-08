@@ -12,6 +12,7 @@ import { AD_LEVELS, adsTable, clientsTable, funnelTable, lossesTables, managersT
 import type { AdLevel } from "@/lib/reports/calc";
 import { visasTable } from "@/lib/reports/visas";
 import { productsByManagerTable } from "@/lib/reports/products";
+import { ProductSalesTable } from "@/components/reports/product-sales-table";
 import { sp, type SearchParams } from "@/lib/leads/query";
 import { requireUser } from "@/lib/session";
 import { cn } from "@/lib/utils";
@@ -61,7 +62,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
       {tab === "funnel" && <FunnelReport f={f} />}
       {tab === "losses" && <LossesReport f={f} isAdmin={isAdmin} />}
       {tab === "ads" && <AdsReport f={f} level={level} tabHref={tabHref("ads")} />}
-      {tab === "managers" && <ManagersReport f={f} />}
+      {tab === "managers" && <ManagersReport f={f} isAdmin={isAdmin} />}
       {tab === "services" && <ServicesReport f={f} />}
       {tab === "visas" && <VisasReport f={f} />}
     </div>
@@ -197,7 +198,7 @@ async function AdsReport({ f, level, tabHref }: { f: F; level: AdLevel; tabHref:
   );
 }
 
-async function ManagersReport({ f }: { f: F }) {
+async function ManagersReport({ f, isAdmin }: { f: F; isAdmin: boolean }) {
   const [{ table, rows }, products] = await Promise.all([managersTable(f), productsByManagerTable(f)]);
   return (
     <div className="space-y-5">
@@ -212,7 +213,7 @@ async function ManagersReport({ f }: { f: F }) {
         <CardHeader>
           <CardTitle>{products.title}</CardTitle>
         </CardHeader>
-        <ReportTable table={products} currency={f.currency} />
+        <ProductSalesTable table={products} currency={f.currency} editable={isAdmin} period={{ from: f.period.from.toISOString(), to: f.period.to.toISOString() }} />
         <p className="px-5 py-3 text-xs text-muted-foreground">{products.note}</p>
       </Card>
       {rows.length > 1 && (
