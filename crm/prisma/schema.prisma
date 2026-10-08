@@ -245,6 +245,8 @@ model Deal {
   costCurrency  Currency
   paidAt        DateTime
   product       String
+  /// Количество продаж в сделке (для визы — число заявлений); меняет только администратор
+  quantity      Int      @default(1)
   /// false — сделку закрыл менеджер, себестоимость ещё не указал администратор
   costConfirmed Boolean  @default(true)
   createdAt     DateTime @default(now())

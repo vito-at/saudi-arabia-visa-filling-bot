@@ -217,6 +217,7 @@ export function FinanceLeads({ leads, currency, rate }: { leads: FinanceLead[]; 
             costCurrency: editing.deal.costCurrency,
             paidAt: toInputDate(new Date(editing.deal.paidAt)),
             product: editing.deal.product,
+            quantity: editing.deal.quantity,
           }}
         />
       )}

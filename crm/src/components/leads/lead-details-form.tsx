@@ -52,9 +52,6 @@ export function LeadDetailsForm({ lead }: { lead: LeadDetails }) {
         <Row label={t("lead.field.service")}>{lead.serviceType ? serviceLabel(t, lead.serviceType) : null}</Row>
         <Row label={lead.serviceType === "VISA" ? t("lead.visaCountry") : t("lead.field.destination")}>{lead.destination}</Row>
         {lead.serviceType === "VISA" && <Row label={t("lead.field.visaApplications")}>{lead.visaApplications}</Row>}
-        <Row label={t("lead.field.dates")}>
-          {lead.travelFrom || lead.travelTo ? `${lead.travelFrom ? formatDate(`${lead.travelFrom}T00:00:00+05:00`) : "…"} — ${lead.travelTo ? formatDate(`${lead.travelTo}T00:00:00+05:00`) : "…"}` : null}
-        </Row>
         {lead.serviceType !== "VISA" && <Row label={t("lead.field.travelers")}>{lead.travelers}</Row>}
       </div>
     );
@@ -79,12 +76,6 @@ export function LeadDetailsForm({ lead }: { lead: LeadDetails }) {
         <Input name="phone" defaultValue={lead.phone ?? lead.phoneRaw ?? ""} />
       </Field>
       <ServiceDestinationFields service={lead.serviceType} destination={lead.destination} applications={lead.visaApplications} travelers={lead.travelers} />
-      <Field label={t("lead.field.travelFrom")}>
-        <Input name="travelFrom" type="date" defaultValue={lead.travelFrom} />
-      </Field>
-      <Field label={t("lead.field.travelTo")}>
-        <Input name="travelTo" type="date" defaultValue={lead.travelTo} />
-      </Field>
       <div className="sm:col-span-2 flex justify-end gap-2">
         <Button type="button" variant="outline" onClick={() => setEdit(false)}>
           {t("common.cancel")}
