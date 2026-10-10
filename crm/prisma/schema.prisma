@@ -75,6 +75,7 @@ model User {
 
   leads        Lead[]        @relation("LeadManager")
   deals        Deal[]
+  dealPayments DealPayment[]
   comments     Comment[]
   history      LeadHistory[]
   tasks        Task[]        @relation("TaskAssignee")
@@ -249,15 +250,38 @@ model Deal {
   quantity      Int      @default(1)
   /// false — сделку закрыл менеджер, себестоимость ещё не указал администратор
   costConfirmed Boolean  @default(true)
+  /// Сколько клиент уже заплатил (в валюте продажи); меньше суммы продажи — клиент в списке должников
+  paidAmount    Decimal  @default(0) @db.Decimal(18, 2)
+  /// До какого числа клиент обещал доплатить
+  dueAt         DateTime?
+  /// Заметка по долгу: о чём договорились с клиентом
+  debtNote      String?
   createdAt     DateTime @default(now())
 
-  lead    Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
-  client  Client @relation(fields: [clientId], references: [id])
-  manager User?  @relation(fields: [managerId], references: [id])
+  lead     Lead          @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  client   Client        @relation(fields: [clientId], references: [id])
+  manager  User?         @relation(fields: [managerId], references: [id])
+  payments DealPayment[]
 
   @@index([paidAt])
   @@index([clientId])
   @@index([costConfirmed])
+}
+
+/// Оплата по сделке (предоплата при закрытии и доплаты долга), в валюте сделки
+model DealPayment {
+  id        String   @id @default(cuid())
+  dealId    String
+  amount    Decimal  @db.Decimal(18, 2)
+  paidAt    DateTime
+  note      String?
+  userId    String?
+  createdAt DateTime @default(now())
+
+  deal Deal  @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([dealId])
 }
 
 model MetaIntegration {

@@ -69,6 +69,8 @@ export function DealDialog({ open, onOpenChange, leadId, wonStatusId, rate, deal
   const costCurrency = form.costCurrency ?? form.currency;
 
   const amountNum = parse(form.amount);
+  // предоплата: если клиент заплатил не всё, остаток попадает в «Должники»
+  const partial = !deal && (form.paid ?? "").trim() !== "" && parse(form.paid ?? "") < amountNum;
   const costNum = parse(form.cost);
   const canConvert = rates.sale > 0 && rates.cost > 0;
   const mixed = costCurrency !== form.currency;
@@ -164,6 +166,16 @@ export function DealDialog({ open, onOpenChange, leadId, wonStatusId, rate, deal
               <option value="UZS">{t("currency.UZS")}</option>
             </NativeSelect>
           </Field>
+          {!deal && (
+            <Field label={t("deal.paidNow")} hint={t("deal.paidNowHint")} className={partial ? undefined : "sm:col-span-2"}>
+              <Input value={form.paid ?? ""} onChange={set("paid")} inputMode="decimal" placeholder={form.amount || undefined} />
+            </Field>
+          )}
+          {partial && (
+            <Field label={t("deal.dueAt")} hint={t("deal.debtLeft", { left: f.money(Math.max(0, amountNum - parse(form.paid ?? "")), form.currency) })}>
+              <Input type="date" value={form.dueAt ?? ""} onChange={set("dueAt")} />
+            </Field>
+          )}
           {showCost && (
             <>
               <Field label={t("deal.cost")} hint={t("deal.costHint")}>

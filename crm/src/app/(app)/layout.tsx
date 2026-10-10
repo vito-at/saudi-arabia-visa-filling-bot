@@ -16,13 +16,21 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const user = await requireUser();
   const { t } = await getI18n();
 
-  const [newLeads, tasks, meta, settings, pendingCosts] = await Promise.all([
+  const [newLeads, tasks, meta, settings, pendingCosts, overdueDebts] = await Promise.all([
     prisma.lead.count({ where: { ...leadScope(user), status: { kind: "NEW" } } }),
     prisma.task.count({ where: { assigneeId: user.id, doneAt: null, dueAt: { lt: endOfDayTashkent() } } }),
     prisma.metaIntegration.findUnique({ where: { id: 1 } }),
     prisma.appSettings.findUnique({ where: { id: 1 } }),
     // сделки, закрытые менеджерами без себестоимости, — счётчик у «Финансов» для администратора
     user.role === "ADMIN" ? prisma.deal.count({ where: { costConfirmed: false } }) : Promise.resolve(0),
+    // долги с прошедшим сроком оплаты — счётчик у «Должников»
+    prisma.deal.count({
+      where: {
+        paidAmount: { lt: prisma.deal.fields.amount },
+        dueAt: { lt: startOfDayTashkent() },
+        ...(user.role === "ADMIN" ? {} : { OR: [{ managerId: user.id }, { lead: { managerId: user.id } }] }),
+      },
+    }),
   ]);
   const rateStale = settings?.usdRateSource === "IPAK_YULI" && isRateStale(settings.usdRateUpdatedAt) && !!settings.usdRateError;
 
@@ -38,7 +46,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <div className="min-h-screen">
       <Sidebar
         user={user}
-        counters={{ leads: newLeads, tasks, finance: pendingCosts }}
+        counters={{ leads: newLeads, tasks, finance: pendingCosts, debtors: overdueDebts }}
         rate={{ value: Number(settings?.usdRateCost ?? 0), updatedAt: settings?.usdRateUpdatedAt?.toISOString() ?? null }}
         logout={logout}
       />
@@ -87,8 +95,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   );
 }
 
+function startOfDayTashkent() {
+  const d = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Tashkent" }).format(new Date());
+  return new Date(`${d}T00:00:00+05:00`);
+}
+
 function endOfDayTashkent() {
-  const now = new Date();
-  const d = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Tashkent" }).format(now);
-  return new Date(new Date(`${d}T00:00:00+05:00`).getTime() + 24 * 60 * 60 * 1000);
+  return new Date(startOfDayTashkent().getTime() + 24 * 60 * 60 * 1000);
 }
