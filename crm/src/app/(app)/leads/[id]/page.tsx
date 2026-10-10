@@ -41,7 +41,10 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
       comments: { include: { author: { select: { name: true } } }, orderBy: { createdAt: "desc" } },
       history: { include: { user: { select: { name: true } } }, orderBy: { createdAt: "desc" } },
       tasks: { include: { assignee: { select: { name: true } } }, orderBy: [{ doneAt: { sort: "asc", nulls: "first" } }, { dueAt: "asc" }] },
-      deals: { include: { manager: { select: { name: true } } }, orderBy: { paidAt: "desc" } },
+      deals: {
+        include: { manager: { select: { name: true } }, payments: { include: { user: { select: { name: true } } }, orderBy: { paidAt: "asc" } } },
+        orderBy: { paidAt: "desc" },
+      },
       conversions: { orderBy: { eventTime: "asc" } },
     },
   });
@@ -283,6 +286,7 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
             <CardContent>
               <DealsPanel
                 leadId={lead.id}
+                leadName={lead.name}
                 rate={rate}
                 lead={prefill}
                 canManage={isAdmin}
@@ -298,6 +302,10 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
                   paidAt: d.paidAt.toISOString(),
                   manager: d.manager?.name ?? null,
                   costConfirmed: d.costConfirmed,
+                  paidAmount: toNum(d.paidAmount),
+                  dueAt: d.dueAt?.toISOString() ?? null,
+                  debtNote: d.debtNote,
+                  payments: d.payments.map((p) => ({ id: p.id, amount: toNum(p.amount), paidAt: p.paidAt.toISOString(), note: p.note, user: p.user?.name ?? null })),
                 }))}
               />
             </CardContent>

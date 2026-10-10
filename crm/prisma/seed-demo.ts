@@ -198,6 +198,9 @@ export async function seedDemo(prisma: PrismaClient, count = 100) {
         const inUsd = !("uzs" in camp);
         const amount = inUsd ? Math.round(between(camp.usd![0], camp.usd![1]) * travelers / 10) * 10 : Math.round(between(camp.uzs![0], camp.uzs![1]) * travelers / 10000) * 10000;
         const cost = Math.round(amount * between(0.78, 0.9) / (inUsd ? 10 : 10000)) * (inUsd ? 10 : 10000);
+        // примерно каждая восьмая продажа — с предоплатой: остаток клиент ещё должен (список «Должники»)
+        const debt = r() < 0.12;
+        const paidAmount = debt ? Math.round((amount * between(0.3, 0.7)) / (inUsd ? 10 : 10000)) * (inUsd ? 10 : 10000) : amount;
         await prisma.deal.create({
           data: {
             leadId: lead.id,
@@ -209,6 +212,9 @@ export async function seedDemo(prisma: PrismaClient, count = 100) {
             costCurrency: inUsd ? "USD" : "UZS",
             paidAt: statusChangedAt,
             product: d === 0 ? `${camp.dest.length > 1 ? dest : camp.name}: ${travelers} чел.` : "Страховка и трансфер",
+            paidAmount,
+            dueAt: debt ? new Date(statusChangedAt.getTime() + int(3, 20) * 86_400_000) : null,
+            payments: { create: { amount: paidAmount, paidAt: statusChangedAt, userId: manager?.id ?? managers[0].id } },
           },
         });
       }

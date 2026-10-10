@@ -7,7 +7,7 @@ import { KpiTile } from "@/components/dashboard/kpi-tile";
 import { ReportFilters } from "@/components/reports/report-filters";
 import { ReportTable } from "@/components/reports/report-table";
 import { MoneyValueBars } from "@/components/reports/charts";
-import { formatDate, formatNumber, formatPercent } from "@/lib/format";
+import { formatDate, formatNumber, formatPercent, toInputDate } from "@/lib/format";
 import { readFilters } from "@/lib/reports/data";
 import { AD_GROUPS, defaultAdGroup, loadAdsOverview, type AdGroup, type AdStats } from "@/lib/reports/ads";
 import { AD_LEVELS, adsTable, type Table } from "@/lib/reports/tables";
@@ -30,6 +30,9 @@ export default async function AdsPage({ searchParams }: { searchParams: Promise<
 
   const [o, campaigns] = await Promise.all([loadAdsOverview(f, group), adsTable(f, level)]);
   const { totals: cur, prev } = o;
+  // ещё не наступившие дни (период «месяц» до его конца) не показываем — сегодняшний день сверху таблицы
+  const today = toInputDate(new Date());
+  const buckets = o.buckets.filter((b) => b.start <= today);
 
   const keep = (patch: Record<string, string>) => {
     const next = new URLSearchParams();
@@ -44,7 +47,7 @@ export default async function AdsPage({ searchParams }: { searchParams: Promise<
     if (group === "month") return formatDate(d).slice(3);
     return formatDate(d).slice(0, 5);
   };
-  const chart = (k: "spend" | "cpl") => o.buckets.map((b) => ({ x: label(b.start), value: k === "spend" ? b.spend : b.cpl }));
+  const chart = (k: "spend" | "cpl") => buckets.map((b) => ({ x: label(b.start), value: k === "spend" ? b.spend : b.cpl }));
 
   const tile = (labelKey: Parameters<typeof t>[0], k: keyof AdStats, fmt: (n: number | null) => string, invert = false) => (
     <KpiTile label={t(labelKey)} value={fmt(cur[k])} delta={delta(cur[k], prev[k])} prev={fmt(prev[k])} invert={invert} />
@@ -66,7 +69,7 @@ export default async function AdsPage({ searchParams }: { searchParams: Promise<
       { key: "cpc", label: t("rt.col.cpc"), type: "money" },
     ],
     // новые периоды сверху
-    rows: [...o.buckets].reverse().map((b) => ({
+    rows: [...buckets].reverse().map((b) => ({
       name: group === "week" ? `${label(b.start)} – ${formatDate(new Date(new Date(`${b.start}T12:00:00Z`).getTime() + 6 * 86_400_000)).slice(0, 5)}` : label(b.start),
       spend: b.spend,
       leads: b.leads,

@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { NativeSelect } from "@/components/ui/input";
 import { DealDialog } from "@/components/deals/deal-dialog";
+import { DebtActions, PaymentList } from "@/components/debtors/debt-dialogs";
 import type { LeadPrefill } from "@/lib/deals";
 import { formatDate, toInputDate } from "@/lib/format";
 import { assignManagerAction, deleteLeadAction, takeLeadAction } from "@/app/(app)/leads/actions";
@@ -72,9 +73,14 @@ export interface DealItem {
   paidAt: string;
   manager: string | null;
   costConfirmed: boolean;
+  /** оплачено клиентом; меньше суммы — долг */
+  paidAmount: number;
+  dueAt: string | null;
+  debtNote: string | null;
+  payments: { id: string; amount: number; paidAt: string; note: string | null; user: string | null }[];
 }
 
-export function DealsPanel({ leadId, deals, rate, canManage, lead }: { leadId: string; deals: DealItem[]; rate: number; canManage: boolean; lead?: LeadPrefill | null }) {
+export function DealsPanel({ leadId, leadName, deals, rate, canManage, lead }: { leadId: string; leadName: string; deals: DealItem[]; rate: number; canManage: boolean; lead?: LeadPrefill | null }) {
   const { t, f } = useI18n();
   const [editing, setEditing] = useState<DealItem | "new" | null>(null);
   const [pending, start] = useTransition();
@@ -133,6 +139,7 @@ export function DealsPanel({ leadId, deals, rate, canManage, lead }: { leadId: s
               {t("deal.paid", { date: formatDate(d.paidAt) })}
               {d.manager && ` · ${d.manager}`}
             </div>
+            <DealDebt deal={d} leadName={leadName} canDelete={canManage} />
           </div>
         );
       })}
@@ -152,6 +159,32 @@ export function DealsPanel({ leadId, deals, rate, canManage, lead }: { leadId: s
               : { id: editing.id, amount: String(editing.amount), cost: String(editing.cost), currency: editing.currency, costCurrency: editing.costCurrency, paidAt: toInputDate(editing.paidAt), product: editing.product, quantity: editing.quantity }
           }
         />
+      )}
+    </div>
+  );
+}
+
+/** Оплата сделки: долг (если клиент заплатил не всё), кнопки оплаты и список оплат */
+function DealDebt({ deal, leadName, canDelete }: { deal: DealItem; leadName: string; canDelete: boolean }) {
+  const { t, f } = useI18n();
+  const left = Math.max(0, Math.round((deal.amount - deal.paidAmount) * 100) / 100);
+  if (left <= 0 && deal.payments.length <= 1) return null;
+  return (
+    <div className={left > 0 ? "mt-2 space-y-2 rounded-md bg-red-50/70 p-2" : "mt-2 space-y-2"}>
+      {left > 0 ? (
+        <div className="text-xs font-semibold text-red-700">
+          {t("deal.debtLeft", { left: f.money(left, deal.currency) })}
+          {deal.dueAt && <span className="font-normal"> · {t("debtors.dueAt").toLowerCase()} {formatDate(deal.dueAt)}</span>}
+        </div>
+      ) : (
+        <div className="text-xs text-emerald-700">{t("deal.debtPaid")}</div>
+      )}
+      {left > 0 && deal.debtNote && <p className="whitespace-pre-line text-xs text-red-900/80">{deal.debtNote}</p>}
+      <PaymentList payments={deal.payments} currency={deal.currency} canDelete={canDelete} />
+      {left > 0 && (
+        <div className="flex flex-wrap gap-2">
+          <DebtActions debt={{ dealId: deal.id, name: leadName, currency: deal.currency, left, dueAt: deal.dueAt, note: deal.debtNote }} />
+        </div>
       )}
     </div>
   );

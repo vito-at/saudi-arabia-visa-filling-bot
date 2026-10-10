@@ -4,7 +4,7 @@ import { RateWidget } from "./rate-widget";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { BarChart3, CheckSquare, Inbox, LayoutDashboard, LogOut, Megaphone, Menu, Settings, Users, Wallet, X } from "lucide-react";
+import { BarChart3, CheckSquare, HandCoins, Inbox, LayoutDashboard, LogOut, Megaphone, Menu, Settings, Users, Wallet, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "./logo";
 import { ThemeToggle } from "./theme-toggle";
@@ -19,6 +19,7 @@ const NAV = [
   // { href: "/kanban", label: "nav.kanban", icon: Columns3, badge: null },
   { href: "/clients", label: "nav.clients", icon: Users, badge: null },
   { href: "/tasks", label: "nav.tasks", icon: CheckSquare, badge: "tasks" },
+  { href: "/debtors", label: "nav.debtors", icon: HandCoins, badge: "debtors" },
   { href: "/reports", label: "nav.reports", icon: BarChart3, badge: null },
   { href: "/ads", label: "nav.ads", icon: Megaphone, badge: null, admin: true },
   { href: "/finance", label: "nav.finance", icon: Wallet, badge: "finance", admin: true },
@@ -27,7 +28,7 @@ const NAV = [
 
 type SidebarProps = {
   user: { name: string; role: "ADMIN" | "MANAGER" };
-  counters: { leads: number; tasks: number; finance: number };
+  counters: { leads: number; tasks: number; finance: number; debtors: number };
   /** курс $ для расчёта цен клиентам */
   rate: { value: number; updatedAt: string | null };
   logout: () => Promise<void>;
@@ -111,7 +112,7 @@ function SidebarContent({ user, counters, logout, rate }: SidebarProps) {
               <Icon className="size-4" />
               <span className="flex-1">{t(item.label as TKey)}</span>
               {count > 0 && (
-                <span className={cn("rounded-full px-1.5 text-xs font-semibold text-white", item.badge === "leads" ? "bg-brand" : "bg-amber-500")}>{count}</span>
+                <span className={cn("rounded-full px-1.5 text-xs font-semibold text-white", item.badge === "leads" ? "bg-brand" : item.badge === "debtors" ? "bg-red-500" : "bg-amber-500")}>{count}</span>
               )}
             </Link>
           );
