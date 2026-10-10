@@ -1,15 +1,4 @@
-# Секреты и персональные данные — никогда не коммитить
+# Секреты — никогда не коммитить
 .env
-data/
-browser_profile/
-*.enc
-*.sqlite3
-*.db
-logs/
-
-# Python
-__pycache__/
-*.pyc
-.venv/
-venv/
-.pytest_cache/
+.env.*
+!.env.example
