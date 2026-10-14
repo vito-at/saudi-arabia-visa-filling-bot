@@ -118,3 +118,12 @@ describe("вспомогательные функции", () => {
     expect(guessService("что-то")).toBeNull();
   });
 });
+
+describe("органические лиды", () => {
+  const base: MetaLead = { id: "1", created_time: "2026-10-14T05:00:00+0000", campaign_id: "c1", campaign_name: "Чудеса Турции", platform: "ig" };
+  it("сохраняет признак is_organic, кампанию оставляет для справки", () => {
+    expect(parseMetaLead({ ...base, is_organic: true })).toMatchObject({ isOrganic: true, campaignName: "Чудеса Турции" });
+    expect(parseMetaLead({ ...base, is_organic: false }).isOrganic).toBe(false);
+    expect(parseMetaLead(base).isOrganic).toBeNull();
+  });
+});

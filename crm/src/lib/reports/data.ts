@@ -68,6 +68,7 @@ export async function loadLeads(period: { from: Date; to: Date }, managerId: str
       adName: true,
       formId: true,
       formName: true,
+      isOrganic: true,
       serviceType: true,
       destination: true,
       firstResponseAt: true,
@@ -75,8 +76,10 @@ export async function loadLeads(period: { from: Date; to: Date }, managerId: str
       deals: { select: { amount: true, cost: true, currency: true, costCurrency: true, paidAt: true, managerId: true } },
     },
   });
-  return rows.map((r) => ({
+  return rows.map(({ isOrganic, ...r }) => ({
     ...r,
+    // органический лид (не из показа рекламы) в отчётах по рекламе не относим к кампании — как в Ads Manager
+    ...(isOrganic ? { campaignId: null, campaignName: null, adsetId: null, adsetName: null, adId: null, adName: null } : {}),
     statusKind: r.status.kind,
     visitedStatusIds: r.history.map((h) => h.toStatusId!),
     deals: r.deals.map((d) => ({ ...d, amount: toNum(d.amount), cost: toNum(d.cost) })),

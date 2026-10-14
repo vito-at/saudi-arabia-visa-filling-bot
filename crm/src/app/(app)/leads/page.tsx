@@ -12,7 +12,7 @@ import { loadCallbacks } from "@/lib/callbacks-data";
 import { prisma } from "@/lib/db";
 import { leadScope } from "@/lib/access";
 import { SOURCES } from "@/lib/constants";
-import { sourceLabel, statusName } from "@/i18n/labels";
+import { leadSourceLabel, sourceLabel, statusName } from "@/i18n/labels";
 import { getI18n } from "@/i18n/server";
 import { getAdFilters, getManagers, getSettings, getStatuses } from "@/lib/refs";
 import { buildLeadOrder, buildLeadWhere, isOverdueNew, leadsView, PAGE_SIZE, sp, viewWhere, type SearchParams } from "@/lib/leads/query";
@@ -58,7 +58,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
       name: l.name,
       phone: l.phone ?? l.phoneRaw,
       createdAt: l.createdAt.toISOString(),
-      source: sourceLabel(t, l.source),
+      source: leadSourceLabel(t, l),
       status: { name: statusName(t, l.status.name), color: l.status.color, kind: l.status.kind },
       manager: l.manager?.name ?? null,
       managerId: l.managerId,

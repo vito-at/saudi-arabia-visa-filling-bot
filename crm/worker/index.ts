@@ -4,7 +4,7 @@
  */
 import cron from "node-cron";
 import { prisma } from "../src/lib/db";
-import { syncLeads } from "../src/lib/meta/sync";
+import { backfillOrganic, syncLeads } from "../src/lib/meta/sync";
 import { syncSpend } from "../src/lib/meta/insights";
 import { sendPendingConversions } from "../src/lib/meta/capi";
 import { isRateStale, RATE_RETRY_UNTIL_HOUR, updateUsdRate } from "../src/lib/rates";
@@ -29,6 +29,8 @@ async function tickLeads() {
     const r = await syncLeads("CRON");
     if (r.skipped) log("Синхронизация пропущена:", t(r.skipped as TKey));
     else log(`Синхронизация: форм ${r.formsChecked}, получено ${r.fetched}, новых ${r.created}, дублей ${r.duplicates}`, r.errors.length ? r.errors : "");
+    const organic = await backfillOrganic().catch((e) => (log("Признак органики:", e instanceof Error ? e.message : e), 0));
+    if (organic) log(`Признак органики получен для ${organic} лидов`);
   } catch (e) {
     log("Ошибка синхронизации лидов:", e);
   } finally {

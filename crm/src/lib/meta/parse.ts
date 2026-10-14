@@ -162,6 +162,7 @@ export function parseMetaLead(lead: MetaLead, opts: { formName?: string | null; 
     adId: lead.ad_id ?? null,
     adName: lead.ad_name ?? null,
     platform: lead.platform ?? null,
+    isOrganic: typeof lead.is_organic === "boolean" ? lead.is_organic : null,
     metaCreatedAt: created,
   };
 }

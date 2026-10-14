@@ -3,6 +3,9 @@ import type { TFunction, TKey } from "./core";
 
 /** Подписи перечислений на языке интерфейса */
 export const sourceLabel = (t: TFunction, s: LeadSource | string) => t(`source.${s}` as TKey);
+/** Источник лида с учётом органики: форма Meta, заполненная не из показа рекламы, — «Instagram (без рекламы)» */
+export const leadSourceLabel = (t: TFunction, l: { source: LeadSource | string; isOrganic?: boolean | null }) =>
+  l.isOrganic && (l.source === "META_IG" || l.source === "META_FB") ? t(`source.${l.source}_ORGANIC` as TKey) : sourceLabel(t, l.source);
 export const serviceLabel = (t: TFunction, s: ServiceType | string) => t(`service.${s}` as TKey);
 export const roleLabel = (t: TFunction, r: Role | string) => t(`role.${r}` as TKey);
 export const statusKindLabel = (t: TFunction, k: StatusKind | string) => t(`statusKind.${k}` as TKey);

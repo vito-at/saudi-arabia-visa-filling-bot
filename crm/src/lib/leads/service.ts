@@ -44,6 +44,8 @@ export interface NewLeadInput {
   adId?: string | null;
   adName?: string | null;
   platform?: string | null;
+  /** органический лид Meta — не из показа рекламы */
+  isOrganic?: boolean | null;
   metaCreatedAt?: Date | null;
   managerId?: string | null;
   /** лид администратора: без ответственного не виден менеджерам */
@@ -130,6 +132,7 @@ export async function createLead(input: NewLeadInput, actorId: string | null) {
           adId: input.adId ?? null,
           adName: input.adName ?? null,
           platform: input.platform ?? null,
+          isOrganic: input.isOrganic ?? null,
           metaCreatedAt: input.metaCreatedAt ?? null,
           createdAt: input.metaCreatedAt ?? now,
           statusChangedAt: input.metaCreatedAt ?? now,
