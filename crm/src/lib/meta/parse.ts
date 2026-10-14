@@ -40,6 +40,33 @@ const SERVICE_HINTS = ["услуг", "service", "xizmat", "тип"];
 const norm = (s: string) => s.toLowerCase().replace(/[\s?:.!,]+/g, "_").replace(/_+/g, "_").replace(/^_|_$/g, "");
 const has = (key: string, hints: string[]) => hints.some((h) => key.includes(h));
 
+/**
+ * Свой вопрос с именем в форме («Ваше имя?», «Ismingiz?», «Как к вам обращаться?») — не стандартное поле Meta full_name.
+ * Ключ и подпись приводятся к виду «ваше_имя», «ismingiz_va_familiyangiz».
+ */
+const NAME_QUESTION = /(^|[_-])(имя|фио|ф_и_о|name|ism|ismi|ismingiz|ismingizni|исм|исмингиз|familiya|фамилия)([_-]|$)|как_вас_зовут|как_к_вам_обращаться|ваше_имя|ism_familiya|ismingiz/;
+const NOT_NAME_QUESTION = /company|компан|kompaniya|form_name|название/;
+
+export function isNameQuestion(searchKey: string): boolean {
+  return NAME_QUESTION.test(searchKey) && !NOT_NAME_QUESTION.test(searchKey);
+}
+
+/** Ответ похож на имя: без цифр и не слишком длинный */
+export function looksLikeName(v: string): boolean {
+  const t = v.trim();
+  return t.length >= 2 && t.length <= 60 && !/\d/.test(t);
+}
+
+/** Имя из сохранённых ответов формы — для лидов, загруженных до распознавания своих вопросов с именем */
+export function nameFromAnswers(answers: unknown): string | null {
+  if (!Array.isArray(answers)) return null;
+  for (const a of answers as Partial<FormAnswer>[]) {
+    if (typeof a?.value !== "string") continue;
+    if (isNameQuestion(norm(`${a.key ?? ""} ${a.label ?? ""}`)) && looksLikeName(a.value)) return a.value.trim();
+  }
+  return null;
+}
+
 /** Значения вариантов ответа приходят как ключи вида «через_1-2_месяца» — делаем читаемыми */
 function humanize(v: string): string {
   return v.replace(/_/g, " ").replace(/\s+/g, " ").trim();
@@ -132,6 +159,10 @@ export function parseMetaLead(lead: MetaLead, opts: { formName?: string | null; 
     const label = labels[f.name] ?? humanize(f.name);
     answers.push({ key: f.name, label: label.charAt(0).toUpperCase() + label.slice(1), value });
     const searchKey = norm(`${f.name} ${labels[f.name] ?? ""}`);
+    if (!name && isNameQuestion(searchKey) && looksLikeName(raw)) {
+      name = raw;
+      continue;
+    }
     if (!destination && has(searchKey, DEST_HINTS)) destination = value;
     else if (travelers === null && has(searchKey, PEOPLE_HINTS)) travelers = parseTravelers(value);
     else if (!travelFrom && has(searchKey, DATE_HINTS)) travelFrom = parseAnswerDate(raw);

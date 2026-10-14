@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { guessService, parseAnswerDate, parseMetaLead, parseMetaTime, type MetaLead } from "@/lib/meta/parse";
+import { guessService, nameFromAnswers, parseAnswerDate, parseMetaLead, parseMetaTime, type MetaLead } from "@/lib/meta/parse";
 
 const base: MetaLead = {
   id: "1234567890123456",
@@ -125,5 +125,32 @@ describe("органические лиды", () => {
     expect(parseMetaLead({ ...base, is_organic: true })).toMatchObject({ isOrganic: true, campaignName: "Чудеса Турции" });
     expect(parseMetaLead({ ...base, is_organic: false }).isOrganic).toBe(false);
     expect(parseMetaLead(base).isOrganic).toBeNull();
+  });
+});
+
+describe("имя из своего вопроса формы", () => {
+  const lead = (name: string, value: string): MetaLead => ({
+    id: "2",
+    created_time: "2026-10-14T05:00:00+0000",
+    field_data: [
+      { name, values: [value] },
+      { name: "phone_number", values: ["+998901234567"] },
+    ],
+  });
+  it("узнаёт «Ваше имя?», «Ismingiz?», «Как к вам обращаться?»", () => {
+    expect(parseMetaLead(lead("ваше_имя?", "Алишер")).name).toBe("Алишер");
+    expect(parseMetaLead(lead("ismingiz_va_familiyangiz", "Dilnoza Karimova")).name).toBe("Dilnoza Karimova");
+    expect(parseMetaLead(lead("q1", "Бобур"), { labels: { q1: "Как к вам обращаться?" } }).name).toBe("Бобур");
+    expect(parseMetaLead(lead("ism-familiya", "Aziz")).name).toBe("Aziz");
+  });
+  it("не путает с другими вопросами и не берёт номер вместо имени", () => {
+    expect(parseMetaLead(lead("куда_хотите_поехать?", "Турция")).name).toBe("Без имени");
+    expect(parseMetaLead(lead("company_name", "Orient")).name).toBe("Без имени");
+    expect(parseMetaLead(lead("ваше_имя", "998901234567")).name).toBe("Без имени");
+  });
+  it("достаёт имя из сохранённых ответов", () => {
+    expect(nameFromAnswers([{ key: "q1", label: "Ismingiz?", value: "Jasur" }])).toBe("Jasur");
+    expect(nameFromAnswers([{ key: "q2", label: "Куда хотите поехать?", value: "Дубай" }])).toBeNull();
+    expect(nameFromAnswers(null)).toBeNull();
   });
 });
