@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import type { LeadSource, ServiceType } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
+import { confirmVisaDeals } from "@/lib/deal-costs";
 import { getLeadForUser } from "@/lib/access";
 import { runAction } from "@/lib/actions";
 import { MANUAL_SOURCES, SERVICE_LABELS } from "@/lib/constants";
@@ -120,6 +121,8 @@ export async function updateLeadAction(leadId: string, formData: FormData) {
       },
       user.id,
     );
+    // лид оказался визовым — его сделки не ждут себестоимость (расходы на визы — в расходах компании)
+    if (parseService(formData.get("serviceType")) === "VISA") await confirmVisaDeals(leadId);
     revalidateLeads(leadId);
   });
 }

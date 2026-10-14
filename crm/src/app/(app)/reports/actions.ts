@@ -8,6 +8,7 @@ import { requireAdmin } from "@/lib/session";
 import { ValidationError } from "@/lib/leads/service";
 import { SERVICE_LABELS, SERVICE_TYPES } from "@/lib/constants";
 import { toNum } from "@/lib/money";
+import { confirmVisaDeals } from "@/lib/deal-costs";
 
 export interface CellDeal {
   id: string;
@@ -69,6 +70,7 @@ export async function setLeadServiceAction(leadId: string, service: string) {
       prisma.lead.update({ where: { id: leadId }, data: { serviceType: service as ServiceType } }),
       prisma.leadHistory.create({ data: { leadId, userId: user.id, field: "serviceType", oldValue: lead.serviceType ? SERVICE_LABELS[lead.serviceType] : null, newValue: SERVICE_LABELS[service as ServiceType] } }),
     ]);
+    if (service === "VISA") await confirmVisaDeals(leadId);
     for (const p of ["/reports", "/finance", `/leads/${leadId}`]) revalidatePath(p);
   });
 }
