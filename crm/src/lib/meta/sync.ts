@@ -1,9 +1,9 @@
-import type { SyncTrigger } from "@prisma/client";
+import { Prisma, type SyncTrigger } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { createLead } from "@/lib/leads/service";
 import { GraphError, type FetchFn } from "./graph";
 import { getIntegration, markTokenError, markTokenOk, pageClient, readSecrets, type IntegrationSecrets } from "./integration";
-import { LEAD_FIELDS, parseMetaLead, type MetaLead } from "./parse";
+import { LEAD_FIELDS, nameFromAnswers, parseMetaLead, type MetaLead } from "./parse";
 
 interface MetaFormInfo {
   id: string;
@@ -201,4 +201,26 @@ export async function backfillOrganic(opts: { fetchFn?: FetchFn; secrets?: Integ
     updated++;
   }
   return updated;
+}
+
+/**
+ * Лиды «Без имени», у которых имя есть в ответах формы на свой вопрос («Ваше имя?», «Ismingiz?»):
+ * раньше CRM узнавала только стандартное поле Meta. Имя записывается в лид и в клиента (если у клиента тоже «Без имени»).
+ */
+export async function fixUnnamedLeads(): Promise<number> {
+  const leads = await prisma.lead.findMany({
+    where: { name: "Без имени", formAnswers: { not: Prisma.AnyNull } },
+    select: { id: true, clientId: true, formAnswers: true },
+  });
+  let fixed = 0;
+  for (const l of leads) {
+    const name = nameFromAnswers(l.formAnswers);
+    if (!name) continue;
+    await prisma.$transaction([
+      prisma.lead.update({ where: { id: l.id }, data: { name } }),
+      prisma.client.updateMany({ where: { id: l.clientId, name: "Без имени" }, data: { name } }),
+    ]);
+    fixed++;
+  }
+  return fixed;
 }

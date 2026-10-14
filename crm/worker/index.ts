@@ -4,7 +4,7 @@
  */
 import cron from "node-cron";
 import { prisma } from "../src/lib/db";
-import { backfillOrganic, syncLeads } from "../src/lib/meta/sync";
+import { backfillOrganic, fixUnnamedLeads, syncLeads } from "../src/lib/meta/sync";
 import { syncSpend } from "../src/lib/meta/insights";
 import { sendPendingConversions } from "../src/lib/meta/capi";
 import { isRateStale, RATE_RETRY_UNTIL_HOUR, updateUsdRate } from "../src/lib/rates";
@@ -84,6 +84,10 @@ cron.schedule(`*/30 7-${RATE_RETRY_UNTIL_HOUR - 1} * * *`, () => tickRate(), { t
 
 log("Воркер запущен");
 void tickLeads();
+// лиды «Без имени», чьё имя было в своём вопросе формы, — один раз при запуске
+void fixUnnamedLeads()
+  .then((n) => n && log(`Имя из ответов формы записано в ${n} лидов`))
+  .catch((e) => log("Имена из ответов формы:", e));
 // при запуске воркера после 07:00 — догоняем пропущенное обновление
 void tickRate();
 
