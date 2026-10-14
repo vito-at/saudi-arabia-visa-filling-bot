@@ -13,7 +13,7 @@ import { StatusControl } from "@/components/leads/status-control";
 import { NewTaskForm, TaskRow } from "@/components/tasks/task-list";
 import { prisma } from "@/lib/db";
 import { leadScope } from "@/lib/access";
-import { fieldLabel, historyValue, reasonName, sourceLabel, statusName } from "@/i18n/labels";
+import { fieldLabel, historyValue, leadSourceLabel, reasonName, statusName } from "@/i18n/labels";
 import { getI18n } from "@/i18n/server";
 import { formatDateTime, toInputDate } from "@/lib/format";
 import { dealProfitInSale, sumDeals, toNum } from "@/lib/money";
@@ -116,7 +116,7 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
               )}
             </div>
             <div className="text-xs text-muted-foreground">
-              {sourceLabel(t, lead.source)} · {t("lead.createdAt", { date: formatDateTime(lead.createdAt) })}
+              {leadSourceLabel(t, lead)} · {t("lead.createdAt", { date: formatDateTime(lead.createdAt) })}
               {firstResponse !== null && ` · ${t("lead.firstResponse", { time: f.duration(firstResponse) })}`}
             </div>
           </div>
@@ -355,6 +355,7 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
                 <CardTitle>{t("lead.ads")}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-1.5 text-sm">
+                {lead.isOrganic && <p className="mb-2 rounded-md bg-amber-50 px-2.5 py-1.5 text-xs text-amber-900">{t("lead.ad.organic")}</p>}
                 {[
                   [t("lead.ad.platform"), lead.platform === "ig" ? "Instagram" : lead.platform === "fb" ? "Facebook" : lead.platform],
                   [t("lead.ad.campaign"), lead.campaignName],

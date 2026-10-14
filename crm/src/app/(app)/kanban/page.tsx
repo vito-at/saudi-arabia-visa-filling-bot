@@ -5,7 +5,7 @@ import { KanbanBoard, type KanbanCard } from "@/components/kanban/kanban-board";
 import { KanbanFilters } from "@/components/kanban/kanban-filters";
 import { prisma } from "@/lib/db";
 import { leadScope } from "@/lib/access";
-import { reasonName, sourceLabel, statusName } from "@/i18n/labels";
+import { leadSourceLabel, reasonName, statusName } from "@/i18n/labels";
 import { getI18n } from "@/i18n/server";
 import { toNum } from "@/lib/money";
 import { getLossReasons, getManagers, getSettings, getStatuses } from "@/lib/refs";
@@ -57,7 +57,7 @@ export default async function KanbanPage({ searchParams }: { searchParams: Promi
       createdAt: l.createdAt.toISOString(),
       isRepeat: l.isRepeat,
       isRegular: isRegularClient(l.client._count.deals),
-      source: sourceLabel(t, l.source),
+      source: leadSourceLabel(t, l),
       callbackAt: l.status.kind === "CALLBACK" && l.callbackAt ? l.callbackAt.toISOString() : null,
       overdueMin: isOverdueNew(l, settings.unprocessedAlertMin, now) ? Math.round((now.getTime() - l.createdAt.getTime()) / 60000) : null,
     })),

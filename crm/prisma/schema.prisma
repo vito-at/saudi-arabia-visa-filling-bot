@@ -149,6 +149,8 @@ model Lead {
   adId         String?
   adName       String?
   platform     String?
+  /// Органический лид Meta (форму заполнили не из показа рекламы, а из репоста или поста в профиле): в Ads Manager не считается. null — неизвестно
+  isOrganic    Boolean?
 
   lossReasonId String?
   lossComment  String?

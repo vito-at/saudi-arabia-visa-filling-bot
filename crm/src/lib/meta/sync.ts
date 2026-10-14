@@ -159,3 +159,46 @@ export async function importLeadById(leadgenId: string, opts: { fetchFn?: FetchF
     throw e;
   }
 }
+
+/** Meta хранит лиды 90 дней — старше этого признак уже не узнать */
+const ORGANIC_LOOKBACK_MS = 89 * 86_400_000;
+
+/**
+ * Признак «органический лид» для лидов, загруженных до того, как CRM его сохраняла.
+ * Берёт до 50 лидов за раз одним запросом ?ids=…; вызывается воркером, пока такие лиды есть.
+ */
+export async function backfillOrganic(opts: { fetchFn?: FetchFn; secrets?: IntegrationSecrets } = {}): Promise<number> {
+  const secrets = opts.secrets ?? readSecrets(await getIntegration());
+  if (!secrets) return 0;
+  const leads = await prisma.lead.findMany({
+    where: { leadgenId: { not: null }, isOrganic: null, createdAt: { gt: new Date(Date.now() - ORGANIC_LOOKBACK_MS) } },
+    select: { id: true, leadgenId: true },
+    orderBy: { createdAt: "desc" },
+    take: 50,
+  });
+  const byLeadgen = new Map(leads.filter((l) => /^\d+$/.test(l.leadgenId!)).map((l) => [l.leadgenId!, l.id]));
+  if (!byLeadgen.size) return 0;
+  const client = pageClient(secrets, opts.fetchFn);
+  type Row = { id: string; is_organic?: boolean };
+  let res: Record<string, Row>;
+  try {
+    res = await client.get<Record<string, Row>>("", { ids: [...byLeadgen.keys()].join(","), fields: "id,is_organic" });
+  } catch (e) {
+    if (e instanceof GraphError && e.isTokenError) throw e;
+    // один удалённый или недоступный лид ломает весь пакет — тогда по одному
+    res = {};
+    for (const leadgenId of byLeadgen.keys()) {
+      const r = await client.get<Row>(leadgenId, { fields: "id,is_organic" }).catch(() => null);
+      // лид, который Meta уже не отдаёт, считаем рекламным (как было до учёта органики), чтобы не запрашивать его снова
+      res[leadgenId] = r ?? { id: leadgenId, is_organic: false };
+    }
+  }
+  let updated = 0;
+  for (const [leadgenId, id] of byLeadgen) {
+    const r = res[leadgenId];
+    if (!r) continue;
+    await prisma.lead.update({ where: { id }, data: { isOrganic: r.is_organic === true } });
+    updated++;
+  }
+  return updated;
+}
