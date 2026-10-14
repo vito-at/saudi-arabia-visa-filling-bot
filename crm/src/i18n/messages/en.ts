@@ -915,6 +915,9 @@ export const en: Messages = {
     },
     products: {
       cellEmpty: "No deals",
+      chooseService: "Product…",
+      noServiceHint: "“Not set” holds sales whose lead has no service type. Choose a product — it is saved to the lead card.",
+      serviceSaved: "Product saved to the lead card",
       cellQuantity: "Quantity",
       cellSaved: "Saved",
       cellTitle: "Deals: {name} · {product}",

@@ -913,6 +913,9 @@ export const ru = {
     },
     products: {
       cellEmpty: "Нет сделок",
+      chooseService: "Продукт…",
+      noServiceHint: "В «Не указан» — продажи, у лида которых не выбран тип услуги. Выберите продукт — он запишется в карточку лида.",
+      serviceSaved: "Продукт сохранён в карточке лида",
       cellQuantity: "Количество",
       cellSaved: "Сохранено",
       cellTitle: "Сделки: {name} · {product}",
