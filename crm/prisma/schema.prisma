@@ -299,6 +299,8 @@ model MetaIntegration {
   pollIntervalMin Int       @default(5)
   enabled         Boolean   @default(false)
   lastSyncAt      DateTime?
+  /// Загрузка лидов идёт до этого момента (блокировка от параллельных запусков; зависшая снимается сама по сроку)
+  syncLockedUntil DateTime?
   lastSpendSyncAt DateTime?
   tokenValid      Boolean   @default(true)
   tokenError      String?

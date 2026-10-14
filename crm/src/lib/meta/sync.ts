@@ -24,7 +24,8 @@ export interface SyncResult {
 
 /** Запас при запросе «новых» лидов: Meta иногда отдаёт лиды с задержкой */
 const OVERLAP_SEC = 60 * 60;
-const LOCK_KEY = 7_340_001;
+/** Сколько держится блокировка загрузки; если процесс упал посреди загрузки, через это время её можно запускать снова */
+export const SYNC_LOCK_MS = 10 * 60_000;
 
 function labelsOf(form: MetaFormInfo): Record<string, string> {
   return Object.fromEntries((form.questions ?? []).filter((q) => q.label).map((q) => [q.key, q.label!]));
@@ -40,13 +41,23 @@ export async function importMetaLead(raw: MetaLead, form: { name?: string | null
   return !!lead;
 }
 
-async function withLock<T>(fn: () => Promise<T>): Promise<T | null> {
-  const [{ locked }] = await prisma.$queryRaw<{ locked: boolean }[]>`SELECT pg_try_advisory_lock(${LOCK_KEY}) AS locked`;
-  if (!locked) return null;
+/**
+ * Одна загрузка за раз. Блокировка — строка в базе со сроком, а не advisory-lock Postgres:
+ * advisory-lock принадлежит соединению, а Prisma берёт соединения из пула, поэтому снятие могло уйти
+ * в другое соединение, и блокировка оставалась висеть навсегда («Синхронизация уже выполняется»).
+ */
+export async function withSyncLock<T>(fn: () => Promise<T>): Promise<T | null> {
+  const now = new Date();
+  const until = new Date(now.getTime() + SYNC_LOCK_MS);
+  const { count } = await prisma.metaIntegration.updateMany({
+    where: { id: 1, OR: [{ syncLockedUntil: null }, { syncLockedUntil: { lt: now } }] },
+    data: { syncLockedUntil: until },
+  });
+  if (!count) return null;
   try {
     return await fn();
   } finally {
-    await prisma.$queryRaw`SELECT pg_advisory_unlock(${LOCK_KEY})`;
+    await prisma.metaIntegration.updateMany({ where: { id: 1, syncLockedUntil: until }, data: { syncLockedUntil: null } });
   }
 }
 
@@ -60,7 +71,7 @@ export async function syncLeads(trigger: SyncTrigger, opts: { fetchFn?: FetchFn;
   const secrets = opts.secrets ?? readSecrets(integration);
   if (!secrets) return { ...result, ok: false, skipped: "err.integrationMissing" };
 
-  const run = await withLock(async () => {
+  const run = await withSyncLock(async () => {
     const log = await prisma.syncLog.create({ data: { trigger } });
     const startedAt = new Date();
     const sinceMs = integration.lastSyncAt
