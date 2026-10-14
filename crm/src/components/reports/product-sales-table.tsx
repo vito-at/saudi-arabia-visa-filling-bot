@@ -7,12 +7,14 @@ import { toast } from "sonner";
 import { Table as T, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Input, NativeSelect } from "@/components/ui/input";
 import { Empty } from "@/components/ui/empty";
 import { formatDate, formatNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/i18n/client";
-import { listCellDealsAction, setDealQuantityAction, type CellDeal } from "@/app/(app)/reports/actions";
+import { listCellDealsAction, setDealQuantityAction, setLeadServiceAction, type CellDeal } from "@/app/(app)/reports/actions";
+import { SERVICE_TYPES } from "@/lib/constants";
+import { serviceLabel } from "@/i18n/labels";
 import type { Table } from "@/lib/reports/tables";
 import { PRODUCT_KEYS } from "@/lib/reports/products-keys";
 
@@ -107,6 +109,19 @@ function CellDealsDialog({ cell, period, onClose }: { cell: Cell; period: { from
     };
   }, [cell, period, onClose]);
 
+  // «Не указан»: администратор выбирает продукт — он записывается в лид, и сделка уходит в нужную колонку
+  const noService = cell.service === "none";
+  function setService(d: CellDeal, service: string) {
+    if (!service) return;
+    start(async () => {
+      const res = await setLeadServiceAction(d.leadId, service);
+      if (!res.ok) return void toast.error(res.error);
+      toast.success(t("rt.products.serviceSaved"));
+      setDeals((list) => list?.filter((x) => x.leadId !== d.leadId) ?? null);
+      router.refresh();
+    });
+  }
+
   function save(d: CellDeal) {
     const q = Number(values[d.id]);
     start(async () => {
@@ -121,6 +136,7 @@ function CellDealsDialog({ cell, period, onClose }: { cell: Cell; period: { from
   return (
     <Dialog open onOpenChange={(v) => !v && onClose()}>
       <DialogContent title={t("rt.products.cellTitle", { name: cell.name, product: cell.product })}>
+        {noService && <p className="mb-2 text-sm text-muted-foreground">{t("rt.products.noServiceHint")}</p>}
         {!deals ? (
           <div className="py-6 text-center text-sm text-muted-foreground">…</div>
         ) : !deals.length ? (
@@ -130,8 +146,8 @@ function CellDealsDialog({ cell, period, onClose }: { cell: Cell; period: { from
             {deals.map((d) => {
               const changed = values[d.id] !== String(d.quantity);
               return (
-                <li key={d.id} className="flex items-center gap-3 py-2.5">
-                  <div className="min-w-0 flex-1">
+                <li key={d.id} className="flex flex-wrap items-center gap-x-3 gap-y-2 py-2.5">
+                  <div className="min-w-0 flex-1 basis-48">
                     <Link href={`/leads/${d.leadId}`} className="font-medium hover:underline">
                       {d.leadName}
                     </Link>
@@ -139,6 +155,18 @@ function CellDealsDialog({ cell, period, onClose }: { cell: Cell; period: { from
                       {formatDate(d.paidAt)} · {d.product} · {f.money(d.amount, d.currency)}
                     </div>
                   </div>
+                  {noService && (
+                    <NativeSelect aria-label={t("rt.products.chooseService")} className="w-36" defaultValue="" disabled={pending} onChange={(e) => setService(d, e.target.value)}>
+                      <option value="" disabled>
+                        {t("rt.products.chooseService")}
+                      </option>
+                      {SERVICE_TYPES.map((s) => (
+                        <option key={s} value={s}>
+                          {serviceLabel(t, s)}
+                        </option>
+                      ))}
+                    </NativeSelect>
+                  )}
                   <Input
                     aria-label={t("rt.products.cellQuantity")}
                     name="quantity"

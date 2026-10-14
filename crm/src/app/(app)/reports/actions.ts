@@ -6,7 +6,7 @@ import { prisma } from "@/lib/db";
 import { runAction } from "@/lib/actions";
 import { requireAdmin } from "@/lib/session";
 import { ValidationError } from "@/lib/leads/service";
-import { SERVICE_TYPES } from "@/lib/constants";
+import { SERVICE_LABELS, SERVICE_TYPES } from "@/lib/constants";
 import { toNum } from "@/lib/money";
 
 export interface CellDeal {
@@ -55,5 +55,20 @@ export async function setDealQuantityAction(dealId: string, quantity: number) {
     revalidatePath("/reports");
     revalidatePath(`/leads/${deal.leadId}`);
     return quantity;
+  });
+}
+
+/** Тип услуги лида для сделки из «Не указан» (только администратор); изменение пишется в историю лида */
+export async function setLeadServiceAction(leadId: string, service: string) {
+  return runAction(async () => {
+    const user = await requireAdmin();
+    if (!SERVICE_TYPES.includes(service as ServiceType)) throw new ValidationError("err.badCell");
+    const lead = await prisma.lead.findUnique({ where: { id: leadId }, select: { id: true, serviceType: true } });
+    if (!lead) throw new ValidationError("err.leadNotFound");
+    await prisma.$transaction([
+      prisma.lead.update({ where: { id: leadId }, data: { serviceType: service as ServiceType } }),
+      prisma.leadHistory.create({ data: { leadId, userId: user.id, field: "serviceType", oldValue: lead.serviceType ? SERVICE_LABELS[lead.serviceType] : null, newValue: SERVICE_LABELS[service as ServiceType] } }),
+    ]);
+    for (const p of ["/reports", "/finance", `/leads/${leadId}`]) revalidatePath(p);
   });
 }

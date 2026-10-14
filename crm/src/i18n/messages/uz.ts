@@ -915,6 +915,9 @@ export const uz: Messages = {
     },
     products: {
       cellEmpty: "Bitimlar yo‘q",
+      chooseService: "Mahsulot…",
+      noServiceHint: "«Ko‘rsatilmagan»da — lidida xizmat turi tanlanmagan sotuvlar. Mahsulotni tanlang — u lid kartasiga yoziladi.",
+      serviceSaved: "Mahsulot lid kartasida saqlandi",
       cellQuantity: "Miqdor",
       cellSaved: "Saqlandi",
       cellTitle: "Bitimlar: {name} · {product}",
