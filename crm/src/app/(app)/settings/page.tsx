@@ -6,6 +6,7 @@ import { IntegrationForm } from "@/components/settings/integration-form";
 import { GeneralForm } from "@/components/settings/general-form";
 import { StatusesEditor } from "@/components/settings/statuses-editor";
 import { ReasonsEditor } from "@/components/settings/reasons-editor";
+import { QuestionsEditor } from "@/components/settings/questions-editor";
 import { UsersEditor } from "@/components/settings/users-editor";
 import { toNum } from "@/lib/money";
 import { rateSources } from "@/lib/rates";
@@ -28,6 +29,7 @@ const TABS = {
   general: "settings.tab.general",
   statuses: "settings.tab.statuses",
   reasons: "settings.tab.reasons",
+  questions: "settings.tab.questions",
   users: "settings.tab.users",
   integration: "settings.tab.integration",
   messengers: "settings.tab.messengers",
@@ -62,6 +64,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
       {active === "general" && <GeneralTab />}
       {active === "statuses" && <StatusesTab />}
       {active === "reasons" && <ReasonsTab />}
+      {active === "questions" && <QuestionsTab />}
       {active === "users" && <UsersTab />}
     </div>
   );
@@ -230,5 +233,20 @@ async function MessengersTab() {
         chats: { INSTAGRAM: n("INSTAGRAM"), TELEGRAM: n("TELEGRAM") },
       }}
     />
+  );
+}
+
+async function QuestionsTab() {
+  const { t } = await getI18n();
+  const questions = await prisma.leadQuestion.findMany({ orderBy: { order: "asc" } });
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{t("questions.title")}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <QuestionsEditor questions={questions.map((q) => ({ id: q.id, label: q.label, type: q.type, options: q.options, role: q.role, isActive: q.isActive }))} />
+      </CardContent>
+    </Card>
   );
 }

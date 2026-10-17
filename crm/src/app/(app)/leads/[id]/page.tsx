@@ -3,7 +3,7 @@ import { RegularBadge } from "@/components/leads/regular-badge";
 import { loadRateBook } from "@/lib/rate-history";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Mail, MessageCircle, Phone, Repeat, Send, Flame } from "lucide-react";
+import { Mail, MessageCircle, Phone, Repeat, Send, Flame } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Comments } from "@/components/leads/comments";
@@ -23,7 +23,10 @@ import { formatDateTime, toInputDate } from "@/lib/format";
 import { dealProfitInSale, sumDeals, toNum } from "@/lib/money";
 import { ratesOn } from "@/lib/rate-book";
 import { prettyPhone, telegramLink, whatsappLink } from "@/lib/phone";
-import { getLossReasons, getManagers, getSettings, getStatuses } from "@/lib/refs";
+import { getLossReasons, getManagers, getQuestions, getSettings, getStatuses } from "@/lib/refs";
+import { LeadProfileCard } from "@/components/leads/lead-profile";
+import { LeadNav } from "@/components/leads/lead-nav";
+import { readProfile } from "@/lib/leads/profile";
 import { isOverdueNew } from "@/lib/leads/query";
 import type { LeadPrefill } from "@/lib/deals";
 import { requireUser } from "@/lib/session";
@@ -58,7 +61,7 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
   });
   if (!lead) notFound();
 
-  const [statuses, reasons, users, settings] = await Promise.all([getStatuses(), getLossReasons(), getManagers(), getSettings()]);
+  const [statuses, reasons, users, settings, questions] = await Promise.all([getStatuses(), getLossReasons(), getManagers(), getSettings(), getQuestions()]);
   const rate = toNum(settings.usdRate);
   // данные лида, которыми заполняется окно сделки
   const prefill: LeadPrefill = {
@@ -80,9 +83,7 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
 
   return (
     <div className="space-y-5">
-      <Link href="/leads" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-        <ArrowLeft className="size-4" /> {t("lead.back")}
-      </Link>
+      <LeadNav leadId={lead.id} />
 
       <Card className={overdue ? "border-red-300" : undefined}>
         <div className="flex items-start justify-between gap-6 p-5">
@@ -142,6 +143,7 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
             rate={rate}
             callbackAt={lead.callbackAt?.toISOString() ?? null}
             lead={prefill}
+            since={lead.statusChangedAt?.toISOString() ?? null}
           />
           {lead.status.kind === "LOST" && lead.lossReason && (
             <div className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">
@@ -190,6 +192,8 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
               />
             </CardContent>
           </Card>
+
+          <LeadProfileCard leadId={lead.id} answers={readProfile(lead.profile)} questions={questions.map((q) => ({ id: q.id, label: q.label, type: q.type, options: q.options, role: q.role }))} />
 
           {answers.length > 0 && (
             <Card>

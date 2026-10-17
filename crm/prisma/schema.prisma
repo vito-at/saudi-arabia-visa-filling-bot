@@ -163,6 +163,10 @@ model Lead {
   callbackAt DateTime?
 
   metaCreatedAt   DateTime?
+  /// ответы анкеты клиента: { [id вопроса]: значение }
+  profile         Json?
+  /// когда создана задача «Спросить, как прошла поездка» (по дате возвращения из анкеты)
+  tripFollowUpAt  DateTime?
   createdAt       DateTime  @default(now())
   assignedAt      DateTime?
   firstResponseAt DateTime?
@@ -515,4 +519,29 @@ model TelegramIntegration {
   /// подключение Telegram Business (личный аккаунт агентства → бот)
   businessConnectionId String?
   businessUser         String?
+}
+
+enum QuestionType {
+  TEXT
+  NUMBER
+  DATE
+  SELECT
+}
+
+/// Особая роль вопроса анкеты: даты поездки записываются в лид (travelFrom / travelTo) — по дате возвращения CRM напоминает спросить про поездку
+enum QuestionRole {
+  DEPART_DATE
+  RETURN_DATE
+}
+
+/// Вопрос анкеты клиента в карточке лида (настраивает администратор)
+model LeadQuestion {
+  id       String        @id @default(cuid())
+  label    String
+  type     QuestionType  @default(TEXT)
+  /// варианты для SELECT
+  options  String[]      @default([])
+  role     QuestionRole? @unique
+  order    Int
+  isActive Boolean       @default(true)
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { formatDateTime } from "@/lib/format";
 import { useI18n } from "@/i18n/client";
@@ -11,6 +11,7 @@ import type { LeadPrefill } from "@/lib/deals";
 import { CallbackDialog } from "@/components/callbacks/callback-dialog";
 import { CallbackBadge } from "@/components/callbacks/callback-badge";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 type Status = { id: string; name: string; color: string; kind: string };
 
@@ -116,6 +117,7 @@ export function StatusControl({
   rate,
   callbackAt,
   lead,
+  since,
 }: {
   leadId: string;
   current: Status;
@@ -125,22 +127,44 @@ export function StatusControl({
   callbackAt?: string | null;
   /** данные лида для окна сделки */
   lead?: LeadPrefill | null;
+  /** когда лид перешёл в текущий статус — сколько он на этом этапе */
+  since?: string | null;
 }) {
   const { change, pending, dialogs } = useStatusChanger({ reasons, rate, lead });
-  const { t } = useI18n();
+  const { t, f } = useI18n();
+  // порядок этапов: «Отказ» всегда в конце
+  statuses = [...statuses.filter((s) => s.kind !== "LOST"), ...statuses.filter((s) => s.kind === "LOST")];
+  const currentIndex = statuses.findIndex((s) => s.id === current.id);
+  // на узком экране полоса этапов прокручивается к текущему (без прокрутки всей страницы)
+  const strip = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = strip.current?.querySelector<HTMLElement>("[data-active]");
+    if (strip.current && el) strip.current.scrollLeft = el.offsetLeft - (strip.current.clientWidth - el.offsetWidth) / 2;
+  }, [current.id]);
   return (
     <>
-      <div className="flex flex-wrap gap-1.5">
-        {statuses.map((s) => {
+      {/* этапы стрелками: пройденные — светлым цветом этапа, текущий — ярким, «Отказ» — отдельно в конце */}
+      <div ref={strip} className="no-scrollbar -mx-1 flex overflow-x-auto px-1 pb-1">
+        {statuses.map((s, i) => {
           const active = s.id === current.id;
+          const passed = !active && current.kind !== "LOST" && i < currentIndex && s.kind !== "LOST";
+          const lost = s.kind === "LOST";
           return (
             <button
               key={s.id}
               type="button"
+              data-active={active || undefined}
               disabled={pending || (active && s.kind !== "LOST" && s.kind !== "CALLBACK")}
               onClick={() => change(leadId, s, undefined, s.kind === "CALLBACK" ? callbackAt : undefined)}
-              className="rounded-full border px-3 py-1 text-xs font-medium transition-colors cursor-pointer disabled:cursor-default"
-              style={active ? { backgroundColor: s.color, borderColor: s.color, color: "#fff" } : { color: s.color, borderColor: `${s.color}55` }}
+              className={cn(
+                "relative h-9 shrink-0 cursor-pointer whitespace-nowrap pl-5 pr-4 text-xs font-medium transition-[filter] hover:brightness-95 disabled:cursor-default",
+                i > 0 && "-ml-2",
+                lost && "ml-2",
+              )}
+              style={{
+                clipPath: i === 0 || lost ? "polygon(0 0, calc(100% - 10px) 0, 100% 50%, calc(100% - 10px) 100%, 0 100%)" : "polygon(0 0, calc(100% - 10px) 0, 100% 50%, calc(100% - 10px) 100%, 0 100%, 10px 50%)",
+                ...(active ? { backgroundColor: s.color, color: "#fff" } : passed ? { backgroundColor: `${s.color}2e`, color: s.color } : { backgroundColor: "var(--muted)", color: "var(--muted-foreground)" }),
+              }}
               title={active ? t("status.current") : t("status.moveTo", { name: s.name })}
             >
               {s.name}
@@ -148,6 +172,7 @@ export function StatusControl({
           );
         })}
       </div>
+      {since && <p suppressHydrationWarning className="mt-1.5 text-xs text-muted-foreground">{t("status.onStage", { name: current.name, time: f.duration(Math.max(1, Math.round((Date.now() - new Date(since).getTime()) / 60000))) })}</p>}
       {current.kind === "CALLBACK" && callbackAt && (
         <div className="mt-3 flex items-center gap-3 rounded-lg bg-accent px-3 py-2 text-sm">
           <span>

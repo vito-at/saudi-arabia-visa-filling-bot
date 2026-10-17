@@ -233,3 +233,51 @@ export async function saveUserAction(input: { id?: string; login: string; name: 
     revalidateAll();
   });
 }
+
+// ——— Анкета клиента ———
+
+const QUESTION_TYPES = ["TEXT", "NUMBER", "DATE", "SELECT"] as const;
+
+export async function saveQuestionAction(input: { id?: string; label: string; type: string; options: string; isActive: boolean }) {
+  return runAction(async () => {
+    await requireAdmin();
+    const label = input.label.trim().slice(0, 200);
+    if (!label) throw new ValidationError("err.emptyName");
+    const type = QUESTION_TYPES.find((x) => x === input.type) ?? "TEXT";
+    const options = type === "SELECT" ? [...new Set(input.options.split(/[,;\n]/).map((o) => o.trim()).filter(Boolean))].slice(0, 30) : [];
+    if (type === "SELECT" && !options.length) throw new ValidationError("err.questionOptions");
+    if (input.id) {
+      const cur = await prisma.leadQuestion.findUniqueOrThrow({ where: { id: input.id } });
+      // у вопросов-дат поездки тип не меняется: по ним считаются даты и напоминание
+      await prisma.leadQuestion.update({ where: { id: input.id }, data: { label, type: cur.role ? cur.type : type, options: cur.role ? [] : options, isActive: input.isActive } });
+    } else {
+      const last = await prisma.leadQuestion.findFirst({ orderBy: { order: "desc" } });
+      await prisma.leadQuestion.create({ data: { label, type, options, order: (last?.order ?? 0) + 1 } });
+    }
+    revalidateAll();
+  });
+}
+
+export async function moveQuestionAction(id: string, dir: -1 | 1) {
+  return runAction(async () => {
+    await requireAdmin();
+    const list = await prisma.leadQuestion.findMany({ orderBy: { order: "asc" } });
+    const i = list.findIndex((q) => q.id === id);
+    const j = i + dir;
+    if (i < 0 || j < 0 || j >= list.length) return;
+    [list[i], list[j]] = [list[j], list[i]];
+    await prisma.$transaction(list.map((q, idx) => prisma.leadQuestion.update({ where: { id: q.id }, data: { order: idx + 1 } })));
+    revalidateAll();
+  });
+}
+
+/** Удалить вопрос; ответы в уже заполненных анкетах остаются в базе, но не показываются */
+export async function deleteQuestionAction(id: string) {
+  return runAction(async () => {
+    await requireAdmin();
+    const q = await prisma.leadQuestion.findUniqueOrThrow({ where: { id } });
+    if (q.role) throw new ValidationError("err.questionSystem");
+    await prisma.leadQuestion.delete({ where: { id } });
+    revalidateAll();
+  });
+}
