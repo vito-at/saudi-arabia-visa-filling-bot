@@ -1,0 +1,33 @@
+import { describe, expect, it } from "vitest";
+import { calcPayout, monthRange, shiftMonth } from "@/lib/salary";
+
+const fact = { leads: 40, sales: 12, profitUsd: 5000, profitSalary: 60_000_000 };
+
+describe("зарплата и план", () => {
+  it("оклад + процент от прибыли; надбавка при выполнении плана по прибыли", () => {
+    const terms = { base: 3_000_000, currency: "UZS" as const, pct: 8, bonusPct: 2 };
+    const met = calcPayout(terms, { leads: 50, sales: 10, profit: 4000 }, fact);
+    expect(met.planMet).toBe(true);
+    expect(met.ratePct).toBe(10);
+    expect(met.commission).toBe(6_000_000);
+    expect(met.total).toBe(9_000_000);
+    expect(met.done).toEqual({ leads: 0.8, sales: 1.2, profit: 1.25 });
+    const notMet = calcPayout(terms, { leads: null, sales: null, profit: 6000 }, fact);
+    expect(notMet.planMet).toBe(false);
+    expect(notMet.commission).toBe(4_800_000);
+    expect(notMet.done.leads).toBeNull();
+  });
+  it("убыточный месяц — только оклад", () => {
+    const r = calcPayout({ base: 500, currency: "USD", pct: 10, bonusPct: 0 }, { leads: null, sales: null, profit: null }, { ...fact, profitUsd: -100, profitSalary: -100 });
+    expect(r.commission).toBe(0);
+    expect(r.total).toBe(500);
+  });
+  it("границы месяца по Ташкенту", () => {
+    const r = monthRange("2026-12");
+    expect(r.from.toISOString()).toBe("2026-11-30T19:00:00.000Z");
+    expect(r.to.toISOString()).toBe("2026-12-31T19:00:00.000Z");
+    expect(monthRange("bad", new Date("2026-10-17T12:00:00Z")).ym).toBe("2026-10");
+    expect(shiftMonth("2026-01", -1)).toBe("2025-12");
+    expect(shiftMonth("2026-12", 1)).toBe("2027-01");
+  });
+});

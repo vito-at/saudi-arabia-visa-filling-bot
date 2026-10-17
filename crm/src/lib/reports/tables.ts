@@ -12,6 +12,7 @@ import { loadDeals, loadLeads, loadSpend, money, previousPeriod, type ReportFilt
 import { calcKpis, dealProfit, dealRevenue, delta, timeSeries, type Kpis } from "./calc";
 import { scheduleOf } from "@/lib/work-hours";
 import { tashkentDayBounds } from "@/lib/tasks";
+import { loadManagerMonths, monthRange } from "@/lib/salary";
 
 export type ColType = "text" | "int" | "money" | "pct" | "minutes" | "date";
 export interface Column {
@@ -38,6 +39,7 @@ export const REPORT_TABS = {
   services: "reports.tab.services",
   visas: "reports.tab.visas",
   tasks: "reports.tab.tasks",
+  plans: "reports.tab.plans",
 } as const satisfies Record<string, TKey>;
 export type ReportTab = keyof typeof REPORT_TABS;
 
@@ -372,5 +374,40 @@ export async function tasksTable(f: ReportFilters): Promise<Table> {
     ],
     rows,
     totals: { name: t("rt.total"), overdue: sum("overdue"), open: sum("open"), doneToday: sum("doneToday"), donePeriod: sum("donePeriod"), noTask: sum("noTask") },
+  };
+}
+
+/** Планы и зарплата за месяц — таблица для Excel */
+export async function plansTable(f: ReportFilters, ym: string | undefined): Promise<Table> {
+  const { t } = f;
+  const range = monthRange(ym);
+  const rows = await loadManagerMonths(range, f.managerId && f.managerId !== "none" ? f.managerId : null);
+  return {
+    title: `${t("plans.title")} ${range.ym}`,
+    note: t("plans.note"),
+    columns: [
+      { key: "name", label: t("rt.managers.manager"), type: "text" },
+      { key: "leads", label: t("plans.leads"), type: "int" },
+      { key: "leadsPlan", label: `${t("plans.leads")} (${t("plans.planShort")})`, type: "int" },
+      { key: "sales", label: t("plans.sales"), type: "int" },
+      { key: "salesPlan", label: `${t("plans.sales")} (${t("plans.planShort")})`, type: "int" },
+      { key: "profit", label: t("plans.profitUsd"), type: "int" },
+      { key: "profitPlan", label: `${t("plans.profitUsd")} (${t("plans.planShort")})`, type: "int" },
+      { key: "done", label: t("plans.done"), type: "pct" },
+      { key: "rate", label: `${t("plans.rate")}, %`, type: "int" },
+      { key: "total", label: t("plans.total"), type: "text" },
+    ],
+    rows: rows.map((r) => ({
+      name: r.name,
+      leads: r.fact.leads,
+      leadsPlan: r.plan.leads,
+      sales: r.fact.sales,
+      salesPlan: r.plan.sales,
+      profit: Math.round(r.fact.profitUsd),
+      profitPlan: r.plan.profit,
+      done: r.done.profit,
+      rate: r.ratePct,
+      total: `${r.total} ${r.currency}`,
+    })),
   };
 }

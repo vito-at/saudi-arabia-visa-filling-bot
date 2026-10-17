@@ -72,11 +72,17 @@ model User {
   isActive       Boolean   @default(true)
   lastAssignedAt DateTime?
   createdAt      DateTime  @default(now())
+  /// Зарплата: оклад в месяц, процент от прибыли своих сделок и надбавка к проценту при выполнении плана по прибыли
+  salaryBase     Decimal   @default(0) @db.Decimal(18, 2)
+  salaryCurrency Currency  @default(UZS)
+  commissionPct  Decimal   @default(0) @db.Decimal(5, 2)
+  planBonusPct   Decimal   @default(0) @db.Decimal(5, 2)
 
   leads        Lead[]        @relation("LeadManager")
   deals        Deal[]
   dealPayments DealPayment[]
   chatMessages ChatMessage[]
+  plans        ManagerPlan[]
   comments     Comment[]
   history      LeadHistory[]
   tasks        Task[]        @relation("TaskAssignee")
@@ -549,4 +555,19 @@ model LeadQuestion {
   role     QuestionRole? @unique
   order    Int
   isActive Boolean       @default(true)
+}
+
+/// План менеджера на месяц: лиды, продажи (по количеству), прибыль в долларах
+model ManagerPlan {
+  id     String   @id @default(cuid())
+  userId String
+  /// первое число месяца
+  month  DateTime @db.Date
+  leads  Int?
+  sales  Int?
+  profit Decimal? @db.Decimal(18, 2)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, month])
 }

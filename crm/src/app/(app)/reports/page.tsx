@@ -13,6 +13,9 @@ import type { AdLevel } from "@/lib/reports/calc";
 import { visasTable } from "@/lib/reports/visas";
 import { productsByManagerTable } from "@/lib/reports/products";
 import { buildInsights } from "@/lib/reports/insights";
+import { loadManagerMonths, monthRange, shiftMonth } from "@/lib/salary";
+import { PlansTable } from "@/components/reports/plans-table";
+import { ChevronLeft, ChevronRight, Download } from "lucide-react";
 import { Lightbulb } from "lucide-react";
 import { ProductSalesTable } from "@/components/reports/product-sales-table";
 import { sp, type SearchParams } from "@/lib/leads/query";
@@ -54,11 +57,14 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
           </Link>
         ))}
       </div>
-      <div className="mb-5">
-        <Suspense>
-          <ReportFilters managers={managers} exportHref={`/api/reports/export?tab=${tab}${tab === "ads" ? `&level=${level}` : ""}`} />
-        </Suspense>
-      </div>
+      {/* у «Планов и зарплаты» свой выбор месяца вместо периода */}
+      {tab !== "plans" && (
+        <div className="mb-5">
+          <Suspense>
+            <ReportFilters managers={managers} exportHref={`/api/reports/export?tab=${tab}${tab === "ads" ? `&level=${level}` : ""}`} />
+          </Suspense>
+        </div>
+      )}
 
       {tab === "clients" && <ClientsReport f={f} />}
       {tab === "funnel" && <FunnelReport f={f} />}
@@ -68,6 +74,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
       {tab === "services" && <ServicesReport f={f} />}
       {tab === "visas" && <VisasReport f={f} />}
       {tab === "tasks" && <TasksReport f={f} />}
+      {tab === "plans" && <PlansReport f={f} ym={sp(params, "m")} isAdmin={isAdmin} keep={keep} />}
     </div>
   );
 }
@@ -330,5 +337,95 @@ async function TasksReport({ f }: { f: F }) {
       <ReportTable table={table} currency={f.currency} />
       <p className="px-5 py-3 text-xs text-muted-foreground">{table.note}</p>
     </Card>
+  );
+}
+
+async function PlansReport({ f, ym, isAdmin, keep }: { f: F; ym: string | undefined; isAdmin: boolean; keep: URLSearchParams }) {
+  const range = monthRange(ym);
+  const managerId = isAdmin ? null : f.managerId;
+  const months = [range.ym, ...[1, 2, 3, 4, 5].map((i) => shiftMonth(range.ym, -i))];
+  const [rows, ...history] = await Promise.all([loadManagerMonths(range, managerId), ...months.slice(1).map((m) => loadManagerMonths(monthRange(m), managerId))]);
+  const monthName = (m: string) => new Intl.DateTimeFormat(f.locale === "en" ? "en-GB" : f.locale === "uz" ? "uz-Latn" : "ru-RU", { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${m}-15T00:00:00Z`));
+  const link = (m: string) => {
+    const p = new URLSearchParams(keep);
+    p.set("tab", "plans");
+    p.set("m", m);
+    return `/reports?${p.toString()}`;
+  };
+  const fm = formatters(f.locale);
+  const allMonths = [rows, ...history];
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Link href={link(shiftMonth(range.ym, -1))} className="inline-flex size-9 items-center justify-center rounded-md border bg-card hover:bg-accent" aria-label="←">
+            <ChevronLeft className="size-4" />
+          </Link>
+          <span className="min-w-40 text-center font-semibold capitalize">{monthName(range.ym)}</span>
+          <Link href={link(shiftMonth(range.ym, 1))} className="inline-flex size-9 items-center justify-center rounded-md border bg-card hover:bg-accent" aria-label="→">
+            <ChevronRight className="size-4" />
+          </Link>
+        </div>
+        <a href={`/api/reports/export?tab=plans&m=${range.ym}`} className="inline-flex h-9 items-center gap-1.5 rounded-md border bg-card px-3 text-sm hover:bg-accent">
+          <Download className="size-4" /> Excel
+        </a>
+      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>{f.t("plans.title")}</CardTitle>
+        </CardHeader>
+        <PlansTable rows={rows} month={range.ym} editable={isAdmin} />
+        <p className="px-5 py-3 text-xs text-muted-foreground">{f.t("plans.note")}</p>
+      </Card>
+      {rows.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>{f.t("plans.history")}</CardTitle>
+          </CardHeader>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[640px] text-sm">
+              <thead>
+                <tr className="border-y bg-muted/40 text-left text-xs text-muted-foreground">
+                  <th className="px-4 py-2 font-medium">{f.t("plans.month")}</th>
+                  {rows.map((r) => (
+                    <th key={r.userId} className="px-3 py-2 text-right font-medium">
+                      {r.name}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {months.map((m, i) => (
+                  <tr key={m}>
+                    <td className="px-4 py-2.5 capitalize">
+                      <Link href={link(m)} className="hover:underline">
+                        {monthName(m)}
+                      </Link>
+                    </td>
+                    {rows.map((r) => {
+                      const x = allMonths[i].find((y) => y.userId === r.userId);
+                      return (
+                        <td key={r.userId} className="px-3 py-2.5 text-right whitespace-nowrap tabular-nums">
+                          {x ? (
+                            <>
+                              <div className="font-medium">{fm.money(x.total, x.currency)}</div>
+                              <div className="text-[11px] text-muted-foreground">
+                                {fm.money(x.fact.profitUsd, "USD")} · {x.fact.sales}
+                              </div>
+                            </>
+                          ) : (
+                            "—"
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+    </div>
   );
 }
