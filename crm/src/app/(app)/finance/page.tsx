@@ -7,7 +7,9 @@ import { ReportFilters } from "@/components/reports/report-filters";
 import { FinanceLeads } from "@/components/finance/finance-leads";
 import { ExpensesPanel } from "@/components/finance/expenses-panel";
 import { PendingCosts } from "@/components/finance/pending-costs";
-import { MoneyPie } from "@/components/reports/charts";
+import { MoneyBars, MoneyPie } from "@/components/reports/charts";
+import { timeSeries } from "@/lib/reports/calc";
+import { Download } from "lucide-react";
 import { formatDate, formatNumber, formatPercent } from "@/lib/format";
 import { getManagers } from "@/lib/refs";
 import { readFilters, type ReportFilters as Filters } from "@/lib/reports/data";
@@ -44,6 +46,11 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
   const services = profitByService(leads);
   const serviceName = (sv: ServiceProfit["service"]) => (sv ? t(`service.${sv}`) : t("finance.noService"));
   const allExpenses = (summary.adSpend ?? 0) + summary.expenses;
+  // доход и прибыль по дням оплаты сделок (по неделям, если период длиннее двух месяцев)
+  const allDeals = leads.flatMap((l) => l.deals);
+  const revSeries = timeSeries(allDeals.map((d) => ({ date: new Date(d.paidAt), value: d.revenue })), f.period.from, f.period.to);
+  const profSeries = timeSeries(allDeals.map((d) => ({ date: new Date(d.paidAt), value: d.profit })), f.period.from, f.period.to);
+  const chart = revSeries.points.map((p, i) => ({ x: formatDate(p.start).slice(0, 5), revenue: p.value, profit: profSeries.points[i].value }));
 
   const keep = new URLSearchParams();
   for (const [k, v] of Object.entries(params)) if (typeof v === "string" && k !== "tab" && (tab === "profit" || k !== "manager")) keep.set(k, v);
@@ -105,10 +112,13 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
           </Link>
         ))}
       </div>
-      <div className="mb-5">
+      <div className="mb-5 flex flex-wrap items-start justify-between gap-2">
         <Suspense>
           <ReportFilters managers={tab === "profit" ? managers.map((m) => ({ id: m.id, name: m.name })) : null} />
         </Suspense>
+        <a href={`/api/finance/export?tab=${tab}${keep.size ? `&${keep.toString()}` : ""}`} className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md border bg-card px-3 text-sm hover:bg-accent">
+          <Download className="size-4" /> Excel
+        </a>
       </div>
 
       <div className={cn("mb-5 grid grid-cols-2 gap-3", tiles[tab].length === 3 ? "sm:grid-cols-3" : "sm:grid-cols-4")}>
@@ -133,6 +143,12 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
       {pendingInPeriod > 0 && tab !== "expenses" && <p className="-mt-2 mb-4 text-xs font-medium text-amber-700">{t("finance.pendingWarn", { n: pendingInPeriod })}</p>}
       {tab === "profit" && (
         <div className="space-y-5">
+          {allDeals.length > 0 && (
+            <Card className="p-4">
+              <div className="mb-3 text-sm font-semibold">{t(revSeries.bucket === 7 ? "finance.chartWeek" : "finance.chartTitle")}</div>
+              <MoneyBars data={chart} currency={f.currency} />
+            </Card>
+          )}
           <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
             <Card className="min-w-0">
               <CardHeader>
