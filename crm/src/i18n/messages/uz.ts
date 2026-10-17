@@ -261,6 +261,8 @@ export const uz: Messages = {
     statusSaved: "Holat saqlandi",
     statusesHint: "Holatlar tartibi kanban ustunlari va voronka bosqichlarini belgilaydi. «Yangi», «Qayta qo‘ng‘iroq», «Sotildi» va «Rad etildi» — tizim holatlari: ularni qayta nomlash va rangini o‘zgartirish mumkin, lekin o‘chirib bo‘lmaydi.",
     systemStatus: "Tizim holati: mantiq unga bog‘liq (bitimlar, rad etishlar, yangi lidlar)",
+    toPool: "Umumiy ro‘yxatga",
+    toPoolHint: "Bu statusdagi lid mas’ul menejerdan ajraladi va umumiy ro‘yxatga tushadi — uni barcha menejerlar ko‘radi. Birinchi bo‘lib statusni o‘zgartirgan yoki «Olish»ni bosgan menejer mas’ul bo‘ladi.",
     up: "Yuqoriga",
   },
   debtors: {
@@ -526,6 +528,7 @@ export const uz: Messages = {
   history: {
     auto: "(avtomatik)",
     deleted: "o‘chirildi",
+    pool: "umumiy ro‘yxat",
     repeat: "takroriy murojaat",
     system: "Tizim",
   },
