@@ -5,6 +5,8 @@
 import cron from "node-cron";
 import { prisma } from "../src/lib/db";
 import { backfillOrganic, fixUnnamedLeads, syncLeads } from "../src/lib/meta/sync";
+import { createTripFollowUps } from "../src/lib/leads/trip-followup";
+import { scanNotifications } from "../src/lib/notify";
 import { syncSpend } from "../src/lib/meta/insights";
 import { sendPendingConversions } from "../src/lib/meta/capi";
 import { isRateStale, RATE_RETRY_UNTIL_HOUR, updateUsdRate } from "../src/lib/rates";
@@ -78,6 +80,10 @@ async function tickConversions() {
 
 cron.schedule("* * * * *", tickLeads);
 cron.schedule("*/5 * * * *", tickConversions);
+// напоминания «Спросить, как прошла поездка» — каждый час (задача ставится на 11:00 дня после возвращения)
+// уведомления: просроченные задачи и сроки долгов — каждые 10 минут
+cron.schedule("*/10 * * * *", () => void scanNotifications().catch((e) => log("Уведомления:", e)));
+cron.schedule("7 * * * *", () => void createTripFollowUps().then((n) => n && log(`Задачи после поездки: ${n}`)).catch((e) => log("Задачи после поездки:", e)));
 cron.schedule("17 * * * *", tickSpend);
 cron.schedule("0 7 * * *", () => tickRate(true), { timezone: "Asia/Tashkent" });
 cron.schedule(`*/30 7-${RATE_RETRY_UNTIL_HOUR - 1} * * *`, () => tickRate(), { timezone: "Asia/Tashkent" });

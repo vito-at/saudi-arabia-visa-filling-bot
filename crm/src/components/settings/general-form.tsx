@@ -13,6 +13,10 @@ import { useI18n } from "@/i18n/client";
 export interface GeneralView {
   distributionMode: "MANUAL" | "ROUND_ROBIN";
   unprocessedAlertMin: number;
+  /** рабочее время офиса «09:00», «18:00» и рабочие дни 1–7 */
+  workStart: string;
+  workEnd: string;
+  workDays: number[];
   usdRate: number;
   usdRateCost: number;
   usdRateSource: "MANUAL" | "IPAK_YULI";
@@ -54,6 +58,21 @@ export function GeneralForm({ v }: { v: GeneralView }) {
             </Field>
             <Field label={t("general.alert")}>
               <Input name="unprocessedAlertMin" type="number" min={1} defaultValue={v.unprocessedAlertMin} />
+            </Field>
+            <Field label={t("general.workHours")} hint={t("general.workHoursHint")} className="sm:col-span-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <Input name="workStart" type="time" defaultValue={v.workStart} className="w-32" />
+                <span>—</span>
+                <Input name="workEnd" type="time" defaultValue={v.workEnd} className="w-32" />
+                <div className="flex flex-wrap gap-1">
+                  {[1, 2, 3, 4, 5, 6, 7].map((d) => (
+                    <label key={d} className="flex cursor-pointer items-center gap-1 rounded-md border px-2 py-1.5 text-xs has-[:checked]:border-primary has-[:checked]:bg-primary/10">
+                      <input type="checkbox" name="workDays" value={d} defaultChecked={v.workDays.includes(d)} className="size-3.5" />
+                      {t(`general.day${d}` as Parameters<typeof t>[0])}
+                    </label>
+                  ))}
+                </div>
+              </div>
             </Field>
             <div className="sm:col-span-2">
               <Button type="submit" disabled={pending}>

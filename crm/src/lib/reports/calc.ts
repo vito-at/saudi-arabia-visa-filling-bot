@@ -5,6 +5,7 @@
 import type { Currency } from "@prisma/client";
 import { convertCost, convertRevenue, round2, type RatePair } from "@/lib/money";
 import { ratesOn, type RateBook } from "@/lib/rate-book";
+import { DEFAULT_SCHEDULE, workMinutesBetween, type WorkSchedule } from "@/lib/work-hours";
 
 export interface RDeal {
   amount: number | string;
@@ -31,11 +32,15 @@ export interface RLead {
   adName: string | null;
   formId: string | null;
   formName: string | null;
+  /** источник лида (META_IG, CALL, …) */
+  source?: string;
   serviceType: string | null;
   destination: string | null;
   firstResponseAt: Date | null;
   /** статусы, через которые лид проходил (из истории) */
   visitedStatusIds: string[];
+  /** переходы по статусам с датами (из истории) — для времени на этапах */
+  transitions?: { statusId: string; at: Date }[];
   deals: RDeal[];
 }
 
@@ -337,6 +342,61 @@ export function withSpend(rows: GroupRow[], stats: Map<string, AdStat> | null): 
     .sort((a, b) => b.leads - a.leads || (b.spend ?? 0) - (a.spend ?? 0) || a.name.localeCompare(b.name, "ru"));
 }
 
+/** Медиана (null для пустого набора) */
+export function median(values: number[]): number | null {
+  if (!values.length) return null;
+  const v = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(v.length / 2);
+  return round2(v.length % 2 ? v[mid] : (v[mid - 1] + v[mid]) / 2);
+}
+
+// ——— Время на этапах ———
+
+export interface StageTimes {
+  /** среднее время на этапе, минуты (календарное) — по statusId */
+  avgMin: Map<string, number>;
+  /** средний срок от заявки до продажи, минуты; число проданных */
+  toSaleMin: number | null;
+  sold: number;
+}
+
+/**
+ * Сколько лиды в среднем стоят на каждом этапе и через сколько продаются.
+ * Последовательность этапа: создание лида (первый статус «Новый») → переходы из истории.
+ * Время текущего этапа считается до now; на «Продано» и «Отказ» лид не «стоит».
+ */
+export function calcStageTimes(
+  leads: Pick<RLead, "createdAt" | "statusKind" | "transitions">[],
+  statuses: { id: string; kind: string }[],
+  now = new Date(),
+): StageTimes {
+  const kind = new Map(statuses.map((s) => [s.id, s.kind]));
+  const newId = statuses.find((s) => s.kind === "NEW")?.id;
+  const sum = new Map<string, { total: number; n: number }>();
+  const toSale: number[] = [];
+  for (const l of leads) {
+    const seq = [...(newId ? [{ statusId: newId, at: l.createdAt }] : []), ...[...(l.transitions ?? [])].sort((a, b) => a.at.getTime() - b.at.getTime())];
+    const won = seq.find((x) => kind.get(x.statusId) === "WON");
+    if (won) toSale.push((won.at.getTime() - l.createdAt.getTime()) / 60000);
+    for (let i = 0; i < seq.length; i++) {
+      const cur = seq[i];
+      const k = kind.get(cur.statusId);
+      if (!k || k === "WON" || k === "LOST") continue;
+      const end = seq[i + 1]?.at ?? now;
+      const min = Math.max(0, (end.getTime() - cur.at.getTime()) / 60000);
+      const acc = sum.get(cur.statusId) ?? { total: 0, n: 0 };
+      acc.total += min;
+      acc.n += 1;
+      sum.set(cur.statusId, acc);
+    }
+  }
+  return {
+    avgMin: new Map([...sum].map(([id, v]) => [id, round2(v.total / v.n)])),
+    toSaleMin: toSale.length ? round2(toSale.reduce((a, b) => a + b, 0) / toSale.length) : null,
+    sold: toSale.length,
+  };
+}
+
 // ——— Менеджеры ———
 
 export interface ManagerRow {
@@ -349,20 +409,24 @@ export interface ManagerRow {
   conversion: number | null;
   revenue: number;
   profit: number;
+  /** первая реакция в рабочих минутах (ночь и выходные не считаются): среднее и медиана */
   avgFirstResponseMin: number | null;
+  medianFirstResponseMin: number | null;
+  /** доля лидов, которым ответили за 15 рабочих минут (из всех лидов менеджера) */
+  within15: number | null;
 }
 
 /**
  * @param leads лиды периода (назначенные менеджеру)
  * @param deals сделки, оплаченные в периоде (прибыль менеджера)
  */
-export function calcManagers(leads: RLead[], deals: RDeal[], managers: { id: string; name: string }[], m: Money): ManagerRow[] {
+export function calcManagers(leads: RLead[], deals: RDeal[], managers: { id: string; name: string }[], m: Money, schedule: WorkSchedule = DEFAULT_SCHEDULE): ManagerRow[] {
   return managers
     .map((mg) => {
       const own = leads.filter((l) => l.managerId === mg.id);
       const sales = own.filter(isWon).length;
       const lost = own.filter((l) => l.statusKind === "LOST").length;
-      const responses = own.filter((l) => l.firstResponseAt).map((l) => (l.firstResponseAt!.getTime() - l.createdAt.getTime()) / 60000);
+      const responses = own.filter((l) => l.firstResponseAt).map((l) => workMinutesBetween(l.createdAt, l.firstResponseAt!, schedule));
       const myDeals = deals.filter((d) => d.managerId === mg.id);
       return {
         managerId: mg.id,
@@ -375,6 +439,8 @@ export function calcManagers(leads: RLead[], deals: RDeal[], managers: { id: str
         revenue: round2(myDeals.reduce((s, d) => s + dealRevenue(d, m), 0)),
         profit: round2(myDeals.reduce((s, d) => s + dealProfit(d, m), 0)),
         avgFirstResponseMin: responses.length ? round2(responses.reduce((a, b) => a + b, 0) / responses.length) : null,
+        medianFirstResponseMin: median(responses),
+        within15: safeDiv(responses.filter((r) => r <= 15).length, own.length),
       };
     })
     .filter((r) => r.leads > 0 || r.revenue > 0)

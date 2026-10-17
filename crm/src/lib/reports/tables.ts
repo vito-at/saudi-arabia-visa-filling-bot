@@ -6,19 +6,13 @@ import { getClientAggregates } from "@/lib/clients";
 import { reasonName, serviceLabel, statusName } from "@/i18n/labels";
 import type { TKey } from "@/i18n/core";
 import { formatDate } from "@/lib/format";
-import { getLossReasons, getManagers, getStatuses } from "@/lib/refs";
-import {
-  adKey,
-  calcFunnel,
-  calcLossMatrix,
-  calcLossReasons,
-  calcManagers,
-  groupLeads,
-  withSpend,
-  type AdLevel,
-} from "./calc";
+import { getLossReasons, getManagers, getSettings, getStatuses } from "@/lib/refs";
+import { adKey, calcFunnel, calcLossMatrix, calcLossReasons, calcManagers, groupLeads, withSpend, type AdLevel, calcStageTimes } from "./calc";
 import { loadDeals, loadLeads, loadSpend, money, previousPeriod, type ReportFilters } from "./data";
 import { calcKpis, dealProfit, dealRevenue, delta, timeSeries, type Kpis } from "./calc";
+import { scheduleOf } from "@/lib/work-hours";
+import { tashkentDayBounds } from "@/lib/tasks";
+import { loadManagerMonths, monthRange } from "@/lib/salary";
 
 export type ColType = "text" | "int" | "money" | "pct" | "minutes" | "date";
 export interface Column {
@@ -44,6 +38,8 @@ export const REPORT_TABS = {
   managers: "reports.tab.managers",
   services: "reports.tab.services",
   visas: "reports.tab.visas",
+  tasks: "reports.tab.tasks",
+  plans: "reports.tab.plans",
 } as const satisfies Record<string, TKey>;
 export type ReportTab = keyof typeof REPORT_TABS;
 
@@ -83,6 +79,7 @@ export async function funnelTable(f: ReportFilters) {
   const [leads, statusRows] = await Promise.all([loadLeads(f.period, f.managerId), getStatuses()]);
   const statuses = statusRows.map((s) => ({ ...s, name: statusName(t, s.name) }));
   const calc = calcFunnel(leads, statuses);
+  const times = calcStageTimes(leads, statuses);
   // первый этап («Новый») в воронке — это все поступившие лиды, а не те, кто сейчас в статусе «Новый»
   const newIds = new Set(statuses.filter((s) => s.kind === "NEW").map((s) => s.id));
   const funnel = { ...calc, steps: calc.steps.map((s, i) => (i === 0 && newIds.has(s.statusId) ? { ...s, name: t("rt.funnel.allLeads") } : s)) };
@@ -94,10 +91,11 @@ export async function funnelTable(f: ReportFilters) {
       { key: "count", label: t("rt.funnel.reached"), type: "int" },
       { key: "ofTotal", label: t("rt.funnel.ofTotal"), type: "pct" },
       { key: "ofPrev", label: t("rt.funnel.ofPrev"), type: "pct" },
+      { key: "avgTime", label: t("rt.funnel.avgTime"), type: "minutes" },
     ],
     rows: [
-      ...funnel.steps.map((s) => ({ name: s.name, count: s.count, ofTotal: s.ofTotal, ofPrev: s.ofPrev })),
-      { name: t("rt.funnel.lost"), count: funnel.lost, ofTotal: pct(funnel.lost, funnel.total), ofPrev: null },
+      ...funnel.steps.map((s) => ({ name: s.name, count: s.count, ofTotal: s.ofTotal, ofPrev: s.ofPrev, avgTime: times.avgMin.get(s.statusId) ?? null })),
+      { name: t("rt.funnel.lost"), count: funnel.lost, ofTotal: pct(funnel.lost, funnel.total), ofPrev: null, avgTime: null },
     ],
   };
   // статусы-попытки: сколько лидов в них побывали (не этапы воронки)
@@ -109,11 +107,12 @@ export async function funnelTable(f: ReportFilters) {
           { key: "name", label: t("rt.funnel.status"), type: "text" },
           { key: "count", label: t("rt.funnel.visited"), type: "int" },
           { key: "ofTotal", label: t("rt.funnel.ofTotal"), type: "pct" },
+          { key: "avgTime", label: t("rt.funnel.avgTime"), type: "minutes" },
         ],
-        rows: funnel.side.map((s) => ({ name: s.name, count: s.count, ofTotal: s.ofTotal })),
+        rows: funnel.side.map((s) => ({ name: s.name, count: s.count, ofTotal: s.ofTotal, avgTime: times.avgMin.get(s.statusId) ?? null })),
       }
     : null;
-  return { table, side, funnel };
+  return { table, side, funnel, times };
 }
 
 export async function lossesTables(f: ReportFilters) {
@@ -225,10 +224,10 @@ export async function adsTable(f: ReportFilters, level: AdLevel): Promise<Table>
 
 export async function managersTable(f: ReportFilters) {
   const { t } = f;
-  const [leads, deals, users] = await Promise.all([loadLeads(f.period, f.managerId), loadDeals(f.period, f.managerId), getManagers()]);
+  const [leads, deals, users, settings] = await Promise.all([loadLeads(f.period, f.managerId), loadDeals(f.period, f.managerId), getManagers(), getSettings()]);
   // менеджер (и фильтр по менеджеру) — только своя строка, без коллег
   const visible = f.managerId && f.managerId !== "none" ? users.filter((u) => u.id === f.managerId) : users;
-  const rows = calcManagers(leads, deals, visible, money(f));
+  const rows = calcManagers(leads, deals, visible, money(f), scheduleOf(settings));
   const table: Table = {
     title: t("rt.managers.title"),
     note: t("rt.managers.note"),
@@ -241,7 +240,9 @@ export async function managersTable(f: ReportFilters) {
       { key: "conversion", label: t("rt.col.conversion"), type: "pct" },
       { key: "revenue", label: t("rt.col.revenue"), type: "money" },
       { key: "profit", label: t("rt.col.profit"), type: "money" },
+      { key: "medianFirstResponseMin", label: t("rt.managers.responseMedian"), type: "minutes" },
       { key: "avgFirstResponseMin", label: t("rt.managers.response"), type: "minutes" },
+      { key: "within15", label: t("rt.managers.within15"), type: "pct" },
     ],
     rows: rows.map((r) => ({ ...r })),
   };
@@ -337,4 +338,76 @@ export async function dashboardTables(f: ReportFilters): Promise<Table[]> {
       rows: d.leadSeries.points.map((p, i) => ({ date: formatDate(p.start), leads: p.value, revenue: d.money[i].revenue, profit: d.money[i].profit })),
     },
   ];
+}
+
+/** Задачи по менеджерам: открытые, просроченные, выполненные сегодня и за период, лиды в работе без задач */
+export async function tasksTable(f: ReportFilters): Promise<Table> {
+  const { t } = f;
+  const users = await getManagers();
+  const visible = f.managerId && f.managerId !== "none" ? users.filter((u) => u.id === f.managerId) : users;
+  const ids = visible.map((u) => u.id);
+  const now = new Date();
+  const { start } = tashkentDayBounds(now);
+  const [open, overdue, doneToday, donePeriod, noTask] = await Promise.all([
+    prisma.task.groupBy({ by: ["assigneeId"], where: { assigneeId: { in: ids }, doneAt: null }, _count: { _all: true } }),
+    prisma.task.groupBy({ by: ["assigneeId"], where: { assigneeId: { in: ids }, doneAt: null, dueAt: { lt: now } }, _count: { _all: true } }),
+    prisma.task.groupBy({ by: ["assigneeId"], where: { assigneeId: { in: ids }, doneAt: { gte: start } }, _count: { _all: true } }),
+    prisma.task.groupBy({ by: ["assigneeId"], where: { assigneeId: { in: ids }, doneAt: { gte: f.period.from, lt: f.period.to } }, _count: { _all: true } }),
+    // лиды в работе (не «Продано» и не «Отказ») без открытой задачи — о них легко забыть
+    prisma.lead.groupBy({ by: ["managerId"], where: { managerId: { in: ids }, status: { kind: { notIn: ["WON", "LOST"] } }, tasks: { none: { doneAt: null } } }, _count: { _all: true } }),
+  ]);
+  const n = (rows: { assigneeId?: string; managerId?: string | null; _count: { _all: number } }[], id: string) => rows.find((r) => (r.assigneeId ?? r.managerId) === id)?._count._all ?? 0;
+  const rows = visible
+    .map((u) => ({ name: u.name, open: n(open, u.id), overdue: n(overdue, u.id), doneToday: n(doneToday, u.id), donePeriod: n(donePeriod, u.id), noTask: n(noTask, u.id) }))
+    .filter((r) => r.open || r.donePeriod || r.noTask || r.doneToday);
+  const sum = (k: keyof (typeof rows)[number]) => rows.reduce((s, r) => s + (r[k] as number), 0);
+  return {
+    title: t("rt.tasks.title"),
+    note: t("rt.tasks.note"),
+    columns: [
+      { key: "name", label: t("rt.managers.manager"), type: "text" },
+      { key: "overdue", label: t("rt.tasks.overdue"), type: "int" },
+      { key: "open", label: t("rt.tasks.open"), type: "int" },
+      { key: "doneToday", label: t("rt.tasks.doneToday"), type: "int" },
+      { key: "donePeriod", label: t("rt.tasks.donePeriod"), type: "int" },
+      { key: "noTask", label: t("rt.tasks.noTask"), type: "int" },
+    ],
+    rows,
+    totals: { name: t("rt.total"), overdue: sum("overdue"), open: sum("open"), doneToday: sum("doneToday"), donePeriod: sum("donePeriod"), noTask: sum("noTask") },
+  };
+}
+
+/** Планы и зарплата за месяц — таблица для Excel */
+export async function plansTable(f: ReportFilters, ym: string | undefined): Promise<Table> {
+  const { t } = f;
+  const range = monthRange(ym);
+  const rows = await loadManagerMonths(range, f.managerId && f.managerId !== "none" ? f.managerId : null);
+  return {
+    title: `${t("plans.title")} ${range.ym}`,
+    note: t("plans.note"),
+    columns: [
+      { key: "name", label: t("rt.managers.manager"), type: "text" },
+      { key: "leads", label: t("plans.leads"), type: "int" },
+      { key: "leadsPlan", label: `${t("plans.leads")} (${t("plans.planShort")})`, type: "int" },
+      { key: "sales", label: t("plans.sales"), type: "int" },
+      { key: "salesPlan", label: `${t("plans.sales")} (${t("plans.planShort")})`, type: "int" },
+      { key: "profit", label: t("plans.profitUsd"), type: "int" },
+      { key: "profitPlan", label: `${t("plans.profitUsd")} (${t("plans.planShort")})`, type: "int" },
+      { key: "done", label: t("plans.done"), type: "pct" },
+      { key: "rate", label: `${t("plans.rate")}, %`, type: "int" },
+      { key: "total", label: t("plans.total"), type: "text" },
+    ],
+    rows: rows.map((r) => ({
+      name: r.name,
+      leads: r.fact.leads,
+      leadsPlan: r.plan.leads,
+      sales: r.fact.sales,
+      salesPlan: r.plan.sales,
+      profit: Math.round(r.fact.profitUsd),
+      profitPlan: r.plan.profit,
+      done: r.done.profit,
+      rate: r.ratePct,
+      total: `${r.total} ${r.currency}`,
+    })),
+  };
 }

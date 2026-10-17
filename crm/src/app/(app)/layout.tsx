@@ -9,14 +9,14 @@ import { formatDate, formatNumber, toInputDate } from "@/lib/format";
 import { isRateStale } from "@/lib/rates";
 import { getI18n } from "@/i18n/server";
 import { prisma } from "@/lib/db";
-import { leadScope } from "@/lib/access";
+import { conversationScope, leadScope } from "@/lib/access";
 import { requireUser } from "@/lib/session";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
   const { t } = await getI18n();
 
-  const [newLeads, tasks, meta, settings, pendingCosts, overdueDebts] = await Promise.all([
+  const [newLeads, tasks, meta, settings, pendingCosts, overdueDebts, unreadChats] = await Promise.all([
     prisma.lead.count({ where: { ...leadScope(user), status: { kind: "NEW" } } }),
     prisma.task.count({ where: { assigneeId: user.id, doneAt: null, dueAt: { lt: endOfDayTashkent() } } }),
     prisma.metaIntegration.findUnique({ where: { id: 1 } }),
@@ -31,6 +31,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         ...(user.role === "ADMIN" ? {} : { OR: [{ managerId: user.id }, { lead: { managerId: user.id } }] }),
       },
     }),
+    // переписки с непрочитанными сообщениями — счётчик у «Чатов»
+    prisma.conversation.count({ where: { ...conversationScope(user), unreadCount: { gt: 0 } } }),
   ]);
   const rateStale = settings?.usdRateSource === "IPAK_YULI" && isRateStale(settings.usdRateUpdatedAt) && !!settings.usdRateError;
 
@@ -46,7 +48,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <div className="min-h-screen">
       <Sidebar
         user={user}
-        counters={{ leads: newLeads, tasks, finance: pendingCosts, debtors: overdueDebts }}
+        counters={{ leads: newLeads, tasks, finance: pendingCosts, debtors: overdueDebts, chats: unreadChats }}
         rate={{ value: Number(settings?.usdRateCost ?? 0), updatedAt: settings?.usdRateUpdatedAt?.toISOString() ?? null }}
         logout={logout}
       />

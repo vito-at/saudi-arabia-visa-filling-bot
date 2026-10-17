@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import type { LeadSource, ServiceType } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
+import { mergeProfile, ProfileError, readProfile } from "@/lib/leads/profile";
 import { confirmVisaDeals } from "@/lib/deal-costs";
 import { getLeadForUser } from "@/lib/access";
 import { runAction } from "@/lib/actions";
@@ -259,5 +260,37 @@ export async function deleteLeadAction(leadId: string) {
     revalidatePath("/tasks");
     revalidatePath("/reports");
     return r;
+  });
+}
+
+/** Анкета клиента: ответы на вопросы; даты вылета и возвращения записываются в лид (по дате возвращения — напоминание) */
+export async function saveLeadProfileAction(leadId: string, input: Record<string, string>) {
+  return runAction(async () => {
+    const user = await requireUser();
+    const lead = await getLeadForUser(user, leadId);
+    const questions = await prisma.leadQuestion.findMany({ where: { isActive: true }, orderBy: { order: "asc" } });
+    let merged;
+    try {
+      merged = mergeProfile(questions, readProfile(lead.profile), input);
+    } catch (e) {
+      if (e instanceof ProfileError) throw new ValidationError("err.profileValue", { label: e.label });
+      throw e;
+    }
+    if (!merged.changed.length) return;
+    const tripChanged = merged.travelTo !== undefined && (merged.travelTo?.getTime() ?? null) !== (lead.travelTo?.getTime() ?? null);
+    await prisma.$transaction([
+      prisma.lead.update({
+        where: { id: leadId },
+        data: {
+          profile: merged.answers,
+          ...(merged.travelFrom !== undefined ? { travelFrom: merged.travelFrom } : {}),
+          ...(merged.travelTo !== undefined ? { travelTo: merged.travelTo } : {}),
+          // новая дата возвращения — напоминание о поездке создастся заново
+          ...(tripChanged ? { tripFollowUpAt: null } : {}),
+        },
+      }),
+      prisma.leadHistory.create({ data: { leadId, userId: user.id, field: "profile", newValue: merged.changed.join(", ").slice(0, 500) } }),
+    ]);
+    revalidateLeads(leadId);
   });
 }

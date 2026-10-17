@@ -72,10 +72,18 @@ model User {
   isActive       Boolean   @default(true)
   lastAssignedAt DateTime?
   createdAt      DateTime  @default(now())
+  /// Зарплата: оклад в месяц, процент от прибыли своих сделок и надбавка к проценту при выполнении плана по прибыли
+  salaryBase     Decimal   @default(0) @db.Decimal(18, 2)
+  salaryCurrency Currency  @default(UZS)
+  commissionPct  Decimal   @default(0) @db.Decimal(5, 2)
+  planBonusPct   Decimal   @default(0) @db.Decimal(5, 2)
 
   leads        Lead[]        @relation("LeadManager")
   deals        Deal[]
   dealPayments DealPayment[]
+  chatMessages ChatMessage[]
+  plans        ManagerPlan[]
+  notifications Notification[]
   comments     Comment[]
   history      LeadHistory[]
   tasks        Task[]        @relation("TaskAssignee")
@@ -120,28 +128,28 @@ model Client {
 }
 
 model Lead {
-  id          String       @id @default(cuid())
-  leadgenId   String?      @unique
-  source      LeadSource
-  name        String
-  phone       String?
-  phoneRaw    String?
-  email       String?
-  clientId    String
-  isRepeat    Boolean      @default(false)
-  statusId    String
-  managerId   String?
+  id                 String       @id @default(cuid())
+  leadgenId          String?      @unique
+  source             LeadSource
+  name               String
+  phone              String?
+  phoneRaw           String?
+  email              String?
+  clientId           String
+  isRepeat           Boolean      @default(false)
+  statusId           String
+  managerId          String?
   /// Лид создан администратором вручную: пока нет ответственного, менеджеры его не видят
-  hiddenFromManagers Boolean @default(false)
-  serviceType ServiceType?
-  destination String?
-  travelFrom  DateTime?
-  travelTo    DateTime?
-  travelers   Int?
+  hiddenFromManagers Boolean      @default(false)
+  serviceType        ServiceType?
+  destination        String?
+  travelFrom         DateTime?
+  travelTo           DateTime?
+  travelers          Int?
   /// Количество заявлений на визу (для «Визовой поддержки») — для отчёта «Визы»
-  visaApplications Int?
+  visaApplications   Int?
   /// Кастомные ответы формы: [{ key, label, value }]
-  formAnswers Json?
+  formAnswers        Json?
 
   formId       String?
   formName     String?
@@ -162,6 +170,12 @@ model Lead {
   callbackAt DateTime?
 
   metaCreatedAt   DateTime?
+  /// ответы анкеты клиента: { [id вопроса]: значение }
+  profile         Json?
+  /// когда создана задача «Спросить, как прошла поездка» (по дате возвращения из анкеты)
+  tripFollowUpAt  DateTime?
+  /// ссылка на подборку туров для клиента: /o/{offersToken}
+  offersToken    String?   @unique
   createdAt       DateTime  @default(now())
   assignedAt      DateTime?
   firstResponseAt DateTime?
@@ -172,11 +186,13 @@ model Lead {
   manager    User?       @relation("LeadManager", fields: [managerId], references: [id])
   lossReason LossReason? @relation(fields: [lossReasonId], references: [id])
 
-  comments Comment[]
-  history  LeadHistory[]
-  tasks    Task[]
-  deals    Deal[]
-  conversions ConversionEvent[]
+  comments      Comment[]
+  history       LeadHistory[]
+  tasks         Task[]
+  deals         Deal[]
+  conversations Conversation[]
+  offers        TourOffer[]
+  conversions   ConversionEvent[]
 
   @@index([statusId])
   @@index([managerId])
@@ -239,12 +255,12 @@ model Task {
 }
 
 model Deal {
-  id            String   @id @default(cuid())
+  id            String    @id @default(cuid())
   leadId        String
   clientId      String
   managerId     String?
-  amount        Decimal  @db.Decimal(18, 2)
-  cost          Decimal  @db.Decimal(18, 2)
+  amount        Decimal   @db.Decimal(18, 2)
+  cost          Decimal   @db.Decimal(18, 2)
   /// валюта суммы продажи
   currency      Currency
   /// валюта себестоимости (может отличаться от валюты продажи)
@@ -252,16 +268,16 @@ model Deal {
   paidAt        DateTime
   product       String
   /// Количество продаж в сделке (для визы — число заявлений); меняет только администратор
-  quantity      Int      @default(1)
+  quantity      Int       @default(1)
   /// false — сделку закрыл менеджер, себестоимость ещё не указал администратор
-  costConfirmed Boolean  @default(true)
+  costConfirmed Boolean   @default(true)
   /// Сколько клиент уже заплатил (в валюте продажи); меньше суммы продажи — клиент в списке должников
-  paidAmount    Decimal  @default(0) @db.Decimal(18, 2)
+  paidAmount    Decimal   @default(0) @db.Decimal(18, 2)
   /// До какого числа клиент обещал доплатить
   dueAt         DateTime?
   /// Заметка по долгу: о чём договорились с клиентом
   debtNote      String?
-  createdAt     DateTime @default(now())
+  createdAt     DateTime  @default(now())
 
   lead     Lead          @relation(fields: [leadId], references: [id], onDelete: Cascade)
   client   Client        @relation(fields: [clientId], references: [id])
@@ -319,6 +335,11 @@ model MetaIntegration {
   capiEnabled     Boolean   @default(false)
   capiLastError   String?
   capiLastSentAt  DateTime?
+  /// Переписка Instagram Direct: принимать сообщения, аккаунт Instagram, привязанный к странице
+  igEnabled       Boolean   @default(false)
+  igAccountId     String?
+  igUsername      String?
+  igLastEventAt   DateTime?
 }
 
 enum ConversionStatus {
@@ -405,6 +426,11 @@ model AppSettings {
   usdRateSource       RateSource       @default(IPAK_YULI)
   usdRateUpdatedAt    DateTime?
   usdRateError        String?
+  /// Рабочее время офиса (минуты от полуночи по Ташкенту) и рабочие дни (1 — пн … 7 — вс):
+  /// по нему считается скорость реакции на лид — ночные и выходные часы не идут в счёт
+  workStartMin        Int              @default(540)
+  workEndMin          Int              @default(1080)
+  workDays            Int[]            @default([1, 2, 3, 4, 5, 6])
 }
 
 /// История курсов USD→UZS по дням: суммы пересчитываются по курсу дня операции, поэтому отчёты за прошлые даты не меняются
@@ -434,4 +460,167 @@ model Expense {
   createdBy User? @relation(fields: [createdById], references: [id], onDelete: SetNull)
 
   @@index([date])
+}
+
+enum ChatChannel {
+  INSTAGRAM
+  TELEGRAM
+}
+
+enum ChatDirection {
+  IN
+  OUT
+}
+
+/// Переписка с клиентом в мессенджере (Instagram Direct или Telegram)
+model Conversation {
+  id                   String      @id @default(cuid())
+  channel              ChatChannel
+  /// Instagram: IGSID собеседника; Telegram: id чата
+  externalId           String
+  /// Telegram Business: чат личного аккаунта, подключённого к боту — ответ уходит от имени аккаунта
+  businessConnectionId String?
+  title                String
+  username             String?
+  avatarUrl            String?
+  leadId               String?
+  lastMessageAt        DateTime    @default(now())
+  lastMessageText      String?
+  /// последнее сообщение клиента — у Instagram ответить можно в течение 24 часов после него
+  lastInboundAt        DateTime?
+  unreadCount          Int         @default(0)
+  createdAt            DateTime    @default(now())
+
+  lead     Lead?         @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  messages ChatMessage[]
+
+  @@unique([channel, externalId])
+  @@index([lastMessageAt])
+  @@index([leadId])
+}
+
+model ChatMessage {
+  id             String        @id @default(cuid())
+  conversationId String
+  direction      ChatDirection
+  text           String?
+  /// вложения: [{ type: "image" | "audio" | "video" | "file" | "sticker", url?, fileId?, name? }]
+  attachments    Json?
+  /// id сообщения в мессенджере (Instagram mid, Telegram message_id) — защита от дублей
+  externalId     String?
+  /// кто из сотрудников отправил (для исходящих из CRM)
+  senderId       String?
+  /// ошибка отправки
+  error          String?
+  createdAt      DateTime      @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User?        @relation(fields: [senderId], references: [id], onDelete: SetNull)
+
+  @@unique([conversationId, externalId])
+  @@index([conversationId, createdAt])
+}
+
+/// Telegram-бот для переписки с клиентами (и Telegram Business — чаты личного аккаунта)
+model TelegramIntegration {
+  id                   Int       @id @default(1)
+  botTokenEnc          String?
+  botUsername          String?
+  /// секрет заголовка X-Telegram-Bot-Api-Secret-Token — вебхук принимает только запросы Telegram
+  webhookSecret        String?
+  enabled              Boolean   @default(false)
+  lastError            String?
+  lastEventAt          DateTime?
+  /// подключение Telegram Business (личный аккаунт агентства → бот)
+  businessConnectionId String?
+  businessUser         String?
+}
+
+enum QuestionType {
+  TEXT
+  NUMBER
+  DATE
+  SELECT
+}
+
+/// Особая роль вопроса анкеты: даты поездки записываются в лид (travelFrom / travelTo) — по дате возвращения CRM напоминает спросить про поездку
+enum QuestionRole {
+  DEPART_DATE
+  RETURN_DATE
+}
+
+/// Вопрос анкеты клиента в карточке лида (настраивает администратор)
+model LeadQuestion {
+  id       String        @id @default(cuid())
+  label    String
+  type     QuestionType  @default(TEXT)
+  /// варианты для SELECT
+  options  String[]      @default([])
+  role     QuestionRole? @unique
+  order    Int
+  isActive Boolean       @default(true)
+}
+
+/// План менеджера на месяц: лиды, продажи (по количеству), прибыль в долларах
+model ManagerPlan {
+  id     String   @id @default(cuid())
+  userId String
+  /// первое число месяца
+  month  DateTime @db.Date
+  leads  Int?
+  sales  Int?
+  profit Decimal? @db.Decimal(18, 2)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, month])
+}
+
+/// Уведомление сотруднику (колокольчик): новый лид, просроченная задача, срок долга, продажа без себестоимости…
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  /// lead | task | debt | cost | trip | chat
+  type      String
+  /// параметры текста (имя клиента, сумма…) — текст собирается на языке пользователя
+  data      Json?
+  link      String?
+  /// ключ события — одно уведомление на событие (повторно не создаётся)
+  key       String
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, key])
+  @@index([userId, readAt, createdAt])
+}
+
+/// Вариант тура в подборке для клиента (отправляется ссылкой /o/{token} или текстом в чат)
+model TourOffer {
+  id            String    @id @default(cuid())
+  leadId        String
+  hotel         String
+  stars         Int?
+  destination   String?
+  meal          String?
+  dateFrom      DateTime? @db.Date
+  nights        Int?
+  adults        Int?
+  children      Int?
+  operator      String?
+  /// цена туроператора и наценка агентства — клиент видит только сумму
+  priceOperator Decimal   @db.Decimal(18, 2)
+  markup        Decimal   @default(0) @db.Decimal(18, 2)
+  currency      Currency  @default(USD)
+  photoUrl      String?
+  link          String?
+  note          String?
+  order         Int       @default(0)
+  createdById   String?
+  createdAt     DateTime  @default(now())
+
+  lead Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@index([leadId])
 }
