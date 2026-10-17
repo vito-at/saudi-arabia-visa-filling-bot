@@ -8,10 +8,12 @@ import { ReportTable } from "@/components/reports/report-table";
 import { formatDate, formatNumber, formatPercent } from "@/lib/format";
 import { getManagers } from "@/lib/refs";
 import { readFilters } from "@/lib/reports/data";
-import { AD_LEVELS, adsTable, clientsTable, funnelTable, lossesTables, managersTable, REPORT_TABS, servicesTables, type ReportTab } from "@/lib/reports/tables";
+import { AD_LEVELS, adsTable, clientsTable, funnelTable, lossesTables, managersTable, tasksTable, REPORT_TABS, servicesTables, type ReportTab } from "@/lib/reports/tables";
 import type { AdLevel } from "@/lib/reports/calc";
 import { visasTable } from "@/lib/reports/visas";
 import { productsByManagerTable } from "@/lib/reports/products";
+import { buildInsights } from "@/lib/reports/insights";
+import { Lightbulb } from "lucide-react";
 import { ProductSalesTable } from "@/components/reports/product-sales-table";
 import { sp, type SearchParams } from "@/lib/leads/query";
 import { requireUser } from "@/lib/session";
@@ -65,6 +67,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
       {tab === "managers" && <ManagersReport f={f} isAdmin={isAdmin} />}
       {tab === "services" && <ServicesReport f={f} />}
       {tab === "visas" && <VisasReport f={f} />}
+      {tab === "tasks" && <TasksReport f={f} />}
     </div>
   );
 }
@@ -85,10 +88,33 @@ async function ClientsReport({ f }: { f: F }) {
 }
 
 async function FunnelReport({ f }: { f: F }) {
-  const { table, side, funnel } = await funnelTable(f);
+  const [{ table, side, funnel, times }, insights] = await Promise.all([funnelTable(f), buildInsights(f)]);
+  const fm = formatters(f.locale);
   const now = funnel.current.filter((c) => c.count > 0);
   return (
     <div className="space-y-5">
+      {insights.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Lightbulb className="size-4 text-amber-500" /> {f.t("insight.title")}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="grid grid-cols-1 gap-2 lg:grid-cols-2">
+            {insights.map((x, i) => (
+              <div
+                key={i}
+                className={cn(
+                  "rounded-lg border-l-4 bg-muted/40 px-3 py-2 text-sm",
+                  x.tone === "good" ? "border-emerald-500" : x.tone === "bad" ? "border-red-500" : "border-sky-500",
+                )}
+              >
+                {x.text}
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
       {funnel.total > 0 && (
         <Card>
           <CardHeader>
@@ -129,7 +155,9 @@ async function FunnelReport({ f }: { f: F }) {
           <CardTitle>{f.t("reports.table")}</CardTitle>
         </CardHeader>
         <ReportTable table={table} currency={f.currency} />
-        <p className="px-5 py-3 text-xs text-muted-foreground">{table.note}</p>
+        <p className="px-5 pt-3 text-xs text-muted-foreground">{table.note}</p>
+        {times.toSaleMin !== null && <p className="px-5 pt-1 text-sm font-medium">{f.t("rt.funnel.toSale", { time: fm.duration(times.toSaleMin), n: times.sold })}</p>}
+        <p className="px-5 py-3 text-xs text-muted-foreground">{f.t("rt.funnel.avgTimeNote")}</p>
         {side && (
           <div className="border-t">
             <div className="px-5 pb-1 pt-4 text-sm font-semibold">{side.title}</div>
@@ -286,5 +314,21 @@ async function ServicesReport({ f }: { f: F }) {
         <ReportTable table={t.destinations} currency={f.currency} />
       </Card>
     </div>
+  );
+}
+
+async function TasksReport({ f }: { f: F }) {
+  const table = await tasksTable(f);
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{table.title}</CardTitle>
+        <Link href="/tasks" className="text-xs text-primary hover:underline">
+          {f.t("rt.tasks.open")} →
+        </Link>
+      </CardHeader>
+      <ReportTable table={table} currency={f.currency} />
+      <p className="px-5 py-3 text-xs text-muted-foreground">{table.note}</p>
+    </Card>
   );
 }

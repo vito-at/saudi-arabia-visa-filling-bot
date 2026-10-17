@@ -14,6 +14,7 @@ import { getSettings } from "@/lib/refs";
 import { SyncLogTable } from "@/components/settings/sync-log";
 import { MessengersForm } from "@/components/settings/messengers-form";
 import { getTelegram } from "@/lib/chats/telegram";
+import { minToTime } from "@/lib/work-hours";
 import { prisma } from "@/lib/db";
 import { decrypt, maskSecret } from "@/lib/crypto";
 import { formatDate, formatDateTime } from "@/lib/format";
@@ -150,6 +151,9 @@ async function GeneralTab() {
       v={{
         distributionMode: s.distributionMode,
         unprocessedAlertMin: s.unprocessedAlertMin,
+        workStart: minToTime(s.workStartMin),
+        workEnd: minToTime(s.workEndMin),
+        workDays: s.workDays,
         usdRate: toNum(s.usdRate),
         usdRateSource: s.usdRateSource,
         usdRateCost: toNum(s.usdRateCost),

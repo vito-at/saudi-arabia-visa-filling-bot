@@ -3,7 +3,7 @@ import { getCurrentUser } from "@/lib/session";
 import { formatDate, toInputDate } from "@/lib/format";
 import { readFilters } from "@/lib/reports/data";
 import { buildWorkbook } from "@/lib/reports/excel";
-import { AD_LEVELS, adsTable, clientsTable, dashboardTables, funnelTable, lossesTables, managersTable, REPORT_TABS, servicesTables, type ReportTab, type Table } from "@/lib/reports/tables";
+import { AD_LEVELS, adsTable, clientsTable, dashboardTables, funnelTable, lossesTables, managersTable, tasksTable, REPORT_TABS, servicesTables, type ReportTab, type Table } from "@/lib/reports/tables";
 import type { AdLevel } from "@/lib/reports/calc";
 import { visasTable } from "@/lib/reports/visas";
 
@@ -46,6 +46,9 @@ export async function GET(req: NextRequest) {
     }
     case "visas":
       tables = [(await visasTable(f)).table];
+      break;
+    case "tasks":
+      tables = [await tasksTable(f)];
       break;
   }
   const to = new Date(f.period.to.getTime() - 1);

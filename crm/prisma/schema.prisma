@@ -416,6 +416,11 @@ model AppSettings {
   usdRateSource       RateSource       @default(IPAK_YULI)
   usdRateUpdatedAt    DateTime?
   usdRateError        String?
+  /// Рабочее время офиса (минуты от полуночи по Ташкенту) и рабочие дни (1 — пн … 7 — вс):
+  /// по нему считается скорость реакции на лид — ночные и выходные часы не идут в счёт
+  workStartMin        Int              @default(540)
+  workEndMin          Int              @default(1080)
+  workDays            Int[]            @default([1, 2, 3, 4, 5, 6])
 }
 
 /// История курсов USD→UZS по дням: суммы пересчитываются по курсу дня операции, поэтому отчёты за прошлые даты не меняются

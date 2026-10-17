@@ -12,6 +12,7 @@ import { updateUsdRate } from "@/lib/rates";
 import { recordDayRates } from "@/lib/rate-history";
 import { requireAdmin } from "@/lib/session";
 import { ValidationError } from "@/lib/leads/service";
+import { timeToMin } from "@/lib/work-hours";
 
 const str = (v: FormDataEntryValue | null) => (typeof v === "string" ? v.trim() : "");
 const revalidateAll = () => revalidatePath("/", "layout");
@@ -25,7 +26,17 @@ export async function saveGeneralAction(formData: FormData) {
     if (mode !== "MANUAL" && mode !== "ROUND_ROBIN") throw new ValidationError("err.distribution");
     const alert = Number(formData.get("unprocessedAlertMin"));
     if (!Number.isInteger(alert) || alert < 1 || alert > 10080) throw new ValidationError("err.alertMin");
-    await prisma.appSettings.update({ where: { id: 1 }, data: { distributionMode: mode, unprocessedAlertMin: alert } });
+    // рабочее время офиса: по нему считается скорость реакции на лид (поля могут отсутствовать в старой форме)
+    const work = formData.has("workStart")
+      ? (() => {
+          const start = timeToMin(str(formData.get("workStart")));
+          const end = timeToMin(str(formData.get("workEnd")));
+          const days = [...new Set(formData.getAll("workDays").map(Number))].filter((d) => Number.isInteger(d) && d >= 1 && d <= 7).sort();
+          if (start === null || end === null || end <= start || !days.length) throw new ValidationError("err.workHours");
+          return { workStartMin: start, workEndMin: end, workDays: days };
+        })()
+      : {};
+    await prisma.appSettings.update({ where: { id: 1 }, data: { distributionMode: mode, unprocessedAlertMin: alert, ...work } });
     revalidateAll();
     return (await getI18n()).t("msg.saved");
   });
