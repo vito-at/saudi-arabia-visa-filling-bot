@@ -76,6 +76,7 @@ model User {
   leads        Lead[]        @relation("LeadManager")
   deals        Deal[]
   dealPayments DealPayment[]
+  chatMessages ChatMessage[]
   comments     Comment[]
   history      LeadHistory[]
   tasks        Task[]        @relation("TaskAssignee")
@@ -120,28 +121,28 @@ model Client {
 }
 
 model Lead {
-  id          String       @id @default(cuid())
-  leadgenId   String?      @unique
-  source      LeadSource
-  name        String
-  phone       String?
-  phoneRaw    String?
-  email       String?
-  clientId    String
-  isRepeat    Boolean      @default(false)
-  statusId    String
-  managerId   String?
+  id                 String       @id @default(cuid())
+  leadgenId          String?      @unique
+  source             LeadSource
+  name               String
+  phone              String?
+  phoneRaw           String?
+  email              String?
+  clientId           String
+  isRepeat           Boolean      @default(false)
+  statusId           String
+  managerId          String?
   /// Лид создан администратором вручную: пока нет ответственного, менеджеры его не видят
-  hiddenFromManagers Boolean @default(false)
-  serviceType ServiceType?
-  destination String?
-  travelFrom  DateTime?
-  travelTo    DateTime?
-  travelers   Int?
+  hiddenFromManagers Boolean      @default(false)
+  serviceType        ServiceType?
+  destination        String?
+  travelFrom         DateTime?
+  travelTo           DateTime?
+  travelers          Int?
   /// Количество заявлений на визу (для «Визовой поддержки») — для отчёта «Визы»
-  visaApplications Int?
+  visaApplications   Int?
   /// Кастомные ответы формы: [{ key, label, value }]
-  formAnswers Json?
+  formAnswers        Json?
 
   formId       String?
   formName     String?
@@ -172,11 +173,12 @@ model Lead {
   manager    User?       @relation("LeadManager", fields: [managerId], references: [id])
   lossReason LossReason? @relation(fields: [lossReasonId], references: [id])
 
-  comments Comment[]
-  history  LeadHistory[]
-  tasks    Task[]
-  deals    Deal[]
-  conversions ConversionEvent[]
+  comments      Comment[]
+  history       LeadHistory[]
+  tasks         Task[]
+  deals         Deal[]
+  conversations Conversation[]
+  conversions   ConversionEvent[]
 
   @@index([statusId])
   @@index([managerId])
@@ -239,12 +241,12 @@ model Task {
 }
 
 model Deal {
-  id            String   @id @default(cuid())
+  id            String    @id @default(cuid())
   leadId        String
   clientId      String
   managerId     String?
-  amount        Decimal  @db.Decimal(18, 2)
-  cost          Decimal  @db.Decimal(18, 2)
+  amount        Decimal   @db.Decimal(18, 2)
+  cost          Decimal   @db.Decimal(18, 2)
   /// валюта суммы продажи
   currency      Currency
   /// валюта себестоимости (может отличаться от валюты продажи)
@@ -252,16 +254,16 @@ model Deal {
   paidAt        DateTime
   product       String
   /// Количество продаж в сделке (для визы — число заявлений); меняет только администратор
-  quantity      Int      @default(1)
+  quantity      Int       @default(1)
   /// false — сделку закрыл менеджер, себестоимость ещё не указал администратор
-  costConfirmed Boolean  @default(true)
+  costConfirmed Boolean   @default(true)
   /// Сколько клиент уже заплатил (в валюте продажи); меньше суммы продажи — клиент в списке должников
-  paidAmount    Decimal  @default(0) @db.Decimal(18, 2)
+  paidAmount    Decimal   @default(0) @db.Decimal(18, 2)
   /// До какого числа клиент обещал доплатить
   dueAt         DateTime?
   /// Заметка по долгу: о чём договорились с клиентом
   debtNote      String?
-  createdAt     DateTime @default(now())
+  createdAt     DateTime  @default(now())
 
   lead     Lead          @relation(fields: [leadId], references: [id], onDelete: Cascade)
   client   Client        @relation(fields: [clientId], references: [id])
@@ -319,6 +321,11 @@ model MetaIntegration {
   capiEnabled     Boolean   @default(false)
   capiLastError   String?
   capiLastSentAt  DateTime?
+  /// Переписка Instagram Direct: принимать сообщения, аккаунт Instagram, привязанный к странице
+  igEnabled       Boolean   @default(false)
+  igAccountId     String?
+  igUsername      String?
+  igLastEventAt   DateTime?
 }
 
 enum ConversionStatus {
@@ -434,4 +441,78 @@ model Expense {
   createdBy User? @relation(fields: [createdById], references: [id], onDelete: SetNull)
 
   @@index([date])
+}
+
+enum ChatChannel {
+  INSTAGRAM
+  TELEGRAM
+}
+
+enum ChatDirection {
+  IN
+  OUT
+}
+
+/// Переписка с клиентом в мессенджере (Instagram Direct или Telegram)
+model Conversation {
+  id                   String      @id @default(cuid())
+  channel              ChatChannel
+  /// Instagram: IGSID собеседника; Telegram: id чата
+  externalId           String
+  /// Telegram Business: чат личного аккаунта, подключённого к боту — ответ уходит от имени аккаунта
+  businessConnectionId String?
+  title                String
+  username             String?
+  avatarUrl            String?
+  leadId               String?
+  lastMessageAt        DateTime    @default(now())
+  lastMessageText      String?
+  /// последнее сообщение клиента — у Instagram ответить можно в течение 24 часов после него
+  lastInboundAt        DateTime?
+  unreadCount          Int         @default(0)
+  createdAt            DateTime    @default(now())
+
+  lead     Lead?         @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  messages ChatMessage[]
+
+  @@unique([channel, externalId])
+  @@index([lastMessageAt])
+  @@index([leadId])
+}
+
+model ChatMessage {
+  id             String        @id @default(cuid())
+  conversationId String
+  direction      ChatDirection
+  text           String?
+  /// вложения: [{ type: "image" | "audio" | "video" | "file" | "sticker", url?, fileId?, name? }]
+  attachments    Json?
+  /// id сообщения в мессенджере (Instagram mid, Telegram message_id) — защита от дублей
+  externalId     String?
+  /// кто из сотрудников отправил (для исходящих из CRM)
+  senderId       String?
+  /// ошибка отправки
+  error          String?
+  createdAt      DateTime      @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User?        @relation(fields: [senderId], references: [id], onDelete: SetNull)
+
+  @@unique([conversationId, externalId])
+  @@index([conversationId, createdAt])
+}
+
+/// Telegram-бот для переписки с клиентами (и Telegram Business — чаты личного аккаунта)
+model TelegramIntegration {
+  id                   Int       @id @default(1)
+  botTokenEnc          String?
+  botUsername          String?
+  /// секрет заголовка X-Telegram-Bot-Api-Secret-Token — вебхук принимает только запросы Telegram
+  webhookSecret        String?
+  enabled              Boolean   @default(false)
+  lastError            String?
+  lastEventAt          DateTime?
+  /// подключение Telegram Business (личный аккаунт агентства → бот)
+  businessConnectionId String?
+  businessUser         String?
 }

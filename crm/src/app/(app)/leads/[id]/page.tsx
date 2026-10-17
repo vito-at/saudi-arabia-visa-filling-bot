@@ -10,6 +10,10 @@ import { Comments } from "@/components/leads/comments";
 import { LeadDetailsForm } from "@/components/leads/lead-details-form";
 import { DealsPanel, DeleteLeadButton, ManagerControl, TakeButton } from "@/components/leads/lead-side";
 import { StatusControl } from "@/components/leads/status-control";
+import { ChatComposer, ChatMessages } from "@/components/chats/chat-thread";
+import { ChannelIcon } from "@/components/chats/channel-icon";
+import { igCanReply } from "@/lib/chats/instagram";
+import { toMessageView } from "@/lib/chats/view";
 import { NewTaskForm, TaskRow } from "@/components/tasks/task-list";
 import { prisma } from "@/lib/db";
 import { leadScope } from "@/lib/access";
@@ -46,6 +50,10 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
         orderBy: { paidAt: "desc" },
       },
       conversions: { orderBy: { eventTime: "asc" } },
+      conversations: {
+        orderBy: { lastMessageAt: "desc" },
+        include: { messages: { orderBy: { createdAt: "desc" }, take: 50, include: { sender: { select: { name: true } } } } },
+      },
     },
   });
   if (!lead) notFound();
@@ -198,6 +206,24 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
               </CardContent>
             </Card>
           )}
+
+          {lead.conversations.map((c) => (
+            <Card key={c.id} className="overflow-hidden">
+              <CardHeader className="flex-row items-center justify-between gap-2">
+                <CardTitle className="flex items-center gap-2">
+                  <ChannelIcon channel={c.channel} /> {t("chats.inLead")}
+                  {c.username && <span className="text-sm font-normal text-muted-foreground">@{c.username}</span>}
+                </CardTitle>
+                <Link href={`/chats?c=${c.id}`} className="text-xs text-primary hover:underline">
+                  {t("chats.openChat")}
+                </Link>
+              </CardHeader>
+              <div className="flex max-h-[28rem] flex-col border-t bg-muted/30">
+                <ChatMessages conversationId={c.id} unread={c.unreadCount} messages={[...c.messages].reverse().map(toMessageView)} />
+                <ChatComposer conversationId={c.id} blockedReason={c.channel === "INSTAGRAM" && !igCanReply(c.lastInboundAt) ? t("chats.igWindow") : null} />
+              </div>
+            </Card>
+          ))}
 
           <Card>
             <CardHeader>

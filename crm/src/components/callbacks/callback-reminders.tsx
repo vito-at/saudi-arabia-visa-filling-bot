@@ -22,6 +22,8 @@ export function CallbackReminders() {
   const notified = useRef(new Set<string>());
   const now = useNow(15_000);
   const pathname = usePathname();
+  // в «Чатах» карточки звонков закрывали бы поле ответа — там список свёрнут (раскрыть можно кнопкой)
+  useEffect(() => setCollapsed(pathname.startsWith("/chats")), [pathname]);
 
   const load = useCallback(async () => {
     try {

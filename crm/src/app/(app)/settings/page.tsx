@@ -11,6 +11,8 @@ import { toNum } from "@/lib/money";
 import { rateSources } from "@/lib/rates";
 import { getSettings } from "@/lib/refs";
 import { SyncLogTable } from "@/components/settings/sync-log";
+import { MessengersForm } from "@/components/settings/messengers-form";
+import { getTelegram } from "@/lib/chats/telegram";
 import { prisma } from "@/lib/db";
 import { decrypt, maskSecret } from "@/lib/crypto";
 import { formatDate, formatDateTime } from "@/lib/format";
@@ -28,6 +30,7 @@ const TABS = {
   reasons: "settings.tab.reasons",
   users: "settings.tab.users",
   integration: "settings.tab.integration",
+  messengers: "settings.tab.messengers",
   sync: "settings.tab.sync",
 } as const satisfies Record<string, TKey>;
 type Tab = keyof typeof TABS;
@@ -55,6 +58,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
       </div>
       {active === "integration" && <IntegrationTab />}
       {active === "sync" && <SyncTab />}
+      {active === "messengers" && <MessengersTab />}
       {active === "general" && <GeneralTab />}
       {active === "statuses" && <StatusesTab />}
       {active === "reasons" && <ReasonsTab />}
@@ -202,5 +206,29 @@ async function UsersTab() {
         />
       </CardContent>
     </Card>
+  );
+}
+
+async function MessengersTab() {
+  const [tg, i, counts] = await Promise.all([getTelegram(), getIntegration(), prisma.conversation.groupBy({ by: ["channel"], _count: { _all: true } })]);
+  const base = (process.env.APP_URL || "http://localhost:3000").replace(/\/$/, "");
+  const n = (c: "INSTAGRAM" | "TELEGRAM") => counts.find((x) => x.channel === c)?._count._all ?? 0;
+  return (
+    <MessengersForm
+      v={{
+        tg: {
+          enabled: tg.enabled,
+          botUsername: tg.botUsername,
+          hasToken: !!tg.botTokenEnc,
+          lastEventAt: tg.lastEventAt ? formatDateTime(tg.lastEventAt) : null,
+          businessUser: tg.businessConnectionId ? tg.businessUser : null,
+          lastError: tg.lastError,
+        },
+        ig: { enabled: i.igEnabled, username: i.igUsername, lastEventAt: i.igLastEventAt ? formatDateTime(i.igLastEventAt) : null, metaReady: !!(i.appId && i.pageId && i.pageTokenEnc && i.appSecretEnc) },
+        webhookUrl: `${base}/api/webhooks/meta`,
+        verifyToken: i.verifyToken,
+        chats: { INSTAGRAM: n("INSTAGRAM"), TELEGRAM: n("TELEGRAM") },
+      }}
+    />
   );
 }

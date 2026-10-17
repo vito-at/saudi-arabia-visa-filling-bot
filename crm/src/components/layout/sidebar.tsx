@@ -4,7 +4,7 @@ import { RateWidget } from "./rate-widget";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { BarChart3, CheckSquare, HandCoins, Inbox, LayoutDashboard, LogOut, Megaphone, Menu, Settings, Users, Wallet, X } from "lucide-react";
+import { BarChart3, CheckSquare, HandCoins, Inbox, MessageCircle, LayoutDashboard, LogOut, Megaphone, Menu, Settings, Users, Wallet, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "./logo";
 import { ThemeToggle } from "./theme-toggle";
@@ -15,6 +15,7 @@ import type { TKey } from "@/i18n/core";
 const NAV = [
   { href: "/", label: "nav.dashboard", icon: LayoutDashboard, badge: null },
   { href: "/leads", label: "nav.leads", icon: Inbox, badge: "leads" },
+  { href: "/chats", label: "nav.chats", icon: MessageCircle, badge: "chats" },
   // канбан убран из меню (менеджеры им не пользуются); страница осталась по адресу /kanban — вернуть можно этой строкой:
   // { href: "/kanban", label: "nav.kanban", icon: Columns3, badge: null },
   { href: "/clients", label: "nav.clients", icon: Users, badge: null },
@@ -28,7 +29,7 @@ const NAV = [
 
 type SidebarProps = {
   user: { name: string; role: "ADMIN" | "MANAGER" };
-  counters: { leads: number; tasks: number; finance: number; debtors: number };
+  counters: { leads: number; tasks: number; finance: number; debtors: number; chats: number };
   /** курс $ для расчёта цен клиентам */
   rate: { value: number; updatedAt: string | null };
   logout: () => Promise<void>;
@@ -112,7 +113,7 @@ function SidebarContent({ user, counters, logout, rate }: SidebarProps) {
               <Icon className="size-4" />
               <span className="flex-1">{t(item.label as TKey)}</span>
               {count > 0 && (
-                <span className={cn("rounded-full px-1.5 text-xs font-semibold text-white", item.badge === "leads" ? "bg-brand" : item.badge === "debtors" ? "bg-red-500" : "bg-amber-500")}>{count}</span>
+                <span className={cn("rounded-full px-1.5 text-xs font-semibold text-white", item.badge === "leads" || item.badge === "chats" ? "bg-brand" : item.badge === "debtors" ? "bg-red-500" : "bg-amber-500")}>{count}</span>
               )}
             </Link>
           );

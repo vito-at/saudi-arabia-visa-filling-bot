@@ -4,6 +4,8 @@ import { decrypt } from "@/lib/crypto";
 import { verifySignature } from "@/lib/meta/signature";
 import { getIntegration } from "@/lib/meta/integration";
 import { importLeadById } from "@/lib/meta/sync";
+import { handleInstagramWebhook } from "@/lib/chats/incoming";
+import type { IgWebhookPayload } from "@/lib/chats/instagram";
 
 export const dynamic = "force-dynamic";
 
@@ -36,6 +38,14 @@ export async function POST(req: NextRequest) {
     payload = JSON.parse(raw);
   } catch {
     return new NextResponse("Bad JSON", { status: 400 });
+  }
+  // Instagram Direct: сообщения клиентов → переписки CRM
+  if (payload.object === "instagram") {
+    const saved = await handleInstagramWebhook(payload as IgWebhookPayload).catch((e) => {
+      console.error("Instagram webhook:", e);
+      return 0;
+    });
+    return NextResponse.json({ ok: true, saved });
   }
   if (payload.object !== "page") return NextResponse.json({ ok: true, ignored: true });
 
