@@ -70,5 +70,5 @@ export function historyValue(t: TFunction, value: string | null): string | null 
   for (const [ru, key] of Object.entries(SOURCE_RU)) if (v.startsWith(ru)) v = t(key) + v.slice(ru.length);
   return v
     .replace(", прибыль ", `, ${t("deal.profit").toLowerCase()} `)
-    .replace("(автоматически)", t("history.auto")).replace("повторное обращение", t("history.repeat")).replace(/^удалена$/, t("history.deleted"));
+    .replace("(автоматически)", t("history.auto")).replace("повторное обращение", t("history.repeat")).replace(/^удалена$/, t("history.deleted")).replace(/^общий список$/, t("history.pool"));
 }

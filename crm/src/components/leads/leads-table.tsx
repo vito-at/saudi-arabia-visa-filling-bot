@@ -134,7 +134,7 @@ export function LeadsTable({ rows, managers, isAdmin }: { rows: LeadRow[]; manag
               <span className="text-muted-foreground">{r.manager ?? t("common.notAssigned")}</span>
             </div>
             <div className="mt-1 truncate text-xs text-muted-foreground">{[prettyPhone(r.phone), r.source, r.campaign, r.destination].filter(Boolean).join(" · ")}</div>
-            {r.isNew && !r.managerId && (
+            {!r.managerId && (
               <Button
                 size="sm"
                 variant="outline"
@@ -244,7 +244,7 @@ export function LeadsTable({ rows, managers, isAdmin }: { rows: LeadRow[]; manag
                   {r.destination ?? "—"}
                 </TD>
                 <TD onClick={(e) => e.stopPropagation()} className="text-right">
-                  {r.isNew && !r.managerId && (
+                  {!r.managerId && (
                     <Button size="sm" variant="outline" disabled={pending} onClick={() => take(r.id)}>
                       {t("leads.take")}
                     </Button>

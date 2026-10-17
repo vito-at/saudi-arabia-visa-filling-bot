@@ -18,6 +18,8 @@ export interface StatusView {
   kind: Kind;
   isSystem: boolean;
   inFunnel: boolean;
+  /** при переходе в статус лид уходит в общий список */
+  toPool: boolean;
   leads: number;
 }
 
@@ -28,7 +30,8 @@ function Row({ s, all, first, last }: { s: StatusView; all: StatusView[]; first:
   const [color, setColor] = useState(s.color);
   const [kind, setKind] = useState<Kind>(s.kind);
   const [inFunnel, setInFunnel] = useState(s.inFunnel);
-  const dirty = name !== s.name || color !== s.color || kind !== s.kind || inFunnel !== s.inFunnel;
+  const [toPool, setToPool] = useState(s.toPool);
+  const dirty = name !== s.name || color !== s.color || kind !== s.kind || inFunnel !== s.inFunnel || toPool !== s.toPool;
   const [moveTo, setMoveTo] = useState("");
   const [askDelete, setAskDelete] = useState(false);
   return (
@@ -58,8 +61,13 @@ function Row({ s, all, first, last }: { s: StatusView; all: StatusView[]; first:
             <input type="checkbox" checked={inFunnel} onChange={(e) => setInFunnel(e.target.checked)} /> {t("editor.inFunnel")}
           </label>
         )}
+        {(kind === "OTHER" || kind === "IN_PROGRESS") && (
+          <label className="flex items-center gap-1.5 whitespace-nowrap text-xs" title={t("editor.toPoolHint")}>
+            <input type="checkbox" checked={toPool} onChange={(e) => setToPool(e.target.checked)} /> {t("editor.toPool")}
+          </label>
+        )}
         <span className="text-xs text-muted-foreground sm:w-20 sm:text-right">{t("editor.leadsCount", { n: s.leads })}</span>
-        <Button size="sm" disabled={!dirty || pending} onClick={() => run(() => saveStatusAction({ id: s.id, name, color, kind, inFunnel }), t("editor.statusSaved"))}>
+        <Button size="sm" disabled={!dirty || pending} onClick={() => run(() => saveStatusAction({ id: s.id, name, color, kind, inFunnel, toPool }), t("editor.statusSaved"))}>
           {t("common.save")}
         </Button>
         {s.isSystem ? (
