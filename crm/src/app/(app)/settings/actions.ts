@@ -96,7 +96,7 @@ export async function refreshRateAction() {
 
 const COLOR = /^#[0-9a-f]{6}$/i;
 
-export async function saveStatusAction(input: { id?: string; name: string; color: string; kind: StatusKind; inFunnel?: boolean }) {
+export async function saveStatusAction(input: { id?: string; name: string; color: string; kind: StatusKind; inFunnel?: boolean; toPool?: boolean }) {
   return runAction(async () => {
     await requireAdmin();
     const name = input.name.trim();
@@ -106,7 +106,18 @@ export async function saveStatusAction(input: { id?: string; name: string; color
       const cur = await prisma.leadStatus.findUniqueOrThrow({ where: { id: input.id } });
       if (!cur.isSystem && SPECIAL_STATUS_KINDS.includes(input.kind)) throw new ValidationError("err.kindExists");
       // тип системных статусов менять нельзя — на нём держится логика
-      await prisma.leadStatus.update({ where: { id: input.id }, data: { name, color: input.color, kind: cur.isSystem ? cur.kind : input.kind, ...(typeof input.inFunnel === "boolean" ? { inFunnel: input.inFunnel } : {}) } });
+      const kind = cur.isSystem ? cur.kind : input.kind;
+      await prisma.leadStatus.update({
+        where: { id: input.id },
+        data: {
+          name,
+          color: input.color,
+          kind,
+          ...(typeof input.inFunnel === "boolean" ? { inFunnel: input.inFunnel } : {}),
+          // общий список — только для промежуточных статусов («Не дозвонились»), не для новых, продаж, отказов и «Перезвонить»
+          ...(typeof input.toPool === "boolean" ? { toPool: input.toPool && (kind === "OTHER" || kind === "IN_PROGRESS") } : {}),
+        },
+      });
     } else {
       if (SPECIAL_STATUS_KINDS.includes(input.kind)) throw new ValidationError("err.specialStatusExists");
       const last = await prisma.leadStatus.findFirst({ where: { kind: { notIn: ["WON", "LOST"] } }, orderBy: { order: "desc" } });

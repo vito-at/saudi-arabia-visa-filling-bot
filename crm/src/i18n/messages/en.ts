@@ -261,6 +261,8 @@ export const en: Messages = {
     statusSaved: "Status saved",
     statusesHint: "The status order defines kanban columns and funnel stages. “New”, “Call back”, “Sold” and “Lost” are system statuses: you can rename and recolor them, but not delete them.",
     systemStatus: "System status: the logic depends on it (deals, losses, new leads)",
+    toPool: "To shared pool",
+    toPoolHint: "A lead in this status loses its owner and goes to the shared pool visible to all managers. Whoever changes its status first or clicks Take becomes the owner.",
     up: "Move up",
   },
   debtors: {
@@ -526,6 +528,7 @@ export const en: Messages = {
   history: {
     auto: "(automatically)",
     deleted: "deleted",
+    pool: "shared pool",
     repeat: "repeat inquiry",
     system: "System",
   },

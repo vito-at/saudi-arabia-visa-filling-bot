@@ -221,8 +221,18 @@ export async function changeStatus(leadId: string, change: StatusChange, actor: 
       data.callbackAt = null;
     }
 
-    // менеджер, взявший нераспределённый лид в работу, становится ответственным
-    if (!lead.managerId && actor.role === "MANAGER") {
+    if (target.toPool && target.id !== lead.statusId && lead.managerId) {
+      // «Не дозвонились»: лид уходит в общий список — дозвониться может любой менеджер
+      data.managerId = null;
+      data.assignedAt = null;
+      data.hiddenFromManagers = false;
+      const prev = await tx.user.findUnique({ where: { id: lead.managerId }, select: { name: true } });
+      history.push({ leadId, userId: actor.id, field: "manager", oldValue: prev?.name ?? null, newValue: "общий список" });
+    } else if (target.toPool) {
+      // повторное «Не дозвонились» по лиду из общего списка — остаётся общим
+      data.hiddenFromManagers = false;
+    } else if (!lead.managerId && actor.role === "MANAGER") {
+      // менеджер, взявший нераспределённый лид в работу (сменил статус), становится ответственным
       data.managerId = actor.id;
       data.assignedAt = new Date();
       const me = await tx.user.findUnique({ where: { id: actor.id }, select: { name: true } });

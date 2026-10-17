@@ -92,6 +92,9 @@ model LeadStatus {
   isSystem Boolean    @default(false)
   /// false — статус-попытка (не дозвонились, перезвонить): не является этапом воронки продаж
   inFunnel Boolean    @default(true)
+  /// true — при переходе в этот статус лид теряет ответственного и попадает в общий список («Не дозвонились»);
+  /// следующий менеджер, сменивший статус, становится ответственным
+  toPool   Boolean    @default(false)
 
   leads Lead[]
 }
