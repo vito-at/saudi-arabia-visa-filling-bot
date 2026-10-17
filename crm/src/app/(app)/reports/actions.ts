@@ -9,7 +9,7 @@ import { ValidationError } from "@/lib/leads/service";
 import { SERVICE_LABELS, SERVICE_TYPES } from "@/lib/constants";
 import { toNum } from "@/lib/money";
 import { confirmVisaDeals } from "@/lib/deal-costs";
-import { monthRange } from "@/lib/salary";
+import { monthKey, monthRange } from "@/lib/salary";
 
 export interface CellDeal {
   id: string;
@@ -107,9 +107,9 @@ export async function savePlanAction(input: {
     const currency = input.salaryCurrency === "USD" ? "USD" : "UZS";
     await prisma.$transaction([
       prisma.managerPlan.upsert({
-        where: { userId_month: { userId: input.userId, month: range.from } },
+        where: { userId_month: { userId: input.userId, month: monthKey(range.ym) } },
         update: { leads: leads === null ? null : Math.round(leads), sales: sales === null ? null : Math.round(sales), profit },
-        create: { userId: input.userId, month: range.from, leads: leads === null ? null : Math.round(leads), sales: sales === null ? null : Math.round(sales), profit },
+        create: { userId: input.userId, month: monthKey(range.ym), leads: leads === null ? null : Math.round(leads), sales: sales === null ? null : Math.round(sales), profit },
       }),
       prisma.user.update({ where: { id: input.userId }, data: { salaryBase: base, salaryCurrency: currency, commissionPct: pct, planBonusPct: bonus } }),
     ]);

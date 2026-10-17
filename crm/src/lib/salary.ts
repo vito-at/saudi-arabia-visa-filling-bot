@@ -27,6 +27,9 @@ export function monthRange(ym: string | null | undefined, now = new Date()): Mon
   return { ym: v, from: parseInputDate(`${v}-01`)!, to: parseInputDate(`${next}-01`)! };
 }
 
+/** Ключ месяца для колонки @db.Date: первое число по UTC (Prisma сохраняет дату по UTC) */
+export const monthKey = (ym: string) => new Date(`${ym}-01T00:00:00Z`);
+
 export function shiftMonth(ym: string, delta: number): string {
   const [y, m] = ym.split("-").map(Number);
   const i = y * 12 + (m - 1) + delta;
@@ -96,7 +99,7 @@ export async function loadManagerMonths(range: MonthRange, managerId: string | n
   const users = await prisma.user.findMany({
     where: { role: "MANAGER", ...(managerId ? { id: managerId } : { isActive: true }) },
     orderBy: { name: "asc" },
-    include: { plans: { where: { month: range.from } } },
+    include: { plans: { where: { month: monthKey(range.ym) } } },
   });
   const ids = users.map((u) => u.id);
   const [leads, deals] = await Promise.all([

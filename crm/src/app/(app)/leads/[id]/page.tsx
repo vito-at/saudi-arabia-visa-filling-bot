@@ -25,6 +25,8 @@ import { ratesOn } from "@/lib/rate-book";
 import { prettyPhone, telegramLink, whatsappLink } from "@/lib/phone";
 import { getLossReasons, getManagers, getQuestions, getSettings, getStatuses } from "@/lib/refs";
 import { LeadProfileCard } from "@/components/leads/lead-profile";
+import { TourOffers } from "@/components/leads/tour-offers";
+import { toOfferView } from "@/lib/offers";
 import { LeadNav } from "@/components/leads/lead-nav";
 import { readProfile } from "@/lib/leads/profile";
 import { isOverdueNew } from "@/lib/leads/query";
@@ -53,6 +55,7 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
         orderBy: { paidAt: "desc" },
       },
       conversions: { orderBy: { eventTime: "asc" } },
+      offers: { orderBy: { order: "asc" } },
       conversations: {
         orderBy: { lastMessageAt: "desc" },
         include: { messages: { orderBy: { createdAt: "desc" }, take: 50, include: { sender: { select: { name: true } } } } },
@@ -194,6 +197,13 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
           </Card>
 
           <LeadProfileCard leadId={lead.id} answers={readProfile(lead.profile)} questions={questions.map((q) => ({ id: q.id, label: q.label, type: q.type, options: q.options, role: q.role }))} />
+
+          <TourOffers
+            leadId={lead.id}
+            offers={lead.offers.map(toOfferView)}
+            chats={lead.conversations.map((c) => ({ id: c.id, channel: c.channel, blocked: c.channel === "INSTAGRAM" && !igCanReply(c.lastInboundAt) }))}
+            pageUrl={lead.offersToken ? `/o/${lead.offersToken}` : null}
+          />
 
           {answers.length > 0 && (
             <Card>
