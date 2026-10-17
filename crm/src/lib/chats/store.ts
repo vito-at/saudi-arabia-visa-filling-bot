@@ -5,6 +5,7 @@ import type { ChatChannel, ChatDirection, LeadSource, Prisma } from "@prisma/cli
 import { prisma } from "@/lib/db";
 import { createLead } from "@/lib/leads/service";
 import { normalizePhone } from "@/lib/phone";
+import { notify } from "@/lib/notify";
 import type { ParsedAttachment } from "./telegram";
 
 export interface Profile {
@@ -104,7 +105,15 @@ export async function recordChatMessage(m: IncomingChatMessage) {
     },
   });
 
-  if (inbound) await ensureLead(conv.id, m.channel, conv.title, extractPhone(m.text));
+  if (inbound) {
+    await ensureLead(conv.id, m.channel, conv.title, extractPhone(m.text));
+    // первое непрочитанное сообщение (новая «пачка») — уведомление ответственному
+    if (conv.unreadCount === 0) {
+      const lead = await prisma.conversation.findUnique({ where: { id: conv.id }, select: { lead: { select: { id: true, managerId: true } } } });
+      if (lead?.lead?.managerId)
+        await notify([{ userId: lead.lead.managerId, type: "chat", key: `chat:${msg.id}`, link: `/chats?c=${conv.id}`, data: { name: conv.title, channel: m.channel } }]);
+    }
+  }
   // ответ из приложения Instagram/Telegram (не из CRM) — тоже первая реакция по лиду
   else if (conv.leadId) await prisma.lead.updateMany({ where: { id: conv.leadId, firstResponseAt: null }, data: { firstResponseAt: at } });
   return msg;

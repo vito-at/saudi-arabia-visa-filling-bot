@@ -31,3 +31,14 @@ describe("зарплата и план", () => {
     expect(shiftMonth("2026-12", 1)).toBe("2027-01");
   });
 });
+
+import { monthGrid } from "@/lib/calendar";
+describe("сетка календаря", () => {
+  it("недели с понедельника, октябрь 2026 начинается в четверг", () => {
+    const g = monthGrid("2026-10");
+    expect(g[0][0]).toBe("2026-09-28");
+    expect(g[0][3]).toBe("2026-10-01");
+    expect(g.at(-1)!.includes("2026-10-31")).toBe(true);
+    expect(g.length).toBe(5);
+  });
+});

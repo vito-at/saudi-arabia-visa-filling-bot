@@ -4,6 +4,7 @@
  */
 import { prisma } from "@/lib/db";
 import { toInputDate } from "@/lib/format";
+import { notify } from "@/lib/notify";
 
 export const TRIP_TASK_TITLE = "Спросить, как прошла поездка";
 /** вернувшихся раньше этого срока не трогаем (дату возвращения заполнили задним числом) */
@@ -19,7 +20,7 @@ export async function createTripFollowUps(now = new Date()): Promise<number> {
       travelTo: { lt: today, gte: new Date(today.getTime() - MAX_AGE_DAYS * 86_400_000) },
       deals: { some: {} },
     },
-    select: { id: true, managerId: true },
+    select: { id: true, managerId: true, name: true },
   });
   if (!leads.length) return 0;
   const admin = await prisma.user.findFirst({ where: { role: "ADMIN", isActive: true }, orderBy: { createdAt: "asc" }, select: { id: true } });
@@ -33,6 +34,7 @@ export async function createTripFollowUps(now = new Date()): Promise<number> {
       prisma.task.create({ data: { leadId: l.id, assigneeId, createdById: assigneeId, title: TRIP_TASK_TITLE, dueAt: due } }),
       prisma.lead.update({ where: { id: l.id }, data: { tripFollowUpAt: now } }),
     ]);
+    await notify([{ userId: assigneeId, type: "trip", key: `trip:${l.id}`, link: `/leads/${l.id}`, data: { name: l.name } }]);
     created++;
   }
   return created;

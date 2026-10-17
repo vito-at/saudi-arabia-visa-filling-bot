@@ -361,7 +361,7 @@ async function PlansReport({ f, ym, isAdmin, keep }: { f: F; ym: string | undefi
           <Link href={link(shiftMonth(range.ym, -1))} className="inline-flex size-9 items-center justify-center rounded-md border bg-card hover:bg-accent" aria-label="←">
             <ChevronLeft className="size-4" />
           </Link>
-          <span className="min-w-40 text-center font-semibold capitalize">{monthName(range.ym)}</span>
+          <span className="inline-block min-w-40 text-center font-semibold first-letter:uppercase">{monthName(range.ym)}</span>
           <Link href={link(shiftMonth(range.ym, 1))} className="inline-flex size-9 items-center justify-center rounded-md border bg-card hover:bg-accent" aria-label="→">
             <ChevronRight className="size-4" />
           </Link>
@@ -397,7 +397,7 @@ async function PlansReport({ f, ym, isAdmin, keep }: { f: F; ym: string | undefi
               <tbody className="divide-y">
                 {months.map((m, i) => (
                   <tr key={m}>
-                    <td className="px-4 py-2.5 capitalize">
+                    <td className="px-4 py-2.5 first-letter:uppercase">
                       <Link href={link(m)} className="hover:underline">
                         {monthName(m)}
                       </Link>

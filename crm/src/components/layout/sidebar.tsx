@@ -4,9 +4,10 @@ import { RateWidget } from "./rate-widget";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { BarChart3, CheckSquare, HandCoins, Inbox, MessageCircle, LayoutDashboard, LogOut, Megaphone, Menu, Settings, Users, Wallet, X } from "lucide-react";
+import { BarChart3, CalendarDays, CheckSquare, HandCoins, Inbox, MessageCircle, LayoutDashboard, LogOut, Megaphone, Menu, Settings, Users, Wallet, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "./logo";
+import { NotificationBell } from "./notification-bell";
 import { ThemeToggle } from "./theme-toggle";
 import { LanguageSwitcher } from "./language-switcher";
 import { useI18n } from "@/i18n/client";
@@ -20,6 +21,7 @@ const NAV = [
   // { href: "/kanban", label: "nav.kanban", icon: Columns3, badge: null },
   { href: "/clients", label: "nav.clients", icon: Users, badge: null },
   { href: "/tasks", label: "nav.tasks", icon: CheckSquare, badge: "tasks" },
+  { href: "/calendar", label: "nav.calendar", icon: CalendarDays, badge: null },
   { href: "/debtors", label: "nav.debtors", icon: HandCoins, badge: "debtors" },
   { href: "/reports", label: "nav.reports", icon: BarChart3, badge: null },
   { href: "/ads", label: "nav.ads", icon: Megaphone, badge: null, admin: true },
@@ -64,8 +66,9 @@ export function Sidebar(props: SidebarProps) {
         <Link href="/" aria-label={t("common.home")}>
           <Logo className="h-7" />
         </Link>
+        <NotificationBell className="ml-auto" />
         {total > 0 && (
-          <Link href="/leads" className="ml-auto rounded-full bg-brand px-2.5 py-0.5 text-xs font-semibold text-white">
+          <Link href="/leads" className="rounded-full bg-brand px-2.5 py-0.5 text-xs font-semibold text-white">
             {t("nav.leads")} · {total}
           </Link>
         )}
@@ -91,10 +94,13 @@ function SidebarContent({ user, counters, logout, rate }: SidebarProps) {
   const { t } = useI18n();
   return (
     <>
-      <Link href="/" className="block px-5 pb-4 pt-5" aria-label={t("common.home")}>
-        <Logo className="h-10" />
-        <div className="mt-1.5 pl-0.5 text-[11px] uppercase tracking-wider text-sidebar-muted">{t("nav.tagline")}</div>
-      </Link>
+      <div className="flex items-start justify-between px-5 pb-4 pt-5">
+        <Link href="/" className="block" aria-label={t("common.home")}>
+          <Logo className="h-10" />
+          <div className="mt-1.5 pl-0.5 text-[11px] uppercase tracking-wider text-sidebar-muted">{t("nav.tagline")}</div>
+        </Link>
+        <NotificationBell className="-mr-2 hidden lg:block" />
+      </div>
       <nav className="flex-1 space-y-0.5 px-3">
         {NAV.filter((n) => !("admin" in n) || user.role === "ADMIN").map((item) => {
           const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);

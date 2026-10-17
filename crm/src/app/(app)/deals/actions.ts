@@ -12,6 +12,7 @@ import { SERVICE_TYPES } from "@/lib/constants";
 import { dealClosesWithoutCost, visaLeadPatch } from "@/lib/deals";
 import { debtLeft, parsePaidAtClose, parsePayment } from "@/lib/debts";
 import { toNum } from "@/lib/money";
+import { notifyCostPending } from "@/lib/notify";
 
 export interface DealInput {
   amount: string;
@@ -124,6 +125,10 @@ export async function createDealAction(leadId: string, input: DealInput, wonStat
       }
       return deal;
     });
+    if (!costConfirmed && user.role !== "ADMIN") {
+      const created = await prisma.deal.findFirst({ where: { leadId }, orderBy: { createdAt: "desc" }, select: { id: true, product: true } });
+      if (created) await notifyCostPending({ id: created.id, leadId, product: created.product, leadName: lead.name });
+    }
     if (wonStatusId) await changeStatus(leadId, { statusId: wonStatusId }, user);
     revalidate(leadId, lead.clientId);
   });

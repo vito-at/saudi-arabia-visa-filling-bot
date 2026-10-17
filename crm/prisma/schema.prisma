@@ -83,6 +83,7 @@ model User {
   dealPayments DealPayment[]
   chatMessages ChatMessage[]
   plans        ManagerPlan[]
+  notifications Notification[]
   comments     Comment[]
   history      LeadHistory[]
   tasks        Task[]        @relation("TaskAssignee")
@@ -570,4 +571,24 @@ model ManagerPlan {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, month])
+}
+
+/// Уведомление сотруднику (колокольчик): новый лид, просроченная задача, срок долга, продажа без себестоимости…
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  /// lead | task | debt | cost | trip | chat
+  type      String
+  /// параметры текста (имя клиента, сумма…) — текст собирается на языке пользователя
+  data      Json?
+  link      String?
+  /// ключ события — одно уведомление на событие (повторно не создаётся)
+  key       String
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, key])
+  @@index([userId, readAt, createdAt])
 }
