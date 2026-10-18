@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/badge";
 import { AiToggle, ChatAutoRefresh, ChatComposer, ChatMessages } from "@/components/chats/chat-thread";
 import { getAiSettings } from "@/lib/chats/ai";
+import { getChatTemplates } from "@/lib/refs";
 import { ChannelIcon } from "@/components/chats/channel-icon";
 import { prisma } from "@/lib/db";
 import { conversationScope } from "@/lib/access";
@@ -49,7 +50,7 @@ export default async function ChatsPage({ searchParams }: { searchParams: Promis
     ...(channel ? { channel } : {}),
     ...(q ? { OR: [{ title: { contains: q, mode: "insensitive" } }, { username: { contains: q, mode: "insensitive" } }, { lead: { phone: { contains: q.replace(/\D/g, "") || q } } }] } : {}),
   };
-  const [list, selected, ai] = await Promise.all([
+  const [list, selected, ai, templates] = await Promise.all([
     prisma.conversation.findMany({
       where,
       orderBy: { lastMessageAt: "desc" },
@@ -66,6 +67,7 @@ export default async function ChatsPage({ searchParams }: { searchParams: Promis
         })
       : null,
     getAiSettings(),
+    getChatTemplates(),
   ]);
   const aiOn = ai.enabled && !!ai.apiKeyEnc;
 
@@ -154,7 +156,7 @@ export default async function ChatsPage({ searchParams }: { searchParams: Promis
                 )}
               </header>
               <ChatMessages conversationId={selected.id} unread={selected.unreadCount} messages={[...selected.messages].reverse().map(toMessageView)} />
-              <ChatComposer conversationId={selected.id} blockedReason={igClosed ? t("chats.igWindow") : null} />
+              <ChatComposer conversationId={selected.id} blockedReason={igClosed ? t("chats.igWindow") : null} templates={templates} clientName={selected.lead?.name ?? selected.title} />
             </>
           ) : (
             <div className="m-auto text-center text-sm text-muted-foreground">

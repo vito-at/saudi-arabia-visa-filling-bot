@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { AlertTriangle, Bot, FileText, MapPin, Send } from "lucide-react";
+import { AlertTriangle, Bot, FileText, MapPin, MessageSquareText, Paperclip, Send, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
 import { markChatReadAction, sendChatMessageAction, setAiPausedAction } from "@/app/(app)/chats/actions";
@@ -111,32 +111,111 @@ export function ChatMessages({ conversationId, messages, unread, className }: { 
   );
 }
 
-export function ChatComposer({ conversationId, blockedReason }: { conversationId: string; blockedReason?: string | null }) {
+export interface ComposerTemplate {
+  id: string;
+  title: string;
+  text: string;
+}
+
+/** Ответ клиенту: текст, быстрые ответы (шаблоны) и файлы — фото, документы, видео */
+export function ChatComposer({
+  conversationId,
+  blockedReason,
+  templates = [],
+  clientName,
+}: {
+  conversationId: string;
+  blockedReason?: string | null;
+  templates?: ComposerTemplate[];
+  clientName?: string | null;
+}) {
   const { t } = useI18n();
   const router = useRouter();
   const [text, setText] = useState("");
+  const [file, setFile] = useState<File | null>(null);
+  const [showTpl, setShowTpl] = useState(false);
   const [pending, start] = useTransition();
+  const fileInput = useRef<HTMLInputElement>(null);
+  const area = useRef<HTMLTextAreaElement>(null);
 
   function send() {
     const body = text.trim();
-    if (!body || pending) return;
+    if (pending || (!body && !file)) return;
     start(async () => {
-      const res = await sendChatMessageAction(conversationId, body);
-      if (!res.ok) return void toast.error(res.error);
+      if (file) {
+        const form = new FormData();
+        form.append("conversationId", conversationId);
+        form.append("caption", body);
+        form.append("file", file);
+        const r = await fetch("/api/chats/send-file", { method: "POST", body: form }).catch(() => null);
+        const res = (await r?.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
+        if (!res?.ok) return void toast.error(res?.error ?? t("common.errorGeneric"));
+        setFile(null);
+      } else {
+        const res = await sendChatMessageAction(conversationId, body);
+        if (!res.ok) return void toast.error(res.error);
+      }
       setText("");
       router.refresh();
     });
   }
 
+  function insertTemplate(tp: ComposerTemplate) {
+    // {name} (или {имя}) — имя клиента (первое слово), если оно известно
+    const first = clientName?.trim().split(/\s+/)[0] ?? "";
+    const filled = tp.text.replace(/\{(name|имя)\}/gi, first).replace(/^,\s*/, "").replace(/\s+,/g, ",");
+    setText((cur) => (cur.trim() ? `${cur.trimEnd()}\n${filled}` : filled));
+    setShowTpl(false);
+    area.current?.focus();
+  }
+
   return (
-    <div className="border-t bg-card p-2 sm:p-3">
+    <div className="relative border-t bg-card p-2 sm:p-3">
       {blockedReason && (
         <p className="mb-2 flex items-start gap-1.5 rounded-md bg-amber-50 px-2.5 py-1.5 text-xs text-amber-900">
           <AlertTriangle className="mt-0.5 size-3.5 shrink-0" /> {blockedReason}
         </p>
       )}
-      <div className="flex items-end gap-2">
+      {showTpl && (
+        <div className="absolute right-2 bottom-full left-2 z-20 mb-1 max-h-72 overflow-y-auto rounded-lg border bg-card p-1 shadow-lg sm:left-auto sm:w-96">
+          {!templates.length && <p className="p-3 text-sm text-muted-foreground">{t("tpl.none")}</p>}
+          {templates.map((tp) => (
+            <button key={tp.id} type="button" onClick={() => insertTemplate(tp)} className="block w-full rounded-md px-3 py-2 text-left hover:bg-accent">
+              <div className="text-sm font-medium">{tp.title}</div>
+              <div className="line-clamp-2 text-xs text-muted-foreground">{tp.text}</div>
+            </button>
+          ))}
+        </div>
+      )}
+      {file && (
+        <div className="mb-2 flex items-center gap-2 rounded-md bg-muted px-2.5 py-1.5 text-xs">
+          <Paperclip className="size-3.5 shrink-0" />
+          <span className="min-w-0 flex-1 truncate">{file.name}</span>
+          <span className="shrink-0 text-muted-foreground">{(file.size / 1024 / 1024).toFixed(1)} MB</span>
+          <button type="button" onClick={() => setFile(null)} title={t("tpl.removeFile")} aria-label={t("tpl.removeFile")} className="rounded p-0.5 hover:bg-accent">
+            <X className="size-3.5" />
+          </button>
+        </div>
+      )}
+      <div className="flex items-end gap-1.5 sm:gap-2">
+        <input
+          ref={fileInput}
+          type="file"
+          className="hidden"
+          accept="image/*,video/*,audio/*,application/pdf,.doc,.docx,.xls,.xlsx,.zip"
+          onChange={(e) => {
+            setFile(e.target.files?.[0] ?? null);
+            e.target.value = "";
+          }}
+        />
+        <Button type="button" variant="ghost" size="icon" onClick={() => fileInput.current?.click()} disabled={pending} title={t("tpl.attach")} aria-label={t("tpl.attach")}>
+          <Paperclip />
+        </Button>
+        <Button type="button" variant="ghost" size="icon" onClick={() => setShowTpl(!showTpl)} disabled={pending} title={t("tpl.pick")} aria-label={t("tpl.pick")} className={cn(showTpl && "bg-accent")}>
+          <MessageSquareText />
+        </Button>
         <Textarea
+          ref={area}
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {
@@ -147,11 +226,11 @@ export function ChatComposer({ conversationId, blockedReason }: { conversationId
             }
           }}
           rows={1}
-          placeholder={t("chats.placeholder")}
+          placeholder={file ? t("tpl.captionPh") : t("chats.placeholder")}
           aria-label={t("chats.placeholder")}
           className="max-h-40 min-h-10 flex-1 resize-none"
         />
-        <Button onClick={send} disabled={pending || !text.trim()} size="icon" aria-label={t("chats.send")} title={t("chats.send")}>
+        <Button onClick={send} disabled={pending || (!text.trim() && !file)} size="icon" aria-label={t("chats.send")} title={pending ? t("tpl.sending") : t("chats.send")}>
           <Send />
         </Button>
       </div>

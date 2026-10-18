@@ -23,7 +23,7 @@ import { formatDateTime, toInputDate } from "@/lib/format";
 import { dealProfitInSale, sumDeals, toNum } from "@/lib/money";
 import { ratesOn } from "@/lib/rate-book";
 import { prettyPhone, telegramLink, whatsappLink } from "@/lib/phone";
-import { getLossReasons, getManagers, getQuestions, getSettings, getStatuses } from "@/lib/refs";
+import { getChatTemplates, getLossReasons, getManagers, getQuestions, getSettings, getStatuses } from "@/lib/refs";
 import { LeadProfileCard } from "@/components/leads/lead-profile";
 import { TourOffers } from "@/components/leads/tour-offers";
 import { toOfferView } from "@/lib/offers";
@@ -64,7 +64,7 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
   });
   if (!lead) notFound();
 
-  const [statuses, reasons, users, settings, questions] = await Promise.all([getStatuses(), getLossReasons(), getManagers(), getSettings(), getQuestions()]);
+  const [statuses, reasons, users, settings, questions, templates] = await Promise.all([getStatuses(), getLossReasons(), getManagers(), getSettings(), getQuestions(), getChatTemplates()]);
   const rate = toNum(settings.usdRate);
   // данные лида, которыми заполняется окно сделки
   const prefill: LeadPrefill = {
@@ -234,7 +234,7 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
               </CardHeader>
               <div className="flex max-h-[28rem] flex-col border-t bg-muted/30">
                 <ChatMessages conversationId={c.id} unread={c.unreadCount} messages={[...c.messages].reverse().map(toMessageView)} />
-                <ChatComposer conversationId={c.id} blockedReason={c.channel === "INSTAGRAM" && !igCanReply(c.lastInboundAt) ? t("chats.igWindow") : null} />
+                <ChatComposer conversationId={c.id} blockedReason={c.channel === "INSTAGRAM" && !igCanReply(c.lastInboundAt) ? t("chats.igWindow") : null} templates={templates} clientName={lead.name} />
               </div>
             </Card>
           ))}

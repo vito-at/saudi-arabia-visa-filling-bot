@@ -690,3 +690,23 @@ model AiBotSettings {
   lastError    String?
   lastUsedAt   DateTime?
 }
+
+/// Быстрые ответы в переписках (шаблоны). {name} заменяется именем клиента
+model ChatTemplate {
+  id        String   @id @default(cuid())
+  title     String
+  text      String
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+}
+
+/// Файл, отправленный клиенту из CRM. Доступен по случайному токену: Instagram сам скачивает вложение по ссылке
+model ChatFile {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  name      String
+  mime      String
+  size      Int
+  data      Bytes
+  createdAt DateTime @default(now())
+}

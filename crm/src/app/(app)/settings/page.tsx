@@ -10,10 +10,11 @@ import { QuestionsEditor } from "@/components/settings/questions-editor";
 import { UsersEditor } from "@/components/settings/users-editor";
 import { toNum } from "@/lib/money";
 import { rateSources } from "@/lib/rates";
-import { getSettings } from "@/lib/refs";
+import { getChatTemplates, getSettings } from "@/lib/refs";
 import { SyncLogTable } from "@/components/settings/sync-log";
 import { MessengersForm } from "@/components/settings/messengers-form";
 import { AiBotForm } from "@/components/settings/ai-bot-form";
+import { TemplatesEditor } from "@/components/settings/templates-editor";
 import { getAiSettings, workHoursText } from "@/lib/chats/ai";
 import { scheduleOf } from "@/lib/work-hours";
 import { getTelegram } from "@/lib/chats/telegram";
@@ -220,7 +221,7 @@ async function UsersTab() {
 }
 
 async function MessengersTab() {
-  const [tg, i, counts, ai, settings] = await Promise.all([getTelegram(), getIntegration(), prisma.conversation.groupBy({ by: ["channel"], _count: { _all: true } }), getAiSettings(), getSettings()]);
+  const [tg, i, counts, ai, settings, templates] = await Promise.all([getTelegram(), getIntegration(), prisma.conversation.groupBy({ by: ["channel"], _count: { _all: true } }), getAiSettings(), getSettings(), getChatTemplates()]);
   const base = (process.env.APP_URL || "http://localhost:3000").replace(/\/$/, "");
   const n = (c: "INSTAGRAM" | "TELEGRAM") => counts.find((x) => x.channel === c)?._count._all ?? 0;
   return (
@@ -240,20 +241,23 @@ async function MessengersTab() {
         chats: { INSTAGRAM: n("INSTAGRAM"), TELEGRAM: n("TELEGRAM") },
       }}
       extra={
-        <AiBotForm
-          v={{
-            enabled: ai.enabled,
-            hasKey: !!ai.apiKeyEnc,
-            mode: ai.mode,
-            telegram: ai.channels.includes("TELEGRAM"),
-            instagram: ai.channels.includes("INSTAGRAM"),
-            instructions: ai.instructions,
-            maxReplies: ai.maxReplies,
-            lastError: ai.lastError,
-            lastUsedAt: ai.lastUsedAt ? formatDateTime(ai.lastUsedAt) : null,
-            workHours: workHoursText(scheduleOf(settings)).replace(/^.*, /, ""),
-          }}
-        />
+        <>
+          <TemplatesEditor templates={templates} />
+          <AiBotForm
+            v={{
+              enabled: ai.enabled,
+              hasKey: !!ai.apiKeyEnc,
+              mode: ai.mode,
+              telegram: ai.channels.includes("TELEGRAM"),
+              instagram: ai.channels.includes("INSTAGRAM"),
+              instructions: ai.instructions,
+              maxReplies: ai.maxReplies,
+              lastError: ai.lastError,
+              lastUsedAt: ai.lastUsedAt ? formatDateTime(ai.lastUsedAt) : null,
+              workHours: workHoursText(scheduleOf(settings)).replace(/^.*, /, ""),
+            }}
+          />
+        </>
       }
     />
   );

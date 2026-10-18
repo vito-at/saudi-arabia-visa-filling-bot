@@ -87,3 +87,30 @@ export async function disableInstagramAction() {
     revalidatePath("/settings");
   });
 }
+
+// ——— Быстрые ответы ———
+
+export async function saveTemplateAction(input: { id?: string; title: string; text: string }) {
+  return runAction(async () => {
+    await requireAdmin();
+    const title = input.title.trim().slice(0, 60);
+    const text = input.text.trim().slice(0, 2000);
+    if (!title || !text) throw new ValidationError("err.templateEmpty");
+    if (input.id) await prisma.chatTemplate.update({ where: { id: input.id }, data: { title, text } });
+    else {
+      const last = await prisma.chatTemplate.findFirst({ orderBy: { order: "desc" }, select: { order: true } });
+      await prisma.chatTemplate.create({ data: { title, text, order: (last?.order ?? 0) + 1 } });
+    }
+    revalidatePath("/settings");
+    revalidatePath("/chats");
+  });
+}
+
+export async function deleteTemplateAction(id: string) {
+  return runAction(async () => {
+    await requireAdmin();
+    await prisma.chatTemplate.deleteMany({ where: { id } });
+    revalidatePath("/settings");
+    revalidatePath("/chats");
+  });
+}

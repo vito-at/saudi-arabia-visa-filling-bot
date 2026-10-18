@@ -38,6 +38,17 @@ export class TelegramBot {
     return data.result as T;
   }
 
+  /** Метод с загрузкой файла (sendPhoto, sendDocument…): multipart/form-data */
+  async upload<T>(method: string, fields: Record<string, string | undefined>, file: { field: string; name: string; mime: string; data: Uint8Array }): Promise<T> {
+    const form = new FormData();
+    for (const [k, v] of Object.entries(fields)) if (v !== undefined) form.append(k, v);
+    form.append(file.field, new Blob([file.data as BlobPart], { type: file.mime }), file.name);
+    const res = await this.fetchFn(`${API}/bot${this.token}/${method}`, { method: "POST", body: form, signal: AbortSignal.timeout(120_000) });
+    const data = (await res.json().catch(() => ({}))) as { ok?: boolean; result?: T; description?: string; error_code?: number };
+    if (!data.ok) throw new TelegramError(data.description || `HTTP ${res.status}`, data.error_code ?? res.status);
+    return data.result as T;
+  }
+
   /** Скачать файл по file_id: путь получаем через getFile */
   async download(fileId: string): Promise<{ body: ArrayBuffer; path: string }> {
     const f = await this.call<{ file_path?: string }>("getFile", { file_id: fileId });
