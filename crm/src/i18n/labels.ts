@@ -7,6 +7,9 @@ export const sourceLabel = (t: TFunction, s: LeadSource | string) => t(`source.$
 export const leadSourceLabel = (t: TFunction, l: { source: LeadSource | string; isOrganic?: boolean | null }) =>
   l.isOrganic && (l.source === "META_IG" || l.source === "META_FB") ? t(`source.${l.source}_ORGANIC` as TKey) : sourceLabel(t, l.source);
 export const serviceLabel = (t: TFunction, s: ServiceType | string) => t(`service.${s}` as TKey);
+/** Название заявки: «Виза: Таиланд», «Авиабилеты: Стамбул» */
+export const serviceTitle = (t: TFunction, type: ServiceType | string, country?: string | null) =>
+  `${type === "VISA" ? t("docs.visa") : serviceLabel(t, type)}${country ? `: ${country}` : ""}`;
 export const roleLabel = (t: TFunction, r: Role | string) => t(`role.${r}` as TKey);
 export const statusKindLabel = (t: TFunction, k: StatusKind | string) => t(`statusKind.${k}` as TKey);
 export const fieldLabel = (t: TFunction, f: string) => t(`field.${f}` as TKey);

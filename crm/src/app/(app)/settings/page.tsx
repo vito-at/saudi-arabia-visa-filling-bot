@@ -6,11 +6,21 @@ import { IntegrationForm } from "@/components/settings/integration-form";
 import { GeneralForm } from "@/components/settings/general-form";
 import { StatusesEditor } from "@/components/settings/statuses-editor";
 import { ReasonsEditor } from "@/components/settings/reasons-editor";
+import { QuestionsEditor } from "@/components/settings/questions-editor";
 import { UsersEditor } from "@/components/settings/users-editor";
 import { toNum } from "@/lib/money";
 import { rateSources } from "@/lib/rates";
-import { getSettings } from "@/lib/refs";
+import { getChatTemplates, getSettings } from "@/lib/refs";
 import { SyncLogTable } from "@/components/settings/sync-log";
+import { MessengersForm } from "@/components/settings/messengers-form";
+import { AiBotForm } from "@/components/settings/ai-bot-form";
+import { TemplatesEditor } from "@/components/settings/templates-editor";
+import { RequirementsEditor, SiteKeyCard, type RequirementList } from "@/components/settings/visa-settings";
+import { ensureDocDefaults } from "@/lib/visa";
+import { getAiSettings, workHoursText } from "@/lib/chats/ai";
+import { scheduleOf } from "@/lib/work-hours";
+import { getTelegram } from "@/lib/chats/telegram";
+import { minToTime } from "@/lib/work-hours";
 import { prisma } from "@/lib/db";
 import { decrypt, maskSecret } from "@/lib/crypto";
 import { formatDate, formatDateTime } from "@/lib/format";
@@ -26,8 +36,11 @@ const TABS = {
   general: "settings.tab.general",
   statuses: "settings.tab.statuses",
   reasons: "settings.tab.reasons",
+  questions: "settings.tab.questions",
   users: "settings.tab.users",
   integration: "settings.tab.integration",
+  messengers: "settings.tab.messengers",
+  visa: "settings.tab.visa",
   sync: "settings.tab.sync",
 } as const satisfies Record<string, TKey>;
 type Tab = keyof typeof TABS;
@@ -55,10 +68,13 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
       </div>
       {active === "integration" && <IntegrationTab />}
       {active === "sync" && <SyncTab />}
+      {active === "messengers" && <MessengersTab />}
       {active === "general" && <GeneralTab />}
       {active === "statuses" && <StatusesTab />}
       {active === "reasons" && <ReasonsTab />}
+      {active === "questions" && <QuestionsTab />}
       {active === "users" && <UsersTab />}
+      {active === "visa" && <VisaTab />}
     </div>
   );
 }
@@ -143,6 +159,9 @@ async function GeneralTab() {
       v={{
         distributionMode: s.distributionMode,
         unprocessedAlertMin: s.unprocessedAlertMin,
+        workStart: minToTime(s.workStartMin),
+        workEnd: minToTime(s.workEndMin),
+        workDays: s.workDays,
         usdRate: toNum(s.usdRate),
         usdRateSource: s.usdRateSource,
         usdRateCost: toNum(s.usdRateCost),
@@ -200,6 +219,82 @@ async function UsersTab() {
         <UsersEditor
           users={users.map((u) => ({ id: u.id, login: u.login, name: u.name, role: u.role, isActive: u.isActive, createdAt: u.createdAt.toISOString(), activeLeads: u._count.leads }))}
         />
+      </CardContent>
+    </Card>
+  );
+}
+
+async function MessengersTab() {
+  const [tg, i, counts, ai, settings, templates] = await Promise.all([getTelegram(), getIntegration(), prisma.conversation.groupBy({ by: ["channel"], _count: { _all: true } }), getAiSettings(), getSettings(), getChatTemplates()]);
+  const base = (process.env.APP_URL || "http://localhost:3000").replace(/\/$/, "");
+  const n = (c: "INSTAGRAM" | "TELEGRAM") => counts.find((x) => x.channel === c)?._count._all ?? 0;
+  return (
+    <MessengersForm
+      v={{
+        tg: {
+          enabled: tg.enabled,
+          botUsername: tg.botUsername,
+          hasToken: !!tg.botTokenEnc,
+          lastEventAt: tg.lastEventAt ? formatDateTime(tg.lastEventAt) : null,
+          businessUser: tg.businessConnectionId ? tg.businessUser : null,
+          lastError: tg.lastError,
+        },
+        ig: { enabled: i.igEnabled, username: i.igUsername, lastEventAt: i.igLastEventAt ? formatDateTime(i.igLastEventAt) : null, metaReady: !!(i.appId && i.pageId && i.pageTokenEnc && i.appSecretEnc) },
+        webhookUrl: `${base}/api/webhooks/meta`,
+        verifyToken: i.verifyToken,
+        chats: { INSTAGRAM: n("INSTAGRAM"), TELEGRAM: n("TELEGRAM") },
+      }}
+      extra={
+        <>
+          <TemplatesEditor templates={templates} />
+          <AiBotForm
+            v={{
+              enabled: ai.enabled,
+              hasKey: !!ai.apiKeyEnc,
+              mode: ai.mode,
+              telegram: ai.channels.includes("TELEGRAM"),
+              instagram: ai.channels.includes("INSTAGRAM"),
+              instructions: ai.instructions,
+              maxReplies: ai.maxReplies,
+              lastError: ai.lastError,
+              lastUsedAt: ai.lastUsedAt ? formatDateTime(ai.lastUsedAt) : null,
+              workHours: workHoursText(scheduleOf(settings)).replace(/^.*, /, ""),
+            }}
+          />
+        </>
+      }
+    />
+  );
+}
+
+async function VisaTab() {
+  await ensureDocDefaults();
+  const [rows, settings] = await Promise.all([prisma.docRequirement.findMany({ orderBy: [{ order: "asc" }] }), getSettings()]);
+  const lists: RequirementList[] = [];
+  for (const r of rows) {
+    const l = lists.find((x) => x.type === r.type && x.country === r.country);
+    if (l) l.names.push(r.name);
+    else lists.push({ type: r.type, country: r.country, names: [r.name] });
+  }
+  const base = (process.env.APP_URL || "http://localhost:3000").replace(/\/$/, "");
+  return (
+    <div className="space-y-5">
+      <RequirementsEditor lists={lists} />
+      <SiteKeyCard hasKey={!!settings.siteApiKeyHash} url={`${base}/api/public/visa-application`} />
+    </div>
+  );
+}
+
+async function QuestionsTab() {
+  const { t } = await getI18n();
+  const questions = await prisma.leadQuestion.findMany({ orderBy: { order: "asc" } });
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{t("questions.title")}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <QuestionsEditor questions={questions.map((q) => ({ id: q.id, label: q.label, type: q.type, options: q.options, role: q.role, isActive: q.isActive }))} />
       </CardContent>
     </Card>
   );

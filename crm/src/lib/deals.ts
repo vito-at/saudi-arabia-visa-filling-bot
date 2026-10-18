@@ -8,6 +8,11 @@ export function dealClosesWithoutCost(serviceType: ServiceType | null): boolean 
   return serviceType === "VISA";
 }
 
+/** Себестоимость авиабилетов менеджер указывает сам при закрытии сделки — она известна сразу (цена билета у перевозчика) */
+export function managerEntersCost(service: ServiceType | null | undefined): boolean {
+  return service === "FLIGHTS";
+}
+
 /** Название продукта сделки: тип услуги из списка и, если указаны, подробности — «Тур: Дубай, 7 ночей» */
 export function composeProduct(label: string, details: string): string {
   const d = details.trim();

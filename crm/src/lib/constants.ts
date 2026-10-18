@@ -3,7 +3,7 @@ import type { Currency, LeadSource, Role, ServiceType, StatusKind } from "@prism
 // Русские подписи ниже — канонический текст для записей в истории изменений (хранится в БД).
 // В интерфейсе подписи берутся из словарей i18n (см. src/i18n/labels.ts).
 
-export const SOURCES: LeadSource[] = ["META_FB", "META_IG", "CALL", "INSTAGRAM_DIRECT", "TELEGRAM", "WALK_IN", "OTHER"];
+export const SOURCES: LeadSource[] = ["META_FB", "META_IG", "CALL", "INSTAGRAM_DIRECT", "TELEGRAM", "WALK_IN", "WEBSITE", "OTHER"];
 export const SERVICE_TYPES: ServiceType[] = ["FLIGHTS", "TOUR", "VISA", "OTHER"];
 
 export const SOURCE_LABELS: Record<LeadSource, string> = {
@@ -13,6 +13,7 @@ export const SOURCE_LABELS: Record<LeadSource, string> = {
   INSTAGRAM_DIRECT: "Instagram Direct",
   TELEGRAM: "Telegram",
   WALK_IN: "Визит в офис",
+  WEBSITE: "Сайт",
   OTHER: "Другое",
 };
 
@@ -29,6 +30,7 @@ export const SERVICE_LABELS: Record<ServiceType, string> = {
 export const ROLE_LABELS: Record<Role, string> = {
   ADMIN: "Администратор",
   MANAGER: "Менеджер",
+  VISA: "Визовый специалист",
 };
 
 export const CURRENCY_LABELS: Record<Currency, string> = { UZS: "UZS (сум)", USD: "USD ($)" };

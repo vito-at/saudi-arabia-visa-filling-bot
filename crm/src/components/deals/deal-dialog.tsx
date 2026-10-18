@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Field, Input, NativeSelect } from "@/components/ui/input";
-import { formatDate, formatNumber, toInputDate } from "@/lib/format";
+import { formatNumber, toInputDate } from "@/lib/format";
 import { useI18n } from "@/i18n/client";
 import { convertCost, convertRevenue, dealProfitInSale } from "@/lib/money";
 import { createDealAction, updateDealAction, type DealInput } from "@/app/(app)/deals/actions";
@@ -13,7 +13,7 @@ import { useIsAdmin, useRates } from "@/components/layout/role-context";
 import type { ServiceType } from "@prisma/client";
 import { matchVisaCountry, SERVICE_TYPES, VISA_COUNTRIES } from "@/lib/constants";
 import { serviceLabel } from "@/i18n/labels";
-import { composeProduct, joinDetails, splitProduct, type LeadPrefill } from "@/lib/deals";
+import { composeProduct, joinDetails, managerEntersCost, splitProduct, type LeadPrefill } from "@/lib/deals";
 
 export interface DealDialogProps {
   open: boolean;
@@ -59,7 +59,9 @@ export function DealDialog({ open, onOpenChange, leadId, wonStatusId, rate, deal
   // менеджер указывает только сумму продажи — себестоимость вносит администратор
   const isAdmin = useIsAdmin();
   // при закрытии сделки себестоимость не вводится — её указывает администратор потом («Ждут себестоимость»); правит только он
-  const showCost = isAdmin && !!deal;
+  // авиабилеты — себестоимость сразу указывает и менеджер (новая сделка)
+  const flightCost = !deal && managerEntersCost(product.service || null);
+  const showCost = (isAdmin && !!deal) || flightCost;
   const ctx = useRates();
   const rates = { sale: ctx.sale || rate, cost: ctx.cost || rate };
   const set = (k: keyof DealInput) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
@@ -179,7 +181,7 @@ export function DealDialog({ open, onOpenChange, leadId, wonStatusId, rate, deal
           {showCost && (
             <>
               <Field label={t("deal.cost")} hint={t("deal.costHint")}>
-                <Input value={form.cost} onChange={set("cost")} inputMode="decimal" />
+                <Input value={form.cost} onChange={set("cost")} inputMode="decimal" required={flightCost} />
               </Field>
               <Field label={t("deal.costCurrency")}>
                 <NativeSelect
@@ -198,7 +200,7 @@ export function DealDialog({ open, onOpenChange, leadId, wonStatusId, rate, deal
           <Field label={t("deal.paidAt")}>
             <Input type="date" value={form.paidAt} onChange={set("paidAt")} required />
           </Field>
-          {!deal && <p className="rounded-lg bg-slate-50 p-3 text-sm text-muted-foreground sm:col-span-2">{t("deal.costByAdmin")}</p>}
+          {!deal && !flightCost && <p className="rounded-lg bg-slate-50 p-3 text-sm text-muted-foreground sm:col-span-2">{t("deal.costByAdmin")}</p>}
           {showCost && (
           <div className="sm:col-span-2 rounded-lg bg-slate-50 p-3 text-sm">
             <div className="flex justify-between">

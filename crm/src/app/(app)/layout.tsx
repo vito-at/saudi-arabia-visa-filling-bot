@@ -9,14 +9,15 @@ import { formatDate, formatNumber, toInputDate } from "@/lib/format";
 import { isRateStale } from "@/lib/rates";
 import { getI18n } from "@/i18n/server";
 import { prisma } from "@/lib/db";
-import { leadScope } from "@/lib/access";
+import { conversationScope, leadScope } from "@/lib/access";
 import { requireUser } from "@/lib/session";
+import { handedVisa } from "@/lib/visa";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
   const { t } = await getI18n();
 
-  const [newLeads, tasks, meta, settings, pendingCosts, overdueDebts] = await Promise.all([
+  const [newLeads, tasks, meta, settings, pendingCosts, overdueDebts, unreadChats, newVisa] = await Promise.all([
     prisma.lead.count({ where: { ...leadScope(user), status: { kind: "NEW" } } }),
     prisma.task.count({ where: { assigneeId: user.id, doneAt: null, dueAt: { lt: endOfDayTashkent() } } }),
     prisma.metaIntegration.findUnique({ where: { id: 1 } }),
@@ -31,6 +32,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         ...(user.role === "ADMIN" ? {} : { OR: [{ managerId: user.id }, { lead: { managerId: user.id } }] }),
       },
     }),
+    // переписки с непрочитанными сообщениями — счётчик у «Чатов»
+    prisma.conversation.count({ where: { ...conversationScope(user), unreadCount: { gt: 0 } } }),
+    // новые визовые заявки — счётчик у «Виз» (визовому специалисту и администратору)
+    user.role === "MANAGER" ? Promise.resolve(0) : prisma.leadService.count({ where: { ...handedVisa, status: "NEW" } }),
   ]);
   const rateStale = settings?.usdRateSource === "IPAK_YULI" && isRateStale(settings.usdRateUpdatedAt) && !!settings.usdRateError;
 
@@ -46,12 +51,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <div className="min-h-screen">
       <Sidebar
         user={user}
-        counters={{ leads: newLeads, tasks, finance: pendingCosts, debtors: overdueDebts }}
+        counters={{ leads: newLeads, tasks, finance: pendingCosts, debtors: overdueDebts, chats: unreadChats, visa: newVisa }}
         rate={{ value: Number(settings?.usdRateCost ?? 0), updatedAt: settings?.usdRateUpdatedAt?.toISOString() ?? null }}
         logout={logout}
       />
       <main className="lg:pl-60">
-        {tokenProblem && (
+        {tokenProblem && user.role !== "VISA" && (
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 lg:px-8">
             <AlertTriangle className="size-5 shrink-0" />
             <div className="flex-1">
@@ -67,7 +72,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             )}
           </div>
         )}
-        {pendingCosts > 0 && (
+        {pendingCosts > 0 && user.role === "ADMIN" && (
           <Link
             href="/finance"
             title={t("banner.costPendingText")}
@@ -81,7 +86,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         )}
         <div className="mx-auto max-w-[1600px] px-3 py-4 sm:px-4 lg:px-8 lg:py-6">{children}</div>
       </main>
-      <CallbackReminders />
+      {user.role !== "VISA" && <CallbackReminders />}
       {rateStale && settings && (
         <RateNotice
           day={toInputDate(new Date())}

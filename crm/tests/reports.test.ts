@@ -8,6 +8,7 @@ import {
   calcLossMatrix,
   calcLossReasons,
   calcManagers,
+  calcStageTimes,
   delta,
   groupLeads,
   timeSeries,
@@ -125,6 +126,13 @@ describe("воронка", () => {
       ["Перезвонить", 2, 0.5],
     ]);
   });
+
+  it("реакция в рабочее время: лид ночью отсчитывается с 09:00", () => {
+    const night = new Date("2026-09-01T23:00:00+05:00");
+    const rows = calcManagers([{ ...lead({ managerId: "m1", statusKind: "OTHER" }), createdAt: night, firstResponseAt: new Date("2026-09-02T09:10:00+05:00") }], [], [{ id: "m1", name: "Дилшод" }], m);
+    expect(rows[0].medianFirstResponseMin).toBe(10);
+    expect(rows[0].within15).toBe(1);
+  });
 });
 
 describe("причины отказов", () => {
@@ -205,8 +213,8 @@ describe("отчёт по менеджерам", () => {
     const deals = [deal(1000, 700, "USD", "m1"), deal(500, 450, "USD", "m2")];
     const rows = calcManagers(leads, deals, [{ id: "m1", name: "Дилшод" }, { id: "m2", name: "Гулнора" }, { id: "m3", name: "Без лидов" }], m);
     expect(rows).toEqual([
-      { managerId: "m1", name: "Дилшод", leads: 3, inWork: 1, sales: 1, lost: 1, conversion: 1 / 3, revenue: 1000, profit: 300, avgFirstResponseMin: 20 },
-      { managerId: "m2", name: "Гулнора", leads: 1, inWork: 1, sales: 0, lost: 0, conversion: 0, revenue: 500, profit: 50, avgFirstResponseMin: null },
+      { managerId: "m1", name: "Дилшод", leads: 3, inWork: 1, sales: 1, lost: 1, conversion: 1 / 3, revenue: 1000, profit: 300, avgFirstResponseMin: 20, medianFirstResponseMin: 20, within15: 1 / 3 },
+      { managerId: "m2", name: "Гулнора", leads: 1, inWork: 1, sales: 0, lost: 0, conversion: 0, revenue: 500, profit: 50, avgFirstResponseMin: null, medianFirstResponseMin: null, within15: 0 },
     ]);
   });
 });
@@ -238,5 +246,28 @@ describe("прибыль сделки в отчётах", () => {
     expect(dealRevenue(d, { currency: "UZS", rate: 12_600, costRate: 12_750 })).toBe(12_600_000);
     expect(dealProfit(d, { currency: "UZS", rate: 12_600, costRate: 12_750 })).toBe(2_400_000);
     expect(dealProfit(d, { currency: "UZS", rate: 12_600 })).toBe(2_520_000); // без курса покупки — по одному курсу
+  });
+});
+
+describe("время на этапах", () => {
+  const statuses = [
+    { id: "new", kind: "NEW" },
+    { id: "cons", kind: "OTHER" },
+    { id: "won", kind: "WON" },
+  ];
+  it("среднее время на этапах и срок до продажи", () => {
+    const at = (h: number) => new Date(t0.getTime() + h * 3_600_000);
+    const r = calcStageTimes(
+      [
+        { createdAt: t0, statusKind: "WON", transitions: [{ statusId: "cons", at: at(2) }, { statusId: "won", at: at(26) }] },
+        { createdAt: t0, statusKind: "OTHER", transitions: [{ statusId: "cons", at: at(4) }] },
+      ],
+      statuses,
+      at(10),
+    );
+    expect(r.avgMin.get("new")).toBe(180); // (2 ч + 4 ч) / 2
+    expect(r.avgMin.get("cons")).toBe(((24 + 6) / 2) * 60); // 24 ч до продажи и 6 ч до «сейчас»
+    expect(r.toSaleMin).toBe(26 * 60);
+    expect(r.sold).toBe(1);
   });
 });
