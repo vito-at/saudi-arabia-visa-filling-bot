@@ -155,7 +155,7 @@ export default async function ChatsPage({ searchParams }: { searchParams: Promis
                   </>
                 )}
               </header>
-              <ChatMessages conversationId={selected.id} unread={selected.unreadCount} messages={[...selected.messages].reverse().map(toMessageView)} />
+              <ChatMessages conversationId={selected.id} unread={selected.unreadCount} messages={[...selected.messages].reverse().map(toMessageView)} canSaveDocs={!!selected.lead} />
               <ChatComposer conversationId={selected.id} blockedReason={igClosed ? t("chats.igWindow") : null} templates={templates} clientName={selected.lead?.name ?? selected.title} />
             </>
           ) : (

@@ -15,6 +15,8 @@ import { SyncLogTable } from "@/components/settings/sync-log";
 import { MessengersForm } from "@/components/settings/messengers-form";
 import { AiBotForm } from "@/components/settings/ai-bot-form";
 import { TemplatesEditor } from "@/components/settings/templates-editor";
+import { RequirementsEditor, SiteKeyCard, type RequirementList } from "@/components/settings/visa-settings";
+import { ensureDocDefaults } from "@/lib/visa";
 import { getAiSettings, workHoursText } from "@/lib/chats/ai";
 import { scheduleOf } from "@/lib/work-hours";
 import { getTelegram } from "@/lib/chats/telegram";
@@ -38,6 +40,7 @@ const TABS = {
   users: "settings.tab.users",
   integration: "settings.tab.integration",
   messengers: "settings.tab.messengers",
+  visa: "settings.tab.visa",
   sync: "settings.tab.sync",
 } as const satisfies Record<string, TKey>;
 type Tab = keyof typeof TABS;
@@ -71,6 +74,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
       {active === "reasons" && <ReasonsTab />}
       {active === "questions" && <QuestionsTab />}
       {active === "users" && <UsersTab />}
+      {active === "visa" && <VisaTab />}
     </div>
   );
 }
@@ -260,6 +264,24 @@ async function MessengersTab() {
         </>
       }
     />
+  );
+}
+
+async function VisaTab() {
+  await ensureDocDefaults();
+  const [rows, settings] = await Promise.all([prisma.docRequirement.findMany({ orderBy: [{ order: "asc" }] }), getSettings()]);
+  const lists: RequirementList[] = [];
+  for (const r of rows) {
+    const l = lists.find((x) => x.type === r.type && x.country === r.country);
+    if (l) l.names.push(r.name);
+    else lists.push({ type: r.type, country: r.country, names: [r.name] });
+  }
+  const base = (process.env.APP_URL || "http://localhost:3000").replace(/\/$/, "");
+  return (
+    <div className="space-y-5">
+      <RequirementsEditor lists={lists} />
+      <SiteKeyCard hasKey={!!settings.siteApiKeyHash} url={`${base}/api/public/visa-application`} />
+    </div>
   );
 }
 

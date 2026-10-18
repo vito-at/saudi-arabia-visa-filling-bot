@@ -61,6 +61,8 @@ export function NotificationBell({ className }: { className?: string }) {
     const d = n.data ?? {};
     if (n.type === "debt") return t("notif.debt", { name: d.name ?? "", left: f.money(Number(d.left ?? 0), d.currency === "UZS" ? "UZS" : "USD") });
     if (n.type === "task") return t(d.name ? "notif.taskLead" : "notif.task", { title: d.title ?? "", name: d.name ?? "" });
+    if (n.type === "visa") return t("notif.visa", { name: d.name ?? "", status: d.status ? t(`visa.status.${d.status}` as TKey) : "" });
+    if (n.type === "visaNew") return t("notif.visaNew", { name: d.name ?? "", product: d.product ? ` — ${d.product}` : "" });
     return t(`notif.${n.type}` as TKey, { name: d.name ?? "", product: d.product ?? "", channel: d.channel === "INSTAGRAM" ? "Instagram" : "Telegram" });
   };
 

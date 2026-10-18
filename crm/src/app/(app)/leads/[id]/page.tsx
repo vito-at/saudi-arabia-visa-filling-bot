@@ -26,6 +26,9 @@ import { prettyPhone, telegramLink, whatsappLink } from "@/lib/phone";
 import { getChatTemplates, getLossReasons, getManagers, getQuestions, getSettings, getStatuses } from "@/lib/refs";
 import { LeadProfileCard } from "@/components/leads/lead-profile";
 import { TourOffers } from "@/components/leads/tour-offers";
+import { LeadServices } from "@/components/visa/lead-services";
+import { ensureLeadServices } from "@/lib/visa";
+import { loadServiceViews } from "@/lib/visa-view";
 import { toOfferView } from "@/lib/offers";
 import { LeadNav } from "@/components/leads/lead-nav";
 import { readProfile } from "@/lib/leads/profile";
@@ -64,6 +67,9 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
   });
   if (!lead) notFound();
 
+  // первая заявка из лида (например, «Виза: Таиланд» по рекламе визы) — чтобы сразу было куда сохранять документы
+  await ensureLeadServices(lead);
+  const services = await loadServiceViews({ leadId: lead.id });
   const [statuses, reasons, users, settings, questions, templates] = await Promise.all([getStatuses(), getLossReasons(), getManagers(), getSettings(), getQuestions(), getChatTemplates()]);
   const rate = toNum(settings.usdRate);
   // данные лида, которыми заполняется окно сделки
@@ -198,6 +204,8 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
 
           <LeadProfileCard leadId={lead.id} answers={readProfile(lead.profile)} questions={questions.map((q) => ({ id: q.id, label: q.label, type: q.type, options: q.options, role: q.role }))} />
 
+          <LeadServices leadId={lead.id} services={services} userId={user.id} isAdmin={isAdmin} />
+
           <TourOffers
             leadId={lead.id}
             offers={lead.offers.map(toOfferView)}
@@ -233,7 +241,7 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
                 </Link>
               </CardHeader>
               <div className="flex max-h-[28rem] flex-col border-t bg-muted/30">
-                <ChatMessages conversationId={c.id} unread={c.unreadCount} messages={[...c.messages].reverse().map(toMessageView)} />
+                <ChatMessages conversationId={c.id} unread={c.unreadCount} messages={[...c.messages].reverse().map(toMessageView)} canSaveDocs />
                 <ChatComposer conversationId={c.id} blockedReason={c.channel === "INSTAGRAM" && !igCanReply(c.lastInboundAt) ? t("chats.igWindow") : null} templates={templates} clientName={lead.name} />
               </div>
             </Card>

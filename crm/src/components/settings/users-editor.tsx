@@ -17,7 +17,7 @@ export interface UserView {
   id: string;
   login: string;
   name: string;
-  role: "ADMIN" | "MANAGER";
+  role: "ADMIN" | "MANAGER" | "VISA";
   isActive: boolean;
   createdAt: string;
   activeLeads: number;
@@ -34,7 +34,7 @@ function UserDialog({ user, onClose }: { user: UserView | null; onClose: () => v
           className="grid gap-4"
           onSubmit={(e) => {
             e.preventDefault();
-            run(() => saveUserAction({ id: user?.id, ...f, role: f.role as "ADMIN" | "MANAGER" }), t("common.saved"), onClose);
+            run(() => saveUserAction({ id: user?.id, ...f, role: f.role as "ADMIN" | "MANAGER" | "VISA" }), t("common.saved"), onClose);
           }}
         >
           <Field label={t("users.name")}>
@@ -44,8 +44,9 @@ function UserDialog({ user, onClose }: { user: UserView | null; onClose: () => v
             <Input value={f.login} onChange={(e) => setF({ ...f, login: e.target.value })} required autoComplete="off" />
           </Field>
           <Field label={t("users.role")}>
-            <NativeSelect value={f.role} onChange={(e) => setF({ ...f, role: e.target.value as "ADMIN" | "MANAGER" })}>
+            <NativeSelect value={f.role} onChange={(e) => setF({ ...f, role: e.target.value as "ADMIN" | "MANAGER" | "VISA" })}>
               <option value="MANAGER">{t("users.roleManager")}</option>
+              <option value="VISA">{t("users.roleVisa")}</option>
               <option value="ADMIN">{t("users.roleAdmin")}</option>
             </NativeSelect>
           </Field>

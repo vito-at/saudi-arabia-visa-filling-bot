@@ -7,7 +7,8 @@ import { LanguageSwitcher } from "@/components/layout/language-switcher";
 import { getI18n } from "@/i18n/server";
 
 export default async function LoginPage() {
-  if (await getCurrentUser()) redirect("/");
+  const user = await getCurrentUser();
+  if (user) redirect(user.role === "VISA" ? "/visa" : "/");
   const { t } = await getI18n();
   return (
     <div className="relative flex min-h-screen items-center justify-center bg-background">

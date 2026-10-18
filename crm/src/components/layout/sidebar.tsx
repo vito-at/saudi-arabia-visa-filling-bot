@@ -4,7 +4,7 @@ import { RateWidget } from "./rate-widget";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { BarChart3, CalendarDays, Clock, CheckSquare, HandCoins, ImagePlus, Inbox, MessageCircle, LayoutDashboard, LogOut, Megaphone, Menu, Settings, Users, Wallet, X } from "lucide-react";
+import { BarChart3, CalendarDays, Clock, Stamp, CheckSquare, HandCoins, ImagePlus, Inbox, MessageCircle, LayoutDashboard, LogOut, Megaphone, Menu, Settings, Users, Wallet, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "./logo";
 import { NotificationBell } from "./notification-bell";
@@ -26,14 +26,15 @@ const NAV = [
   { href: "/debtors", label: "nav.debtors", icon: HandCoins, badge: "debtors" },
   { href: "/posts", label: "nav.posts", icon: ImagePlus, badge: null },
   { href: "/reports", label: "nav.reports", icon: BarChart3, badge: null },
+  { href: "/visa", label: "nav.visa", icon: Stamp, badge: "visa", visa: true },
   { href: "/ads", label: "nav.ads", icon: Megaphone, badge: null, admin: true },
   { href: "/finance", label: "nav.finance", icon: Wallet, badge: "finance", admin: true },
   { href: "/settings", label: "nav.settings", icon: Settings, badge: null, admin: true },
 ] as const;
 
 type SidebarProps = {
-  user: { name: string; role: "ADMIN" | "MANAGER" };
-  counters: { leads: number; tasks: number; finance: number; debtors: number; chats: number };
+  user: { name: string; role: "ADMIN" | "MANAGER" | "VISA" };
+  counters: { leads: number; tasks: number; finance: number; debtors: number; chats: number; visa: number };
   /** курс $ для расчёта цен клиентам */
   rate: { value: number; updatedAt: string | null };
   logout: () => Promise<void>;
@@ -104,7 +105,10 @@ function SidebarContent({ user, counters, logout, rate }: SidebarProps) {
         <NotificationBell className="-mr-2 hidden lg:block" />
       </div>
       <nav className="flex-1 space-y-0.5 px-3">
-        {NAV.filter((n) => !("admin" in n) || user.role === "ADMIN").map((item) => {
+        {NAV.filter((n) =>
+          // визовый специалист видит только свой кабинет; «Визы» — ему и администратору
+          user.role === "VISA" ? "visa" in n : "visa" in n ? user.role === "ADMIN" : !("admin" in n) || user.role === "ADMIN",
+        ).map((item) => {
           const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
           const count = item.badge ? counters[item.badge] : 0;
           const Icon = item.icon;
@@ -135,7 +139,7 @@ function SidebarContent({ user, counters, logout, rate }: SidebarProps) {
           <div className="flex size-8 items-center justify-center rounded-full bg-brand text-xs font-semibold text-white">{user.name.slice(0, 1).toUpperCase()}</div>
           <div className="min-w-0 flex-1">
             <div className="truncate text-sm font-medium text-foreground">{user.name}</div>
-            <div className="text-xs text-sidebar-muted">{t(user.role === "ADMIN" ? "role.ADMIN" : "role.MANAGER")}</div>
+            <div className="text-xs text-sidebar-muted">{t(`role.${user.role}` as TKey)}</div>
           </div>
           <form action={logout}>
             <button type="submit" title={t("nav.logout")} className="rounded-md p-1.5 text-sidebar-muted hover:bg-sidebar-hover hover:text-foreground cursor-pointer">

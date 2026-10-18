@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { AlertTriangle, Bot, FileText, MapPin, MessageSquareText, Paperclip, Send, X } from "lucide-react";
+import { AlertTriangle, Bot, FileText, FolderInput, MapPin, MessageSquareText, Paperclip, Send, X } from "lucide-react";
+import { SaveDocDialog } from "./save-doc-dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
 import { markChatReadAction, sendChatMessageAction, setAiPausedAction } from "@/app/(app)/chats/actions";
@@ -65,8 +66,38 @@ function Attachment({ a }: { a: ChatAttachmentView }) {
   );
 }
 
-export function ChatMessages({ conversationId, messages, unread, className }: { conversationId: string; messages: ChatMessageView[]; unread: number; className?: string }) {
+/** Вложения, которые можно сохранить в CRM как документ клиента */
+const SAVABLE = new Set<ChatAttachmentView["type"]>(["image", "file", "video", "audio"]);
+
+export function ChatMessages({
+  conversationId,
+  messages,
+  unread,
+  className,
+  canSaveDocs = false,
+}: {
+  conversationId: string;
+  messages: ChatMessageView[];
+  unread: number;
+  className?: string;
+  /** есть лид — вложения клиента можно сохранить в его заявки (правая кнопка мыши) */
+  canSaveDocs?: boolean;
+}) {
   const { t } = useI18n();
+  const [menu, setMenu] = useState<{ x: number; y: number; messageId: string; index: number; name: string | null } | null>(null);
+  const [saving, setSaving] = useState<{ messageId: string; index: number; name: string | null } | null>(null);
+  useEffect(() => {
+    if (!menu) return;
+    const close = () => setMenu(null);
+    window.addEventListener("click", close);
+    window.addEventListener("scroll", close, true);
+    window.addEventListener("keydown", close);
+    return () => {
+      window.removeEventListener("click", close);
+      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("keydown", close);
+    };
+  }, [menu]);
   const box = useRef<HTMLDivElement>(null);
   const last = messages.at(-1)?.id;
   // прокрутка к последнему сообщению при открытии и при новых сообщениях
@@ -92,11 +123,37 @@ export function ChatMessages({ conversationId, messages, unread, className }: { 
             {showDay && <div className="my-3 text-center text-[11px] text-muted-foreground">{day}</div>}
             <div className={cn("flex", out ? "justify-end" : "justify-start")}>
               <div className={cn("max-w-[85%] rounded-2xl px-3 py-2 text-sm shadow-sm sm:max-w-[70%]", out ? "rounded-br-sm bg-primary text-primary-foreground" : "rounded-bl-sm border bg-card")}>
-                {m.attachments.map((a, i) => (
-                  <div key={i} className="mb-1">
-                    <Attachment a={a} />
-                  </div>
-                ))}
+                {m.attachments.map((a, i) => {
+                  const savable = canSaveDocs && !out && SAVABLE.has(a.type) && !!a.src;
+                  return (
+                    <div
+                      key={i}
+                      className={cn("group/att relative mb-1", savable && "cursor-context-menu")}
+                      onContextMenu={
+                        savable
+                          ? (e) => {
+                              e.preventDefault();
+                              setMenu({ x: Math.min(e.clientX, window.innerWidth - 220), y: Math.min(e.clientY, window.innerHeight - 60), messageId: m.id, index: i, name: a.name ?? null });
+                            }
+                          : undefined
+                      }
+                    >
+                      <Attachment a={a} />
+                      {savable && (
+                        // на телефоне правой кнопки нет — та же команда кнопкой
+                        <button
+                          type="button"
+                          onClick={() => setSaving({ messageId: m.id, index: i, name: a.name ?? null })}
+                          title={t("docs.saveToCrm")}
+                          aria-label={t("docs.saveToCrm")}
+                          className="absolute top-1 right-1 rounded-md bg-card/90 p-1 text-foreground shadow-sm sm:opacity-0 sm:group-hover/att:opacity-100"
+                        >
+                          <FolderInput className="size-4" />
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
                 {m.text && <div className="whitespace-pre-wrap break-words">{m.text}</div>}
                 <div className={cn("mt-0.5 text-right text-[10px]", out ? "text-primary-foreground/70" : "text-muted-foreground")}>
                   {out && m.isAi ? `🤖 ${t("ai.badge")} · ` : out && m.sender ? `${m.sender} · ` : ""}
@@ -107,6 +164,22 @@ export function ChatMessages({ conversationId, messages, unread, className }: { 
           </div>
         );
       })}
+      {menu && (
+        <div className="fixed z-50 min-w-48 rounded-md border bg-card p-1 text-sm shadow-lg" style={{ left: menu.x, top: menu.y }} role="menu">
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              setSaving({ messageId: menu.messageId, index: menu.index, name: menu.name });
+              setMenu(null);
+            }}
+            className="flex w-full items-center gap-2 rounded px-3 py-2 text-left hover:bg-accent"
+          >
+            <FolderInput className="size-4" /> {t("docs.saveToCrm")}
+          </button>
+        </div>
+      )}
+      {saving && <SaveDocDialog conversationId={conversationId} messageId={saving.messageId} index={saving.index} fileName={saving.name} onClose={() => setSaving(null)} />}
     </div>
   );
 }
@@ -191,7 +264,7 @@ export function ChatComposer({
         <div className="mb-2 flex items-center gap-2 rounded-md bg-muted px-2.5 py-1.5 text-xs">
           <Paperclip className="size-3.5 shrink-0" />
           <span className="min-w-0 flex-1 truncate">{file.name}</span>
-          <span className="shrink-0 text-muted-foreground">{(file.size / 1024 / 1024).toFixed(1)} MB</span>
+          <span className="shrink-0 text-muted-foreground">{file.size < 1024 * 1024 ? `${Math.max(1, Math.round(file.size / 1024))} KB` : `${(file.size / 1024 / 1024).toFixed(1)} MB`}</span>
           <button type="button" onClick={() => setFile(null)} title={t("tpl.removeFile")} aria-label={t("tpl.removeFile")} className="rounded p-0.5 hover:bg-accent">
             <X className="size-3.5" />
           </button>

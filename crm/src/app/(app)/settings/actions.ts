@@ -222,7 +222,7 @@ export async function saveUserAction(input: { id?: string; login: string; name: 
     const name = input.name.trim();
     if (!/^[a-z0-9._-]{3,32}$/.test(login)) throw new ValidationError("err.login");
     if (!name) throw new ValidationError("err.name");
-    if (input.role !== "ADMIN" && input.role !== "MANAGER") throw new ValidationError("err.role");
+    if (input.role !== "ADMIN" && input.role !== "MANAGER" && input.role !== "VISA") throw new ValidationError("err.role");
     if (input.password && input.password.length < 8) throw new ValidationError("err.passwordShort");
     const dup = await prisma.user.findFirst({ where: { login, NOT: input.id ? { id: input.id } : undefined } });
     if (dup) throw new ValidationError("err.loginTaken");

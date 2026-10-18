@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Suspense } from "react";
 import { KpiTile } from "@/components/dashboard/kpi-tile";
@@ -24,6 +25,8 @@ import { requireUser } from "@/lib/session";
 export default async function DashboardPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const params = await searchParams;
   const user = await requireUser();
+  // визовый специалист после входа попадает сюда (переход из формы входа идёт без middleware) — сразу в его кабинет
+  if (user.role === "VISA") redirect("/visa");
   const { t, f: fm } = await getI18n();
   const formatMoney = fm.moneyRound;
   const f = await readFilters({ period: "30d", ...params }, user);

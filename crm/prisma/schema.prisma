@@ -11,6 +11,8 @@ datasource db {
 enum Role {
   ADMIN
   MANAGER
+  /// визовый специалист: видит только переданные ему визовые заявки
+  VISA
 }
 
 enum LeadSource {
@@ -20,6 +22,8 @@ enum LeadSource {
   INSTAGRAM_DIRECT
   TELEGRAM
   WALK_IN
+  /// заявка с сайта агентства
+  WEBSITE
   OTHER
 }
 
@@ -95,6 +99,10 @@ model User {
   createdTasks  Task[]         @relation("TaskCreator")
   expenses      Expense[]
   attendance    Attendance[]
+  /// визовые заявки, которые ведёт визовый специалист
+  visaServices  LeadService[]  @relation("ServiceAssignee")
+  documents     LeadDocument[]
+  visaEvents    VisaEvent[]
 }
 
 model LeadStatus {
@@ -198,6 +206,8 @@ model Lead {
   deals         Deal[]
   conversations Conversation[]
   offers        TourOffer[]
+  services      LeadService[]
+  documents     LeadDocument[]
   conversions   ConversionEvent[]
 
   @@index([statusId])
@@ -449,6 +459,8 @@ model AppSettings {
   officeRadiusM       Int              @default(200)
   /// день, за который уже отправлен итог посещаемости
   attendanceReportDay DateTime?        @db.Date
+  /// ключ API для заявок с сайта (хранится хэш; сам ключ показывается один раз при создании)
+  siteApiKeyHash      String?
 }
 
 /// История курсов USD→UZS по дням: суммы пересчитываются по курсу дня операции, поэтому отчёты за прошлые даты не меняются
@@ -709,4 +721,99 @@ model ChatFile {
   size      Int
   data      Bytes
   createdAt DateTime @default(now())
+}
+
+/// Этапы визовой заявки у визового специалиста
+enum VisaStatus {
+  NEW
+  IN_PROGRESS
+  /// оплачено, ожидается результат
+  PAID_WAITING
+  /// запрос дополнительных документов
+  DOCS_REQUESTED
+  APPROVED
+  REJECTED
+}
+
+enum ApplicationSource {
+  /// создана менеджером по продажам в CRM
+  SALES
+  /// пришла с сайта агентства
+  WEBSITE
+}
+
+/// Заявка по лиду: виза в конкретную страну, авиабилеты, тур… У одного клиента их может быть несколько
+model LeadService {
+  id          String            @id @default(cuid())
+  leadId      String
+  lead        Lead              @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  type        ServiceType
+  /// страна визы (или направление)
+  country     String?
+  note        String?
+  status      VisaStatus        @default(NEW)
+  /// завершена: виза одобрена или отказ, у остальных — закрыта менеджером
+  closed      Boolean           @default(false)
+  source      ApplicationSource @default(SALES)
+  /// когда визовая заявка передана визовым специалистам (с сайта — сразу)
+  handedAt    DateTime?
+  assigneeId  String?
+  assignee    User?             @relation("ServiceAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  createdById String?
+  statusAt    DateTime          @default(now())
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  documents LeadDocument[]
+  events    VisaEvent[]
+
+  @@index([leadId])
+  @@index([type, handedAt])
+}
+
+/// Какие документы нужны для заявки. Есть список для страны — берётся он, иначе общий для типа услуги (country = null)
+model DocRequirement {
+  id      String      @id @default(cuid())
+  type    ServiceType
+  country String?
+  name    String
+  order   Int         @default(0)
+
+  @@index([type, country])
+}
+
+/// Документ клиента (паспорт, справка из банка, билет…). Файл хранится в базе CRM, открывается только сотрудникам с доступом
+model LeadDocument {
+  id            String      @id @default(cuid())
+  serviceId     String
+  service       LeadService @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  leadId        String
+  lead          Lead        @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  docType       String
+  fileName      String
+  mime          String
+  size          Int
+  data          Bytes
+  /// сохранён из переписки
+  chatMessageId String?
+  uploadedById  String?
+  uploadedBy    User?       @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+  createdAt     DateTime    @default(now())
+
+  @@index([serviceId])
+  @@index([leadId])
+}
+
+/// История визовой заявки: смена этапа и комментарий визового специалиста
+model VisaEvent {
+  id        String      @id @default(cuid())
+  serviceId String
+  service   LeadService @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  userId    String?
+  user      User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  status    VisaStatus?
+  comment   String?
+  createdAt DateTime    @default(now())
+
+  @@index([serviceId, createdAt])
 }
