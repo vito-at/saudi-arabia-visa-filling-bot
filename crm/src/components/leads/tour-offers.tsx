@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Copy, ExternalLink, Hotel, Pencil, Plus, Send, Star, Trash2 } from "lucide-react";
+import Link from "next/link";
+import { Copy, ExternalLink, Hotel, ImagePlus, Pencil, Plus, Send, Star, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -238,6 +239,11 @@ export function TourOffers({ leadId, offers, chats, pageUrl }: { leadId: string;
                   </div>
                 </div>
                 <div className="flex shrink-0">
+                  <Button size="icon-sm" variant="ghost" title={t("posts.fromOffer")} asChild>
+                    <Link href={`/posts?offer=${o.id}`}>
+                      <ImagePlus />
+                    </Link>
+                  </Button>
                   <Button size="icon-sm" variant="ghost" title={t("common.edit")} onClick={() => setEdit(o)}>
                     <Pencil />
                   </Button>
