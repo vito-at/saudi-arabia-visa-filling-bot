@@ -9,9 +9,10 @@ import { formatMoney, parseInputDate } from "@/lib/format";
 import { requireUser, AccessError } from "@/lib/session";
 import { changeStatus, ValidationError } from "@/lib/leads/service";
 import { SERVICE_TYPES } from "@/lib/constants";
-import { dealClosesWithoutCost, visaLeadPatch } from "@/lib/deals";
+import { dealClosesWithoutCost, managerEntersCost, visaLeadPatch } from "@/lib/deals";
 import { debtLeft, parsePaidAtClose, parsePayment } from "@/lib/debts";
 import { toNum } from "@/lib/money";
+import { notifyCostPending } from "@/lib/notify";
 
 export interface DealInput {
   amount: string;
@@ -80,11 +81,14 @@ export async function createDealAction(leadId: string, input: DealInput, wonStat
     const service = input.service && SERVICE_TYPES.includes(input.service) ? input.service : null;
     // тип услуги лида берём из продукта сделки, если он ещё не указан, — по нему считается прибыль по продуктам
     const serviceType = lead.serviceType ?? service;
-    const costConfirmed = dealClosesWithoutCost(serviceType) || service === "VISA";
+    // авиабилеты: себестоимость указывается сразу при закрытии сделки
+    const withCost = managerEntersCost(service);
+    if (withCost && !String(input.cost ?? "").trim()) throw new ValidationError("err.flightCost");
+    const costConfirmed = withCost || dealClosesWithoutCost(serviceType) || service === "VISA";
     // при закрытии указывается только сумма продажи; себестоимость потом вносит администратор.
     // Количество продаж меняет только администратор; у менеджера — число заявлений для визы, иначе 1
     const quantity = user.role === "ADMIN" ? input.quantity : serviceType === "VISA" && input.visaApplications ? input.visaApplications : 1;
-    const d = parseDeal({ ...input, cost: "0", costCurrency: input.currency, quantity });
+    const d = parseDeal(withCost ? { ...input, quantity } : { ...input, cost: "0", costCurrency: input.currency, quantity });
     const paid = parsePaidAtClose(input.paid, d.amount);
     if (paid === null) throw new ValidationError("err.paidAmount");
     const left = debtLeft(d.amount, paid);
@@ -112,7 +116,9 @@ export async function createDealAction(leadId: string, input: DealInput, wonStat
           leadId,
           userId: user.id,
           field: "deal",
-          newValue: costConfirmed
+          newValue: withCost
+            ? dealText(d)
+            : costConfirmed
             ? `${d.product}: ${formatMoney(d.amount, d.currency)}, расходы на визы — в расходах компании`
             : `${d.product}: ${formatMoney(d.amount, d.currency)}, себестоимость укажет администратор`,
         },
@@ -124,6 +130,10 @@ export async function createDealAction(leadId: string, input: DealInput, wonStat
       }
       return deal;
     });
+    if (!costConfirmed && user.role !== "ADMIN") {
+      const created = await prisma.deal.findFirst({ where: { leadId }, orderBy: { createdAt: "desc" }, select: { id: true, product: true } });
+      if (created) await notifyCostPending({ id: created.id, leadId, product: created.product, leadName: lead.name });
+    }
     if (wonStatusId) await changeStatus(leadId, { statusId: wonStatusId }, user);
     revalidate(leadId, lead.clientId);
   });

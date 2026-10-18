@@ -4,6 +4,7 @@ import { normalizePhone } from "@/lib/phone";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { SERVICE_LABELS, SOURCE_LABELS } from "@/lib/constants";
 import { pickNextManager } from "./distribution";
+import { notifyLeadAssigned } from "@/lib/notify";
 import { queueConversions } from "@/lib/meta/capi";
 import type { TKey, TVars } from "@/i18n/core";
 
@@ -71,7 +72,7 @@ export async function createLead(input: NewLeadInput, actorId: string | null) {
   const name = input.name?.trim() || "Без имени";
 
   try {
-    return await prisma.$transaction(async (tx) => {
+    const created = await prisma.$transaction(async (tx) => {
       const newStatus = await tx.leadStatus.findFirst({ where: { kind: "NEW" }, orderBy: { order: "asc" } });
       const status = newStatus ?? (await tx.leadStatus.findFirst({ orderBy: { order: "asc" } }));
       if (!status) throw new ValidationError("err.noStatuses");
@@ -159,6 +160,9 @@ export async function createLead(input: NewLeadInput, actorId: string | null) {
       }
       return lead;
     });
+    // уведомление менеджеру, получившему лид (вне транзакции: его сбой не мешает созданию лида)
+    await notifyLeadAssigned(created, actorId);
+    return created;
   } catch (e) {
     // гонка вебхука и опроса: второй вставляющий получает нарушение уникальности leadgenId
     if (input.leadgenId && (e as { code?: string }).code === "P2002") return null;
@@ -279,7 +283,7 @@ export async function assignManager(leadIds: string[], managerId: string | null,
   return prisma.$transaction(async (tx) => {
     const leads = await tx.lead.findMany({ where: { id: { in: leadIds } }, include: { manager: { select: { name: true } } } });
     const changed = leads.filter((l) => l.managerId !== managerId);
-    if (!changed.length) return 0;
+    if (!changed.length) return [];
     await tx.lead.updateMany({
       where: { id: { in: changed.map((l) => l.id) } },
       data: { managerId, assignedAt: managerId ? new Date() : null },
@@ -293,6 +297,9 @@ export async function assignManager(leadIds: string[], managerId: string | null,
         newValue: manager?.name ?? null,
       })),
     });
+    return changed;
+  }).then(async (changed) => {
+    if (managerId && managerId !== actorId) for (const l of changed) await notifyLeadAssigned({ id: l.id, name: l.name, managerId }, actorId);
     return changed.length;
   });
 }

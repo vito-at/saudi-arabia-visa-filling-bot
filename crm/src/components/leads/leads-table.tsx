@@ -4,7 +4,8 @@ import { REGULAR_CLIENT_MIN_DEALS } from "@/lib/constants";
 import { RegularBadge } from "@/components/leads/regular-badge";
 import Link from "next/link";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
+import { useRememberLeadList } from "./lead-nav";
 import { ArrowDown, ArrowUp, Flame, Phone, Repeat } from "lucide-react";
 import { toast } from "sonner";
 import { StatusBadge } from "@/components/ui/badge";
@@ -46,6 +47,9 @@ export function LeadsTable({ rows, managers, isAdmin }: { rows: LeadRow[]; manag
   const router = useRouter();
   const params = useSearchParams();
   const pathname = usePathname();
+  // порядок лидов на странице — для кнопок «предыдущий / следующий» в карточке
+  const ids = useMemo(() => rows.map((r) => r.id), [rows]);
+  useRememberLeadList(ids);
 
   const allSelected = rows.length > 0 && rows.every((r) => selected.has(r.id));
   const toggle = (id: string) => {

@@ -69,10 +69,11 @@ export async function loadLeads(period: { from: Date; to: Date }, managerId: str
       formId: true,
       formName: true,
       isOrganic: true,
+      source: true,
       serviceType: true,
       destination: true,
       firstResponseAt: true,
-      history: { where: { toStatusId: { not: null } }, select: { toStatusId: true } },
+      history: { where: { toStatusId: { not: null } }, select: { toStatusId: true, createdAt: true } },
       deals: { select: { amount: true, cost: true, currency: true, costCurrency: true, paidAt: true, managerId: true } },
     },
   });
@@ -82,6 +83,7 @@ export async function loadLeads(period: { from: Date; to: Date }, managerId: str
     ...(isOrganic ? { campaignId: null, campaignName: null, adsetId: null, adsetName: null, adId: null, adName: null } : {}),
     statusKind: r.status.kind,
     visitedStatusIds: r.history.map((h) => h.toStatusId!),
+    transitions: r.history.map((h) => ({ statusId: h.toStatusId!, at: h.createdAt })),
     deals: r.deals.map((d) => ({ ...d, amount: toNum(d.amount), cost: toNum(d.cost) })),
   }));
 }

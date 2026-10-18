@@ -2,8 +2,7 @@ import type { Prisma, PrismaClient } from "@prisma/client";
 
 type Tx = Prisma.TransactionClient | PrismaClient;
 
-/** Ключ advisory-блокировки распределения лидов (произвольное постоянное число). */
-const DISTRIBUTION_LOCK = 7_310_001;
+const DISTRIBUTION_LOCK = 7_340_002;
 
 /**
  * Round-robin: следующий менеджер — активный менеджер, которому дольше всех не назначали лид.
@@ -12,9 +11,8 @@ const DISTRIBUTION_LOCK = 7_310_001;
 export async function pickNextManager(tx: Tx): Promise<string | null> {
   const settings = await tx.appSettings.findUnique({ where: { id: 1 } });
   if (settings?.distributionMode !== "ROUND_ROBIN") return null;
-  // Лиды из Meta приходят пачками (вебхук и синхронизация одновременно): без блокировки параллельные
-  // транзакции видят одно и то же lastAssignedAt и отдают лиды одному менеджеру. Блокировка держится
-  // до конца транзакции создания лида, поэтому выбор менеджера идёт строго по очереди.
+  // лиды приходят пачками (загрузка из Meta, вебхук) — без очереди параллельные транзакции видят одного и того же
+  // «следующего» менеджера и отдают ему несколько лидов подряд. Блокировка держится до конца транзакции создания лида.
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(${DISTRIBUTION_LOCK})`;
   const managers = await tx.user.findMany({
     where: { role: "MANAGER", isActive: true },

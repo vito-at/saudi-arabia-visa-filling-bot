@@ -9,6 +9,7 @@ import { ValidationError } from "@/lib/leads/service";
 import { SERVICE_LABELS, SERVICE_TYPES } from "@/lib/constants";
 import { toNum } from "@/lib/money";
 import { confirmVisaDeals } from "@/lib/deal-costs";
+import { monthKey, monthRange } from "@/lib/salary";
 
 export interface CellDeal {
   id: string;
@@ -72,5 +73,46 @@ export async function setLeadServiceAction(leadId: string, service: string) {
     ]);
     if (service === "VISA") await confirmVisaDeals(leadId);
     for (const p of ["/reports", "/finance", `/leads/${leadId}`]) revalidatePath(p);
+  });
+}
+
+const num = (v: string | number | null | undefined) => {
+  if (v === null || v === undefined || String(v).trim() === "") return null;
+  const n = Number(String(v).replace(/\s/g, "").replace(",", "."));
+  return Number.isFinite(n) && n >= 0 ? n : NaN;
+};
+
+/** План менеджера на месяц и условия его зарплаты (только администратор) */
+export async function savePlanAction(input: {
+  userId: string;
+  month: string;
+  leads: string;
+  sales: string;
+  profit: string;
+  salaryBase: string;
+  salaryCurrency: string;
+  commissionPct: string;
+  planBonusPct: string;
+}) {
+  return runAction(async () => {
+    await requireAdmin();
+    const range = monthRange(input.month);
+    const leads = num(input.leads);
+    const sales = num(input.sales);
+    const profit = num(input.profit);
+    const base = num(input.salaryBase) ?? 0;
+    const pct = num(input.commissionPct) ?? 0;
+    const bonus = num(input.planBonusPct) ?? 0;
+    if ([leads, sales, profit, base, pct, bonus].some((x) => Number.isNaN(x)) || pct > 100 || bonus > 100) throw new ValidationError("err.planValues");
+    const currency = input.salaryCurrency === "USD" ? "USD" : "UZS";
+    await prisma.$transaction([
+      prisma.managerPlan.upsert({
+        where: { userId_month: { userId: input.userId, month: monthKey(range.ym) } },
+        update: { leads: leads === null ? null : Math.round(leads), sales: sales === null ? null : Math.round(sales), profit },
+        create: { userId: input.userId, month: monthKey(range.ym), leads: leads === null ? null : Math.round(leads), sales: sales === null ? null : Math.round(sales), profit },
+      }),
+      prisma.user.update({ where: { id: input.userId }, data: { salaryBase: base, salaryCurrency: currency, commissionPct: pct, planBonusPct: bonus } }),
+    ]);
+    revalidatePath("/reports");
   });
 }

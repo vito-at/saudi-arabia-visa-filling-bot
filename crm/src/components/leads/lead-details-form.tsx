@@ -8,7 +8,6 @@ import { Field, Input } from "@/components/ui/input";
 import { ServiceDestinationFields } from "./service-destination-fields";
 import { serviceLabel } from "@/i18n/labels";
 import { useI18n } from "@/i18n/client";
-import { formatDate } from "@/lib/format";
 import { prettyPhone } from "@/lib/phone";
 import { updateLeadAction } from "@/app/(app)/leads/actions";
 

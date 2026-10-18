@@ -28,3 +28,9 @@ export async function getLeadForUser(user: CurrentUser, leadId: string) {
   if (!lead) throw new AccessError("err.leadNotFound");
   return lead;
 }
+
+/** Переписки: менеджер видит чаты своих лидов и нераспределённых (как и сами лиды) */
+export function conversationScope(user: CurrentUser): Prisma.ConversationWhereInput {
+  if (user.role === "ADMIN") return {};
+  return { OR: [{ leadId: null }, { lead: leadScope(user) }] };
+}

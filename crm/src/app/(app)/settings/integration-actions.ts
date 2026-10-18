@@ -115,9 +115,11 @@ export async function syncNowAction() {
 export async function subscribeWebhookAction() {
   return runAction(async () => {
     await requireAdmin();
-    const secrets = readSecrets(await getIntegration());
+    const integration = await getIntegration();
+    const secrets = readSecrets(integration);
     if (!secrets) throw new ValidationError("err.integrationSetup");
-    await pageClient(secrets).post(`${secrets.pageId}/subscribed_apps`, { subscribed_fields: "leadgen" });
+    // при включённой переписке Instagram страница подписывается и на сообщения
+    await pageClient(secrets).post(`${secrets.pageId}/subscribed_apps`, { subscribed_fields: integration.igEnabled ? "leadgen,messages" : "leadgen" });
     return (await getI18n()).t("msg.subscribed");
   });
 }

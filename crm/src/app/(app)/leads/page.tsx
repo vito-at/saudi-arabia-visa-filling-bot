@@ -18,6 +18,7 @@ import { getAdFilters, getManagers, getSettings, getStatuses } from "@/lib/refs"
 import { buildLeadOrder, buildLeadWhere, isOverdueNew, leadsView, PAGE_SIZE, sp, viewWhere, type SearchParams } from "@/lib/leads/query";
 import { LeadsTabs } from "@/components/leads/leads-tabs";
 import { requireUser } from "@/lib/session";
+import { Download } from "lucide-react";
 
 export default async function LeadsPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const params = await searchParams;
@@ -80,6 +81,13 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
         actions={
           <>
             {isAdmin && meta?.enabled && <SyncNowButton />}
+            <a
+              href={`/api/leads/export?${new URLSearchParams(Object.entries(params).filter((e): e is [string, string] => typeof e[1] === "string")).toString()}`}
+              className="inline-flex h-9 items-center gap-1.5 rounded-md border bg-card px-3 text-sm hover:bg-accent"
+              title={t("leads.exportHint")}
+            >
+              <Download className="size-4" /> Excel
+            </a>
             <NewLeadDialog managers={users.filter((u) => u.role === "MANAGER")} isAdmin={isAdmin} roundRobin={settings.distributionMode === "ROUND_ROBIN"} />
           </>
         }

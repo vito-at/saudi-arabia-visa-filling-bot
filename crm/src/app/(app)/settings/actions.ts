@@ -12,6 +12,7 @@ import { updateUsdRate } from "@/lib/rates";
 import { recordDayRates } from "@/lib/rate-history";
 import { requireAdmin } from "@/lib/session";
 import { ValidationError } from "@/lib/leads/service";
+import { timeToMin } from "@/lib/work-hours";
 
 const str = (v: FormDataEntryValue | null) => (typeof v === "string" ? v.trim() : "");
 const revalidateAll = () => revalidatePath("/", "layout");
@@ -25,7 +26,17 @@ export async function saveGeneralAction(formData: FormData) {
     if (mode !== "MANUAL" && mode !== "ROUND_ROBIN") throw new ValidationError("err.distribution");
     const alert = Number(formData.get("unprocessedAlertMin"));
     if (!Number.isInteger(alert) || alert < 1 || alert > 10080) throw new ValidationError("err.alertMin");
-    await prisma.appSettings.update({ where: { id: 1 }, data: { distributionMode: mode, unprocessedAlertMin: alert } });
+    // рабочее время офиса: по нему считается скорость реакции на лид (поля могут отсутствовать в старой форме)
+    const work = formData.has("workStart")
+      ? (() => {
+          const start = timeToMin(str(formData.get("workStart")));
+          const end = timeToMin(str(formData.get("workEnd")));
+          const days = [...new Set(formData.getAll("workDays").map(Number))].filter((d) => Number.isInteger(d) && d >= 1 && d <= 7).sort();
+          if (start === null || end === null || end <= start || !days.length) throw new ValidationError("err.workHours");
+          return { workStartMin: start, workEndMin: end, workDays: days };
+        })()
+      : {};
+    await prisma.appSettings.update({ where: { id: 1 }, data: { distributionMode: mode, unprocessedAlertMin: alert, ...work } });
     revalidateAll();
     return (await getI18n()).t("msg.saved");
   });
@@ -211,7 +222,7 @@ export async function saveUserAction(input: { id?: string; login: string; name: 
     const name = input.name.trim();
     if (!/^[a-z0-9._-]{3,32}$/.test(login)) throw new ValidationError("err.login");
     if (!name) throw new ValidationError("err.name");
-    if (input.role !== "ADMIN" && input.role !== "MANAGER") throw new ValidationError("err.role");
+    if (input.role !== "ADMIN" && input.role !== "MANAGER" && input.role !== "VISA") throw new ValidationError("err.role");
     if (input.password && input.password.length < 8) throw new ValidationError("err.passwordShort");
     const dup = await prisma.user.findFirst({ where: { login, NOT: input.id ? { id: input.id } : undefined } });
     if (dup) throw new ValidationError("err.loginTaken");
@@ -230,6 +241,54 @@ export async function saveUserAction(input: { id?: string; login: string; name: 
       if (!input.password) throw new ValidationError("err.passwordRequired");
       await prisma.user.create({ data: { login, name, role: input.role, isActive: input.isActive, passwordHash: await bcrypt.hash(input.password, 10) } });
     }
+    revalidateAll();
+  });
+}
+
+// ——— Анкета клиента ———
+
+const QUESTION_TYPES = ["TEXT", "NUMBER", "DATE", "SELECT"] as const;
+
+export async function saveQuestionAction(input: { id?: string; label: string; type: string; options: string; isActive: boolean }) {
+  return runAction(async () => {
+    await requireAdmin();
+    const label = input.label.trim().slice(0, 200);
+    if (!label) throw new ValidationError("err.emptyName");
+    const type = QUESTION_TYPES.find((x) => x === input.type) ?? "TEXT";
+    const options = type === "SELECT" ? [...new Set(input.options.split(/[,;\n]/).map((o) => o.trim()).filter(Boolean))].slice(0, 30) : [];
+    if (type === "SELECT" && !options.length) throw new ValidationError("err.questionOptions");
+    if (input.id) {
+      const cur = await prisma.leadQuestion.findUniqueOrThrow({ where: { id: input.id } });
+      // у вопросов-дат поездки тип не меняется: по ним считаются даты и напоминание
+      await prisma.leadQuestion.update({ where: { id: input.id }, data: { label, type: cur.role ? cur.type : type, options: cur.role ? [] : options, isActive: input.isActive } });
+    } else {
+      const last = await prisma.leadQuestion.findFirst({ orderBy: { order: "desc" } });
+      await prisma.leadQuestion.create({ data: { label, type, options, order: (last?.order ?? 0) + 1 } });
+    }
+    revalidateAll();
+  });
+}
+
+export async function moveQuestionAction(id: string, dir: -1 | 1) {
+  return runAction(async () => {
+    await requireAdmin();
+    const list = await prisma.leadQuestion.findMany({ orderBy: { order: "asc" } });
+    const i = list.findIndex((q) => q.id === id);
+    const j = i + dir;
+    if (i < 0 || j < 0 || j >= list.length) return;
+    [list[i], list[j]] = [list[j], list[i]];
+    await prisma.$transaction(list.map((q, idx) => prisma.leadQuestion.update({ where: { id: q.id }, data: { order: idx + 1 } })));
+    revalidateAll();
+  });
+}
+
+/** Удалить вопрос; ответы в уже заполненных анкетах остаются в базе, но не показываются */
+export async function deleteQuestionAction(id: string) {
+  return runAction(async () => {
+    await requireAdmin();
+    const q = await prisma.leadQuestion.findUniqueOrThrow({ where: { id } });
+    if (q.role) throw new ValidationError("err.questionSystem");
+    await prisma.leadQuestion.delete({ where: { id } });
     revalidateAll();
   });
 }
