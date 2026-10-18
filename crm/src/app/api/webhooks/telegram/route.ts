@@ -1,7 +1,8 @@
 import crypto from "node:crypto";
-import { NextResponse, type NextRequest } from "next/server";
+import { NextResponse, after, type NextRequest } from "next/server";
 import { getTelegram, type TgUpdate } from "@/lib/chats/telegram";
 import { handleTelegramUpdate } from "@/lib/chats/incoming";
+import { replyAfterPause } from "@/lib/chats/ai";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +21,8 @@ export async function POST(req: NextRequest) {
     return new NextResponse("Bad JSON", { status: 400 });
   }
   try {
-    await handleTelegramUpdate(update);
+    // ИИ-ассистент отвечает после ответа Telegram, когда клиент допишет
+    if (await handleTelegramUpdate(update)) after(replyAfterPause);
   } catch (e) {
     // Telegram повторяет доставку только при ошибке HTTP — пишем в журнал и отвечаем 200, чтобы не зациклить
     console.error("Telegram webhook:", e);

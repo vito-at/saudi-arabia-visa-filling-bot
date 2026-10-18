@@ -100,7 +100,8 @@ export async function recordChatMessage(m: IncomingChatMessage) {
     data: {
       lastMessageAt: at,
       lastMessageText: `${inbound ? "" : "Вы: "}${previewText(m.text, attachments)}`.slice(0, 200),
-      ...(inbound ? { lastInboundAt: at, unreadCount: { increment: 1 } } : {}),
+      // ответ из приложения Instagram/Telegram — менеджер ведёт диалог сам, ассистент молчит
+      ...(inbound ? { lastInboundAt: at, unreadCount: { increment: 1 } } : { aiPaused: true }),
       ...(m.businessConnectionId ? { businessConnectionId: m.businessConnectionId } : {}),
     },
   });
@@ -131,7 +132,7 @@ async function ensureLead(conversationId: string, channel: ChatChannel, title: s
 }
 
 /** Номер из переписки: в лид и клиента (или привязка к клиенту, у которого этот номер уже есть) */
-async function setLeadPhone(leadId: string, clientId: string, phone: string) {
+export async function setLeadPhone(leadId: string, clientId: string, phone: string) {
   await prisma.$transaction(async (tx) => {
     const existing = await tx.client.findUnique({ where: { phone } });
     const data: Prisma.LeadUncheckedUpdateInput = { phone };

@@ -3,7 +3,8 @@ import { ArrowLeft, ExternalLink, MessageCircle } from "lucide-react";
 import type { ChatChannel, Prisma } from "@prisma/client";
 import { Card } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/badge";
-import { ChatAutoRefresh, ChatComposer, ChatMessages } from "@/components/chats/chat-thread";
+import { AiToggle, ChatAutoRefresh, ChatComposer, ChatMessages } from "@/components/chats/chat-thread";
+import { getAiSettings } from "@/lib/chats/ai";
 import { ChannelIcon } from "@/components/chats/channel-icon";
 import { prisma } from "@/lib/db";
 import { conversationScope } from "@/lib/access";
@@ -48,7 +49,7 @@ export default async function ChatsPage({ searchParams }: { searchParams: Promis
     ...(channel ? { channel } : {}),
     ...(q ? { OR: [{ title: { contains: q, mode: "insensitive" } }, { username: { contains: q, mode: "insensitive" } }, { lead: { phone: { contains: q.replace(/\D/g, "") || q } } }] } : {}),
   };
-  const [list, selected] = await Promise.all([
+  const [list, selected, ai] = await Promise.all([
     prisma.conversation.findMany({
       where,
       orderBy: { lastMessageAt: "desc" },
@@ -64,7 +65,9 @@ export default async function ChatsPage({ searchParams }: { searchParams: Promis
           },
         })
       : null,
+    getAiSettings(),
   ]);
+  const aiOn = ai.enabled && !!ai.apiKeyEnc;
 
   const href = (patch: Record<string, string | null>) => {
     const p = new URLSearchParams();
@@ -140,6 +143,7 @@ export default async function ChatsPage({ searchParams }: { searchParams: Promis
                     {[selected.username ? `@${selected.username}` : null, selected.lead?.phone, selected.lead?.manager?.name].filter(Boolean).join(" · ")}
                   </div>
                 </div>
+                {aiOn && ai.channels.includes(selected.channel) && <AiToggle conversationId={selected.id} paused={selected.aiPaused} />}
                 {selected.lead && (
                   <>
                     <StatusBadge name={statusName(t, selected.lead.status.name)} color={selected.lead.status.color} className="hidden sm:inline-flex" />

@@ -43,3 +43,14 @@ export async function markChatReadAction(conversationId: string) {
     if (conv.unreadCount > 0) await prisma.conversation.update({ where: { id: conversationId }, data: { unreadCount: 0 } });
   });
 }
+
+/** Включить или выключить ИИ-ассистента в переписке */
+export async function setAiPausedAction(conversationId: string, paused: boolean) {
+  return runAction(async () => {
+    const { conv } = await getConversation(conversationId);
+    // при включении счётчик ответов начинается заново
+    await prisma.conversation.update({ where: { id: conversationId }, data: paused ? { aiPaused: true } : { aiPaused: false, aiReplies: 0 } });
+    revalidatePath("/chats");
+    if (conv.leadId) revalidatePath(`/leads/${conv.leadId}`);
+  });
+}

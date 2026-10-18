@@ -12,6 +12,7 @@ export function toMessageView(m: ChatMessage & { sender?: { name: string } | nul
     text: m.text,
     at: m.createdAt.toISOString(),
     sender: m.sender?.name ?? null,
+    isAi: m.isAi,
     attachments: list.map((a, i) => ({ type: a.type, name: a.name ?? null, src: a.url ?? (a.fileId ? `/api/chats/file?m=${m.id}&i=${i}` : null) })),
   };
 }

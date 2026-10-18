@@ -27,7 +27,7 @@ function State({ ok, children }: { ok: boolean; children: React.ReactNode }) {
   );
 }
 
-export function MessengersForm({ v }: { v: MessengersView }) {
+export function MessengersForm({ v, extra }: { v: MessengersView; extra?: React.ReactNode }) {
   const { t } = useI18n();
   const [token, setToken] = useState("");
   const [pending, start] = useTransition();
@@ -114,6 +114,7 @@ export function MessengersForm({ v }: { v: MessengersView }) {
           </div>
         </CardContent>
       </Card>
+      {extra}
     </div>
   );
 }

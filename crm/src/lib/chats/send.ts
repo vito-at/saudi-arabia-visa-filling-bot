@@ -36,7 +36,7 @@ export async function sendToTelegram(conv: Conversation, text: string, fetchFn?:
  * Отправить сообщение и записать его в переписку. Ошибка мессенджера (например, у Instagram прошло 24 часа) —
  * исключение с текстом Meta/Telegram; в переписку такое сообщение не попадает.
  */
-export async function sendChatMessage(conversationId: string, text: string, senderId: string, opts: { fetchFn?: FetchFn } = {}) {
+export async function sendChatMessage(conversationId: string, text: string, senderId: string | null, opts: { fetchFn?: FetchFn; isAi?: boolean } = {}) {
   const body = text.trim();
   if (!body) throw new ValidationError("err.chatEmpty");
   if (body.length > 4000) throw new ValidationError("err.chatTooLong");
@@ -46,10 +46,16 @@ export async function sendChatMessage(conversationId: string, text: string, send
   const externalId = conv.channel === "INSTAGRAM" ? await sendToInstagram(conv, body, opts.fetchFn) : await sendToTelegram(conv, body, opts.fetchFn);
   const now = new Date();
   const msg = await prisma.chatMessage.create({
-    data: { conversationId, direction: "OUT", text: body, externalId: externalId || null, senderId, createdAt: now },
+    data: { conversationId, direction: "OUT", text: body, externalId: externalId || null, senderId, isAi: !!opts.isAi, createdAt: now },
   });
-  await prisma.conversation.update({ where: { id: conversationId }, data: { lastMessageAt: now, lastMessageText: `Вы: ${previewText(body)}`.slice(0, 200), unreadCount: 0 } });
-  // ответ клиенту — первая реакция по лиду
-  if (conv.leadId) await prisma.lead.updateMany({ where: { id: conv.leadId, firstResponseAt: null }, data: { firstResponseAt: now } });
+  await prisma.conversation.update({
+    where: { id: conversationId },
+    data: opts.isAi
+      ? { lastMessageAt: now, lastMessageText: `🤖 ${previewText(body)}`.slice(0, 200), aiReplies: { increment: 1 } }
+      : // ответил сотрудник — ИИ-ассистент в этой переписке замолкает
+        { lastMessageAt: now, lastMessageText: `Вы: ${previewText(body)}`.slice(0, 200), unreadCount: 0, aiPaused: true },
+  });
+  // ответ сотрудника клиенту — первая реакция по лиду (ответ ассистента не считается)
+  if (conv.leadId && !opts.isAi) await prisma.lead.updateMany({ where: { id: conv.leadId, firstResponseAt: null }, data: { firstResponseAt: now } });
   return msg;
 }

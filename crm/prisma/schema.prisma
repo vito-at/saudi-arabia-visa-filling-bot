@@ -508,6 +508,11 @@ model Conversation {
   lastInboundAt        DateTime?
   unreadCount          Int         @default(0)
   createdAt            DateTime    @default(now())
+  /// ИИ-ассистент молчит: ответил менеджер, ассистент передал диалог или его выключили в переписке
+  aiPaused             Boolean     @default(false)
+  aiReplies            Int         @default(0)
+  /// пока ассистент готовит ответ — второй обработчик эту переписку не берёт
+  aiLockedUntil        DateTime?
 
   lead     Lead?         @relation(fields: [leadId], references: [id], onDelete: SetNull)
   messages ChatMessage[]
@@ -530,6 +535,8 @@ model ChatMessage {
   senderId       String?
   /// ошибка отправки
   error          String?
+  /// ответ ИИ-ассистента
+  isAi           Boolean       @default(false)
   createdAt      DateTime      @default(now())
 
   conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
@@ -665,4 +672,21 @@ model Attendance {
 
   @@unique([userId, day])
   @@index([day])
+}
+
+/// ИИ-ассистент в переписках Instagram/Telegram: отвечает клиенту, узнаёт номер и пожелания, передаёт менеджеру
+model AiBotSettings {
+  id           Int           @id @default(1)
+  enabled      Boolean       @default(false)
+  /// ключ Claude API (шифруется), вводит владелец в настройках
+  apiKeyEnc    String?
+  /// OFF_HOURS — только вне рабочего времени офиса; ALWAYS — всегда
+  mode         String        @default("OFF_HOURS")
+  channels     ChatChannel[] @default([TELEGRAM, INSTAGRAM])
+  /// сведения об агентстве и правила для ассистента (адрес, услуги, цены, чего не обещать)
+  instructions String        @default("")
+  /// сколько ответов ассистент даёт в одной переписке, потом передаёт менеджеру
+  maxReplies   Int           @default(20)
+  lastError    String?
+  lastUsedAt   DateTime?
 }

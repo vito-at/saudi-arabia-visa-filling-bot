@@ -13,6 +13,9 @@ import { rateSources } from "@/lib/rates";
 import { getSettings } from "@/lib/refs";
 import { SyncLogTable } from "@/components/settings/sync-log";
 import { MessengersForm } from "@/components/settings/messengers-form";
+import { AiBotForm } from "@/components/settings/ai-bot-form";
+import { getAiSettings, workHoursText } from "@/lib/chats/ai";
+import { scheduleOf } from "@/lib/work-hours";
 import { getTelegram } from "@/lib/chats/telegram";
 import { minToTime } from "@/lib/work-hours";
 import { prisma } from "@/lib/db";
@@ -217,7 +220,7 @@ async function UsersTab() {
 }
 
 async function MessengersTab() {
-  const [tg, i, counts] = await Promise.all([getTelegram(), getIntegration(), prisma.conversation.groupBy({ by: ["channel"], _count: { _all: true } })]);
+  const [tg, i, counts, ai, settings] = await Promise.all([getTelegram(), getIntegration(), prisma.conversation.groupBy({ by: ["channel"], _count: { _all: true } }), getAiSettings(), getSettings()]);
   const base = (process.env.APP_URL || "http://localhost:3000").replace(/\/$/, "");
   const n = (c: "INSTAGRAM" | "TELEGRAM") => counts.find((x) => x.channel === c)?._count._all ?? 0;
   return (
@@ -236,6 +239,22 @@ async function MessengersTab() {
         verifyToken: i.verifyToken,
         chats: { INSTAGRAM: n("INSTAGRAM"), TELEGRAM: n("TELEGRAM") },
       }}
+      extra={
+        <AiBotForm
+          v={{
+            enabled: ai.enabled,
+            hasKey: !!ai.apiKeyEnc,
+            mode: ai.mode,
+            telegram: ai.channels.includes("TELEGRAM"),
+            instagram: ai.channels.includes("INSTAGRAM"),
+            instructions: ai.instructions,
+            maxReplies: ai.maxReplies,
+            lastError: ai.lastError,
+            lastUsedAt: ai.lastUsedAt ? formatDateTime(ai.lastUsedAt) : null,
+            workHours: workHoursText(scheduleOf(settings)).replace(/^.*, /, ""),
+          }}
+        />
+      }
     />
   );
 }

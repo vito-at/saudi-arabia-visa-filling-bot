@@ -3,10 +3,10 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { AlertTriangle, FileText, MapPin, Send } from "lucide-react";
+import { AlertTriangle, Bot, FileText, MapPin, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
-import { markChatReadAction, sendChatMessageAction } from "@/app/(app)/chats/actions";
+import { markChatReadAction, sendChatMessageAction, setAiPausedAction } from "@/app/(app)/chats/actions";
 import { formatDate, formatTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/i18n/client";
@@ -25,6 +25,7 @@ export interface ChatMessageView {
   attachments: ChatAttachmentView[];
   at: string;
   sender: string | null;
+  isAi?: boolean;
 }
 
 /** Новые сообщения подтягиваются сами: обновление страницы раз в несколько секунд, пока вкладка открыта */
@@ -98,7 +99,7 @@ export function ChatMessages({ conversationId, messages, unread, className }: { 
                 ))}
                 {m.text && <div className="whitespace-pre-wrap break-words">{m.text}</div>}
                 <div className={cn("mt-0.5 text-right text-[10px]", out ? "text-primary-foreground/70" : "text-muted-foreground")}>
-                  {out && m.sender ? `${m.sender} · ` : ""}
+                  {out && m.isAi ? `🤖 ${t("ai.badge")} · ` : out && m.sender ? `${m.sender} · ` : ""}
                   {formatTime(m.at)}
                 </div>
               </div>
@@ -155,5 +156,27 @@ export function ChatComposer({ conversationId, blockedReason }: { conversationId
         </Button>
       </div>
     </div>
+  );
+}
+
+/** Переключатель ИИ-ассистента в переписке: зелёный — отвечает, серый — молчит */
+export function AiToggle({ conversationId, paused }: { conversationId: string; paused: boolean }) {
+  const { t } = useI18n();
+  const [pending, start] = useTransition();
+  return (
+    <button
+      type="button"
+      disabled={pending}
+      title={`${paused ? t("ai.paused") : t("ai.active")}. ${paused ? t("ai.resume") : t("ai.pause")}`}
+      onClick={() =>
+        start(async () => {
+          const r = await setAiPausedAction(conversationId, !paused);
+          if (!r.ok) toast.error(r.error);
+        })
+      }
+      className={cn("inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs", paused ? "text-muted-foreground hover:bg-accent" : "border-violet-300 bg-violet-50 text-violet-700 dark:border-violet-800 dark:bg-violet-950 dark:text-violet-300")}
+    >
+      <Bot className="size-3.5" /> {t("ai.badge")}
+    </button>
   );
 }
