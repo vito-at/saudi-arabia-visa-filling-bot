@@ -60,7 +60,7 @@ export function PostGenerator({ initial }: { initial: PostInitial }) {
     } catch {
       // нет доступа к localStorage — работаем со значениями по умолчанию
     }
-    void Promise.all([loadImage("/logo-dark.png", false), loadImage("/logo-light.png", false)]).then(([white, color]) => setLogos({ white, color }), () => undefined);
+    void Promise.all([loadImage("/logo-dark.svg", false), loadImage("/logo-light.svg", false)]).then(([white, color]) => setLogos({ white, color }), () => undefined);
     if (initial.photoUrl) {
       // фото по ссылке можно нарисовать, только если сайт разрешает (CORS); иначе — загрузить файлом
       loadImage(initial.photoUrl, true).then(setPhoto, () => toast.info(t("posts.photoBlocked")));

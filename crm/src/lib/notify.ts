@@ -73,7 +73,8 @@ export async function scanNotifications(now = new Date()): Promise<number> {
   }
   for (const d of debts) {
     const left = Math.round((toNum(d.amount) - toNum(d.paidAmount)) * 100) / 100;
-    const users = new Set([d.lead.managerId ?? d.managerId, ...admins].filter(Boolean) as string[]);
+    // менеджеру — только по его клиентам (лид за ним), администраторам — все
+    const users = new Set([d.lead.managerId, ...admins].filter(Boolean) as string[]);
     for (const userId of users) {
       items.push({ userId, type: "debt", key: `debt:${d.id}:${today}`, link: "/debtors", data: { name: d.lead.name, left, currency: d.currency, due: d.dueAt ? toInputDate(d.dueAt) : null } });
     }

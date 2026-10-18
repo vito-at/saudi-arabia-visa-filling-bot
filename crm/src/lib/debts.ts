@@ -2,8 +2,12 @@
  * Долги клиентов: сделка продана на сумму amount, клиент заплатил paidAmount (предоплата при закрытии + доплаты).
  * Пока оплачено меньше суммы продажи — клиент в списке «Должники». Всё считается в валюте сделки.
  */
+import type { Prisma } from "@prisma/client";
 import { toInputDate } from "./format";
 import { round2 } from "./money";
+
+/** Долги, которые видит менеджер: только клиенты, которые сейчас за ним (лид назначен на него) */
+export const debtOwnerWhere = (managerId: string): Prisma.DealWhereInput => ({ lead: { managerId } });
 
 const parseNum = (s: string | number) => Number(String(s).replace(/\s/g, "").replace(",", "."));
 

@@ -4,7 +4,7 @@ import { RateWidget } from "./rate-widget";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { BarChart3, CalendarDays, Clock, Stamp, CheckSquare, HandCoins, ImagePlus, Inbox, MessageCircle, LayoutDashboard, LogOut, Megaphone, Menu, Settings, Users, Wallet, X } from "lucide-react";
+import { BarChart3, CalendarDays, Stamp, CheckSquare, HandCoins, ImagePlus, Inbox, MessageCircle, LayoutDashboard, LogOut, Megaphone, Menu, Settings, Users, Wallet, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "./logo";
 import { NotificationBell } from "./notification-bell";
@@ -22,7 +22,6 @@ const NAV = [
   { href: "/clients", label: "nav.clients", icon: Users, badge: null },
   { href: "/tasks", label: "nav.tasks", icon: CheckSquare, badge: "tasks" },
   { href: "/calendar", label: "nav.calendar", icon: CalendarDays, badge: null },
-  { href: "/attendance", label: "nav.attendance", icon: Clock, badge: null },
   { href: "/debtors", label: "nav.debtors", icon: HandCoins, badge: "debtors" },
   { href: "/posts", label: "nav.posts", icon: ImagePlus, badge: null },
   { href: "/reports", label: "nav.reports", icon: BarChart3, badge: null },
@@ -57,7 +56,7 @@ export function Sidebar(props: SidebarProps) {
 
   return (
     <>
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground lg:flex">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col overflow-y-auto border-r border-sidebar-border bg-sidebar text-sidebar-foreground lg:flex">
         <SidebarContent {...props} />
       </aside>
 
@@ -97,14 +96,15 @@ function SidebarContent({ user, counters, logout, rate }: SidebarProps) {
   const { t } = useI18n();
   return (
     <>
-      <div className="flex items-start justify-between px-5 pb-4 pt-5">
+      <div className="flex shrink-0 items-start justify-between px-5 pb-4 pt-5">
         <Link href="/" className="block" aria-label={t("common.home")}>
           <Logo className="h-10" />
           <div className="mt-1.5 pl-0.5 text-[11px] uppercase tracking-wider text-sidebar-muted">{t("nav.tagline")}</div>
         </Link>
         <NotificationBell className="-mr-2 hidden lg:block" />
       </div>
-      <nav className="flex-1 space-y-0.5 px-3">
+      {/* при сильном увеличении (Ctrl +) список разделов прокручивается своим ползунком */}
+      <nav className="min-h-40 flex-1 space-y-0.5 overflow-y-auto px-3">
         {NAV.filter((n) =>
           // визовый специалист видит только свой кабинет; «Визы» — ему и администратору
           user.role === "VISA" ? "visa" in n : "visa" in n ? user.role === "ADMIN" : !("admin" in n) || user.role === "ADMIN",
@@ -131,7 +131,7 @@ function SidebarContent({ user, counters, logout, rate }: SidebarProps) {
           );
         })}
       </nav>
-      <div className="space-y-3 border-t border-sidebar-border p-3">
+      <div className="shrink-0 space-y-3 border-t border-sidebar-border p-3">
         <RateWidget rate={rate.value} updatedAt={rate.updatedAt} />
         <ThemeToggle />
         <LanguageSwitcher />

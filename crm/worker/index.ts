@@ -7,7 +7,6 @@ import { prisma } from "../src/lib/db";
 import { backfillOrganic, fixUnnamedLeads, syncLeads } from "../src/lib/meta/sync";
 import { createTripFollowUps } from "../src/lib/leads/trip-followup";
 import { scanNotifications } from "../src/lib/notify";
-import { attendanceDailyReport } from "../src/lib/attendance-bot";
 import { processAiReplies } from "../src/lib/chats/ai";
 import { syncSpend } from "../src/lib/meta/insights";
 import { sendPendingConversions } from "../src/lib/meta/capi";
@@ -87,7 +86,6 @@ cron.schedule("*/5 * * * *", tickConversions);
 cron.schedule("*/10 * * * *", () => void scanNotifications().catch((e) => log("Уведомления:", e)));
 // ИИ-ассистент: страховка, если ответ после вебхука не прошёл (перезапуск, сбой)
 cron.schedule("* * * * *", () => void processAiReplies().catch((e) => log("ИИ-ассистент:", e)));
-cron.schedule("*/10 * * * *", () => void attendanceDailyReport().catch((e) => log("Посещаемость:", e)));
 cron.schedule("7 * * * *", () => void createTripFollowUps().then((n) => n && log(`Задачи после поездки: ${n}`)).catch((e) => log("Задачи после поездки:", e)));
 cron.schedule("17 * * * *", tickSpend);
 cron.schedule("0 7 * * *", () => tickRate(true), { timezone: "Asia/Tashkent" });

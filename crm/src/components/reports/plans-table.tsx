@@ -21,7 +21,6 @@ export interface PlanRowView {
   ratePct: number;
   commission: number;
   base: number;
-  fines: number;
   total: number;
   currency: "UZS" | "USD";
   terms: { base: number; currency: "UZS" | "USD"; pct: number; bonusPct: number };
@@ -128,7 +127,7 @@ export function PlansTable({ rows, month, editable }: { rows: PlanRowView[]; mon
   return (
     <>
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[980px] text-sm">
+        <table className="w-full min-w-[900px] text-sm">
           <thead>
             <tr className="border-y bg-muted/40 text-left text-xs text-muted-foreground">
               <th className="px-4 py-2 font-medium">{t("rt.managers.manager")}</th>
@@ -138,7 +137,6 @@ export function PlansTable({ rows, month, editable }: { rows: PlanRowView[]; mon
               <th className="px-3 py-2 text-right font-medium">{t("plans.rate")}</th>
               <th className="px-3 py-2 text-right font-medium">{t("plans.commission")}</th>
               <th className="px-3 py-2 text-right font-medium">{t("plans.base")}</th>
-              <th className="px-3 py-2 text-right font-medium">{t("plans.fines")}</th>
               <th className="px-4 py-2 text-right font-medium">{t("plans.total")}</th>
               {editable && <th />}
             </tr>
@@ -161,7 +159,6 @@ export function PlansTable({ rows, month, editable }: { rows: PlanRowView[]; mon
                 </td>
                 <td className="px-3 py-3 text-right whitespace-nowrap tabular-nums">{f.money(r.commission, r.currency)}</td>
                 <td className="px-3 py-3 text-right whitespace-nowrap tabular-nums text-muted-foreground">{f.money(r.base, r.currency)}</td>
-                <td className="px-3 py-3 text-right whitespace-nowrap tabular-nums text-red-600">{r.fines ? `−${f.money(r.fines, r.currency)}` : "—"}</td>
                 <td className="px-4 py-3 text-right font-semibold whitespace-nowrap tabular-nums">{f.money(r.total, r.currency)}</td>
                 {editable && (
                   <td className="pr-3">

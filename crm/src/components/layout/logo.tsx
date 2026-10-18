@@ -5,8 +5,8 @@ import { cn } from "@/lib/utils";
 export function Logo({ className }: { className?: string }) {
   return (
     <span className={cn("inline-block", className)}>
-      <img src="/logo-light.png" alt="Orient Travel" className="block h-full w-auto dark:hidden" />
-      <img src="/logo-dark.png" alt="Orient Travel" className="hidden h-full w-auto dark:block" />
+      <img src="/logo-light.svg" alt="Orient Travel" className="block h-full w-auto dark:hidden" />
+      <img src="/logo-dark.svg" alt="Orient Travel" className="hidden h-full w-auto dark:block" />
     </span>
   );
 }
