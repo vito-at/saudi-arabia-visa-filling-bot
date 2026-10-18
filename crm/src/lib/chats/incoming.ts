@@ -4,7 +4,8 @@ import { getIntegration, pageClient, readSecrets } from "@/lib/meta/integration"
 import type { FetchFn as GraphFetch } from "@/lib/meta/graph";
 import { parseIgWebhook, type IgWebhookPayload } from "./instagram";
 import { recordChatMessage } from "./store";
-import { getTelegram, tgAttachments, tgName, tgText, type TgMessage, type TgUpdate } from "./telegram";
+import { handleStaffMessage } from "@/lib/attendance-bot";
+import { getTelegram, telegramBot, tgAttachments, tgName, tgText, type TgMessage, type TgUpdate } from "./telegram";
 
 /** Instagram Direct: входящие и эхо (ответы из приложения Instagram). Возвращает число записанных сообщений. */
 export async function handleInstagramWebhook(payload: IgWebhookPayload, opts: { fetchFn?: GraphFetch } = {}): Promise<number> {
@@ -67,6 +68,8 @@ export async function handleTelegramUpdate(u: TgUpdate): Promise<boolean> {
   }
   if (u.business_message) return !!(await recordTelegram(u.business_message, true));
   if (u.message) {
+    // сотрудники отмечают приход/уход — это не переписка с клиентом
+    if (await handleStaffMessage(u.message, telegramBot(integration))) return true;
     // /start — служебная команда, клиенту отвечать нечего, но переписку создаём
     return !!(await recordTelegram(u.message, false));
   }

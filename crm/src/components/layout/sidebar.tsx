@@ -4,7 +4,7 @@ import { RateWidget } from "./rate-widget";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { BarChart3, CalendarDays, CheckSquare, HandCoins, ImagePlus, Inbox, MessageCircle, LayoutDashboard, LogOut, Megaphone, Menu, Settings, Users, Wallet, X } from "lucide-react";
+import { BarChart3, CalendarDays, Clock, CheckSquare, HandCoins, ImagePlus, Inbox, MessageCircle, LayoutDashboard, LogOut, Megaphone, Menu, Settings, Users, Wallet, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "./logo";
 import { NotificationBell } from "./notification-bell";
@@ -22,6 +22,7 @@ const NAV = [
   { href: "/clients", label: "nav.clients", icon: Users, badge: null },
   { href: "/tasks", label: "nav.tasks", icon: CheckSquare, badge: "tasks" },
   { href: "/calendar", label: "nav.calendar", icon: CalendarDays, badge: null },
+  { href: "/attendance", label: "nav.attendance", icon: Clock, badge: null },
   { href: "/debtors", label: "nav.debtors", icon: HandCoins, badge: "debtors" },
   { href: "/posts", label: "nav.posts", icon: ImagePlus, badge: null },
   { href: "/reports", label: "nav.reports", icon: BarChart3, badge: null },

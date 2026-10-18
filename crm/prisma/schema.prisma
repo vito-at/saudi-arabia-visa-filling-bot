@@ -64,31 +64,37 @@ enum DistributionMode {
 }
 
 model User {
-  id             String    @id @default(cuid())
-  login          String    @unique
-  passwordHash   String
-  name           String
-  role           Role      @default(MANAGER)
-  isActive       Boolean   @default(true)
-  lastAssignedAt DateTime?
-  createdAt      DateTime  @default(now())
+  id                String    @id @default(cuid())
+  login             String    @unique
+  passwordHash      String
+  name              String
+  role              Role      @default(MANAGER)
+  isActive          Boolean   @default(true)
+  lastAssignedAt    DateTime?
+  createdAt         DateTime  @default(now())
   /// Зарплата: оклад в месяц, процент от прибыли своих сделок и надбавка к проценту при выполнении плана по прибыли
-  salaryBase     Decimal   @default(0) @db.Decimal(18, 2)
-  salaryCurrency Currency  @default(UZS)
-  commissionPct  Decimal   @default(0) @db.Decimal(5, 2)
-  planBonusPct   Decimal   @default(0) @db.Decimal(5, 2)
+  salaryBase        Decimal   @default(0) @db.Decimal(18, 2)
+  salaryCurrency    Currency  @default(UZS)
+  commissionPct     Decimal   @default(0) @db.Decimal(5, 2)
+  planBonusPct      Decimal   @default(0) @db.Decimal(5, 2)
+  /// Telegram сотрудника для отметок прихода/ухода; код привязки живёт сутки
+  telegramId        String?   @unique
+  telegramName      String?
+  telegramLinkCode  String?   @unique
+  telegramLinkUntil DateTime?
 
-  leads        Lead[]        @relation("LeadManager")
-  deals        Deal[]
-  dealPayments DealPayment[]
-  chatMessages ChatMessage[]
-  plans        ManagerPlan[]
+  leads         Lead[]         @relation("LeadManager")
+  deals         Deal[]
+  dealPayments  DealPayment[]
+  chatMessages  ChatMessage[]
+  plans         ManagerPlan[]
   notifications Notification[]
-  comments     Comment[]
-  history      LeadHistory[]
-  tasks        Task[]        @relation("TaskAssignee")
-  createdTasks Task[]        @relation("TaskCreator")
-  expenses     Expense[]
+  comments      Comment[]
+  history       LeadHistory[]
+  tasks         Task[]         @relation("TaskAssignee")
+  createdTasks  Task[]         @relation("TaskCreator")
+  expenses      Expense[]
+  attendance    Attendance[]
 }
 
 model LeadStatus {
@@ -175,7 +181,7 @@ model Lead {
   /// когда создана задача «Спросить, как прошла поездка» (по дате возвращения из анкеты)
   tripFollowUpAt  DateTime?
   /// ссылка на подборку туров для клиента: /o/{offersToken}
-  offersToken    String?   @unique
+  offersToken     String?   @unique
   createdAt       DateTime  @default(now())
   assignedAt      DateTime?
   firstResponseAt DateTime?
@@ -431,6 +437,18 @@ model AppSettings {
   workStartMin        Int              @default(540)
   workEndMin          Int              @default(1080)
   workDays            Int[]            @default([1, 2, 3, 4, 5, 6])
+  /// Учёт посещаемости через Telegram-бота: опоздание — приход позже начала рабочего дня больше чем на «льготные» минуты
+  attendanceEnabled   Boolean          @default(false)
+  attendanceGraceMin  Int              @default(10)
+  /// штраф за опоздание, сум
+  lateFine            Decimal          @default(0) @db.Decimal(14, 2)
+  /// отмечаться только геолокацией в радиусе офиса
+  attendanceGeo       Boolean          @default(false)
+  officeLat           Float?
+  officeLng           Float?
+  officeRadiusM       Int              @default(200)
+  /// день, за который уже отправлен итог посещаемости
+  attendanceReportDay DateTime?        @db.Date
 }
 
 /// История курсов USD→UZS по дням: суммы пересчитываются по курсу дня операции, поэтому отчёты за прошлые даты не меняются
@@ -623,4 +641,28 @@ model TourOffer {
   lead Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
 
   @@index([leadId])
+}
+
+/// Отметка сотрудника за день (день — дата по Ташкенту, хранится первым моментом суток по UTC)
+model Attendance {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  day        DateTime  @db.Date
+  checkInAt  DateTime?
+  checkOutAt DateTime?
+  lateMin    Int       @default(0)
+  /// штраф, сум
+  fine       Decimal   @default(0) @db.Decimal(14, 2)
+  inLat      Float?
+  inLng      Float?
+  outLat     Float?
+  outLng     Float?
+  note       String?
+  /// исправлено администратором
+  editedById String?
+  updatedAt  DateTime  @updatedAt
+
+  @@unique([userId, day])
+  @@index([day])
 }

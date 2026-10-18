@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Field, Input, NativeSelect } from "@/components/ui/input";
-import { formatDate, formatNumber, toInputDate } from "@/lib/format";
+import { formatNumber, toInputDate } from "@/lib/format";
 import { useI18n } from "@/i18n/client";
 import { convertCost, convertRevenue, dealProfitInSale } from "@/lib/money";
 import { createDealAction, updateDealAction, type DealInput } from "@/app/(app)/deals/actions";

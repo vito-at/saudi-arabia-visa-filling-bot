@@ -82,6 +82,8 @@ export interface TgMessage {
   contact?: { phone_number: string; first_name?: string };
   location?: { latitude: number; longitude: number };
   business_connection_id?: string;
+  forward_origin?: unknown;
+  forward_date?: number;
 }
 
 export interface TgUpdate {
