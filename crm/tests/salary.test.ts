@@ -41,11 +41,4 @@ describe("сетка календаря", () => {
     expect(g.at(-1)!.includes("2026-10-31")).toBe(true);
     expect(g.length).toBe(5);
   });
-  it("штрафы вычитаются из итога", () => {
-    const r = calcPayout({ base: 3_000_000, currency: "UZS", pct: 0, bonusPct: 0 }, { leads: null, sales: null, profit: null }, { leads: 0, sales: 0, profitUsd: 0, profitSalary: 0 }, 150_000);
-    expect(r.fines).toBe(150_000);
-    expect(r.total).toBe(2_850_000);
-    // итог не уходит в минус
-    expect(calcPayout({ base: 0, currency: "UZS", pct: 0, bonusPct: 0 }, { leads: null, sales: null, profit: null }, { leads: 0, sales: 0, profitUsd: 0, profitSalary: 0 }, 50_000).total).toBe(0);
-  });
 });

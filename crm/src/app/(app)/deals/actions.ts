@@ -10,7 +10,7 @@ import { requireUser, AccessError } from "@/lib/session";
 import { changeStatus, ValidationError } from "@/lib/leads/service";
 import { SERVICE_TYPES } from "@/lib/constants";
 import { dealClosesWithoutCost, managerEntersCost, visaLeadPatch } from "@/lib/deals";
-import { debtLeft, parsePaidAtClose, parsePayment } from "@/lib/debts";
+import { debtLeft, debtOwnerWhere, parsePaidAtClose, parsePayment } from "@/lib/debts";
 import { toNum } from "@/lib/money";
 import { notifyCostPending } from "@/lib/notify";
 
@@ -147,6 +147,13 @@ async function getDealForUser(dealId: string) {
   return { user, deal };
 }
 
+/** Долг клиента ведёт только его менеджер (лид за ним) или администратор */
+async function getDebtForUser(dealId: string) {
+  const { user, deal } = await getDealForUser(dealId);
+  if (user.role !== "ADMIN" && !(await prisma.deal.count({ where: { id: deal.id, ...debtOwnerWhere(user.id) } }))) throw new AccessError("err.dealNotFound");
+  return { user, deal };
+}
+
 export async function updateDealAction(dealId: string, input: DealInput) {
   return runAction(async () => {
     const { user, deal } = await getDealForUser(dealId);
@@ -211,7 +218,7 @@ export async function deleteDealAction(dealId: string) {
 /** Клиент доплатил по сделке: сумма не больше остатка долга. Вносит менеджер лида или администратор. */
 export async function addPaymentAction(dealId: string, input: { amount: string; paidAt: string; note?: string }) {
   return runAction(async () => {
-    const { user, deal } = await getDealForUser(dealId);
+    const { user, deal } = await getDebtForUser(dealId);
     const left = debtLeft(toNum(deal.amount), toNum(deal.paidAmount));
     if (left <= 0) throw new ValidationError("err.noDebt");
     const amount = parsePayment(input.amount, left);
@@ -241,7 +248,7 @@ export async function addPaymentAction(dealId: string, input: { amount: string; 
 /** Срок, до которого клиент обещал доплатить, и заметка о договорённости */
 export async function setDebtTermsAction(dealId: string, input: { dueAt: string; note: string }) {
   return runAction(async () => {
-    const { deal } = await getDealForUser(dealId);
+    const { deal } = await getDebtForUser(dealId);
     const dueAt = input.dueAt ? parseInputDate(input.dueAt) : null;
     if (input.dueAt && !dueAt) throw new ValidationError("err.dueAt");
     await prisma.deal.update({ where: { id: dealId }, data: { dueAt, debtNote: input.note.trim().slice(0, 1000) || null } });

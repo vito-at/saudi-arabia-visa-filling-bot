@@ -2,7 +2,7 @@
  * Планы менеджеров и зарплата за месяц.
  * Факт: лиды, назначенные менеджеру и созданные в месяце; продажи — количество в сделках, оплаченных в месяце;
  * прибыль — по этим сделкам (выручка − себестоимость, по курсам дня оплаты).
- * Зарплата = оклад + прибыль × (процент + надбавка, если план по прибыли выполнен) − штрафы за опоздания.
+ * Зарплата = оклад + прибыль × (процент + надбавка, если план по прибыли выполнен).
  */
 import type { Currency } from "@prisma/client";
 import { prisma } from "@/lib/db";
@@ -68,8 +68,6 @@ export interface PayoutRow {
   ratePct: number;
   commission: number;
   base: number;
-  /** штрафы за опоздания в валюте зарплаты */
-  fines: number;
   total: number;
   currency: Currency;
 }
@@ -77,14 +75,13 @@ export interface PayoutRow {
 const ratio = (fact: number, plan: number | null) => (plan && plan > 0 ? fact / plan : null);
 
 /** Чистая функция расчёта — покрыта тестом */
-export function calcPayout(terms: SalaryTerms, plan: PlanValues, fact: PlanFact, fines = 0): PayoutRow {
+export function calcPayout(terms: SalaryTerms, plan: PlanValues, fact: PlanFact): PayoutRow {
   const done = { leads: ratio(fact.leads, plan.leads), sales: ratio(fact.sales, plan.sales), profit: ratio(fact.profitUsd, plan.profit) };
   const planMet = done.profit !== null && done.profit >= 1;
   const ratePct = terms.pct + (planMet ? terms.bonusPct : 0);
   // убыточный месяц не уменьшает оклад
   const commission = round2((Math.max(0, fact.profitSalary) * ratePct) / 100);
-  const f = round2(Math.max(0, fines));
-  return { plan, fact, done, planMet, ratePct, commission, base: terms.base, fines: f, total: round2(Math.max(0, terms.base + commission - f)), currency: terms.currency };
+  return { plan, fact, done, planMet, ratePct, commission, base: terms.base, total: round2(terms.base + commission), currency: terms.currency };
 }
 
 export interface ManagerMonth extends PayoutRow {
@@ -105,14 +102,12 @@ export async function loadManagerMonths(range: MonthRange, managerId: string | n
     include: { plans: { where: { month: monthKey(range.ym) } } },
   });
   const ids = users.map((u) => u.id);
-  const [leads, deals, fines] = await Promise.all([
+  const [leads, deals] = await Promise.all([
     prisma.lead.groupBy({ by: ["managerId"], where: { managerId: { in: ids }, createdAt: { gte: range.from, lt: range.to } }, _count: { _all: true } }),
     prisma.deal.findMany({
       where: { managerId: { in: ids }, paidAt: { gte: range.from, lt: range.to } },
       select: { managerId: true, amount: true, cost: true, currency: true, costCurrency: true, paidAt: true, quantity: true },
     }),
-    // штрафы хранятся в сумах; дни посещаемости — ключи @db.Date
-    prisma.attendance.groupBy({ by: ["userId"], where: { userId: { in: ids }, day: { gte: monthKey(range.ym), lt: monthKey(shiftMonth(range.ym, 1)) } }, _sum: { fine: true } }),
   ]);
   return users.map((u) => {
     const own = deals.filter((d) => d.managerId === u.id).map((d) => ({ ...d, amount: toNum(d.amount), cost: toNum(d.cost) }));
@@ -126,8 +121,6 @@ export async function loadManagerMonths(range: MonthRange, managerId: string | n
     };
     const p = u.plans[0];
     const plan: PlanValues = { leads: p?.leads ?? null, sales: p?.sales ?? null, profit: p?.profit === null || p?.profit === undefined ? null : toNum(p.profit) };
-    const fineUzs = toNum(fines.find((x) => x.userId === u.id)?._sum.fine);
-    const fineSalary = terms.currency === "USD" ? (rate > 0 ? fineUzs / rate : 0) : fineUzs;
-    return { userId: u.id, name: u.name, terms, ...calcPayout(terms, plan, fact, fineSalary) };
+    return { userId: u.id, name: u.name, terms, ...calcPayout(terms, plan, fact) };
   });
 }

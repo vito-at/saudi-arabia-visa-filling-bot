@@ -12,6 +12,7 @@ import { prisma } from "@/lib/db";
 import { conversationScope, leadScope } from "@/lib/access";
 import { requireUser } from "@/lib/session";
 import { handedVisa } from "@/lib/visa";
+import { debtOwnerWhere } from "@/lib/debts";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
@@ -29,7 +30,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       where: {
         paidAmount: { lt: prisma.deal.fields.amount },
         dueAt: { lt: startOfDayTashkent() },
-        ...(user.role === "ADMIN" ? {} : { OR: [{ managerId: user.id }, { lead: { managerId: user.id } }] }),
+        ...(user.role === "ADMIN" ? {} : debtOwnerWhere(user.id)),
       },
     }),
     // переписки с непрочитанными сообщениями — счётчик у «Чатов»

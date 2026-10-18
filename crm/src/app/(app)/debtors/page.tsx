@@ -14,6 +14,7 @@ import { toNum } from "@/lib/money";
 import { normalizePhone, prettyPhone, telegramLink, whatsappLink } from "@/lib/phone";
 import { getManagers } from "@/lib/refs";
 import { sp, type SearchParams } from "@/lib/leads/query";
+import { debtOwnerWhere } from "@/lib/debts";
 import { requireUser } from "@/lib/session";
 import { cn } from "@/lib/utils";
 import { getI18n } from "@/i18n/server";
@@ -30,8 +31,8 @@ export default async function DebtorsPage({ searchParams }: { searchParams: Prom
   const where: Prisma.DealWhereInput = {
     // оплачено меньше суммы продажи
     paidAmount: { lt: prisma.deal.fields.amount },
-    // менеджер видит долги по своим сделкам и своим лидам
-    ...(managerId ? { OR: [{ managerId }, { lead: { managerId } }] } : {}),
+    // менеджер видит долги только своих клиентов (лид сейчас за ним)
+    ...(managerId ? debtOwnerWhere(managerId) : {}),
     ...(q
       ? {
           AND: [
