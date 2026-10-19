@@ -709,6 +709,7 @@ export const en: Messages = {
     capiEnabled: "Send events to Meta",
     capiHint: "The CRM tells Meta what happened to each form lead: reached a funnel stage (statuses marked “In funnel”; “No answer” and “Call back” don’t count), sale (with amount) or lost. Meta learns to show ads to people who buy. Dataset and token are in Events Manager: Connect data sources → CRM → dataset settings → Generate access token.",
     capiLastError: "Last error: {error}",
+    capiSales: "Sales in 30 days: {total}, of them from Meta form leads: {meta}, sent to Meta as “Converted”: {sent}. Meta only receives sales from its own form leads (not Direct, Telegram, calls or walk-ins) and only for the last 7 days — earlier sales can’t be sent.",
     capiStats: "Sent: {sent} · queued: {pending} · failed: {failed}",
     capiTestCode: "Test event code (optional)",
     capiTestCodeHint: "For checking under Test events; clear it afterwards",
