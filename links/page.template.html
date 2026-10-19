@@ -46,6 +46,7 @@
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html, body { min-height: 100%; }
 body {
   margin: 0;
@@ -136,21 +137,6 @@ a { color: inherit; text-decoration: none; }
   letter-spacing: .12em; text-transform: uppercase; color: var(--ink-muted);
 }
 
-/* Адрес */
-.place {
-  border-radius: var(--radius-lg); background: var(--surface-raised);
-  padding: 20px; display: flex; flex-direction: column; gap: var(--space-4);
-}
-.place h2 { margin: 0; font-size: 20px; line-height: 28px; font-weight: 700; }
-.place p { margin: 0; color: var(--ink-muted); font-size: 14px; line-height: 20px; }
-.place .addr { color: var(--ink); font-size: 16px; line-height: 24px; }
-.maps { display: flex; flex-wrap: wrap; gap: var(--space-2); }
-.chip {
-  font: 700 14px/20px var(--font); padding: 10px 16px;
-  border-radius: var(--radius-pill); border: 1px solid var(--border); background: var(--surface);
-}
-.chip:hover { border-color: var(--brand-orange); }
-.chip b { color: var(--brand-orange-text); font-weight: 700; }
 
 
 button.link { width: 100%; font: inherit; text-align: left; cursor: pointer; }
@@ -219,21 +205,27 @@ button.link { width: 100%; font: inherit; text-align: left; cursor: pointer; }
   </header>
 
   <nav class="links" aria-label="Kontaktlar">
-    <button type="button" class="link primary" id="tg-open" aria-haspopup="dialog" aria-controls="tg-sheet">
+    <a class="link" href="https://t.me/orient_travel" target="_blank" rel="noopener">
+      <span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M21.4 3.6 2.9 10.8c-1.3.5-1.3 1.2-.2 1.6l4.7 1.5 1.8 5.6c.2.6.1.9.8.9.5 0 .7-.2 1-.5l2.3-2.2 4.8 3.5c.9.5 1.5.2 1.7-.8l3.1-14.8c.3-1.3-.5-1.9-1.5-1.5ZM8.6 13.6l9.9-6.2c.5-.3.9-.1.5.2l-8.4 7.6-.3 3.6-1.7-5.2Z"/></svg></span>
+      <span class="txt"><span class="ttl" data-i18n="channel">Telegram kanalimiz</span><span class="sub">@orient_travel</span></span>
+      <span class="go" aria-hidden="true">►</span>
+    </a>
+
+    <button type="button" class="link primary" data-sheet="tg-sheet" aria-haspopup="dialog" aria-controls="tg-sheet">
       <span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M21.4 3.6 2.9 10.8c-1.3.5-1.3 1.2-.2 1.6l4.7 1.5 1.8 5.6c.2.6.1.9.8.9.5 0 .7-.2 1-.5l2.3-2.2 4.8 3.5c.9.5 1.5.2 1.7-.8l3.1-14.8c.3-1.3-.5-1.9-1.5-1.5ZM8.6 13.6l9.9-6.2c.5-.3.9-.1.5.2l-8.4 7.6-.3 3.6-1.7-5.2Z"/></svg></span>
       <span class="txt"><span class="ttl" data-i18n="tg">Telegramda yozing</span><span class="sub" data-i18n="tgSub">Menejer tez javob beradi</span></span>
       <span class="go" aria-hidden="true">►</span>
     </button>
 
-    <a class="link" href="tel:+998705146363">
+    <button type="button" class="link" data-sheet="call-sheet" aria-haspopup="dialog" aria-controls="call-sheet">
       <span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1A17 17 0 0 1 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1l-2.3 2.2Z"/></svg></span>
-      <span class="txt"><span class="ttl" data-i18n="call">Qo'ng'iroq qilish</span><span class="sub">+998 70 514 63 63</span></span>
+      <span class="txt"><span class="ttl" data-i18n="call">Qo'ng'iroq qilish</span><span class="sub" data-i18n="callSub">Menejerni tanlang</span></span>
       <span class="go" aria-hidden="true">►</span>
-    </a>
+    </button>
 
-    <a class="link" href="tel:+998705145353">
-      <span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1A17 17 0 0 1 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1l-2.3 2.2Z"/></svg></span>
-      <span class="txt"><span class="ttl" data-i18n="call">Qo'ng'iroq qilish</span><span class="sub">+998 70 514 53 53</span></span>
+    <a class="link" href="https://yandex.ru/maps/org/orient_travel/6552049796/" target="_blank" rel="noopener">
+      <span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7Zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5Z"/></svg></span>
+      <span class="txt"><span class="ttl" data-i18n="loc">Lokatsiya</span><span class="sub" data-i18n="addr">Farg'ona, Ma'rifat ko'chasi, 43</span></span>
       <span class="go" aria-hidden="true">►</span>
     </a>
 
@@ -243,30 +235,29 @@ button.link { width: 100%; font: inherit; text-align: left; cursor: pointer; }
       <span class="go" aria-hidden="true">►</span>
     </a>
   </nav>
-
-  <section class="place" aria-labelledby="place-title">
-    <h2 id="place-title" data-i18n="office">Bizning ofis</h2>
-    <div>
-      <p class="addr" data-i18n="addr">Farg'ona, Ma'rifat ko'chasi, 43</p>
-      <p data-i18n="addrHint">Kelishdan oldin qo'ng'iroq qiling — menejer joyida bo'lishini tekshiring.</p>
-    </div>
-    <div class="maps">
-      <a class="chip" href="https://yandex.ru/maps/org/orient_travel/6552049796/" target="_blank" rel="noopener"><b>►</b> Yandex Maps</a>
-    </div>
-  </section>
-
 </main>
 
-<div class="scrim" id="tg-scrim" hidden></div>
+<div class="scrim" id="scrim" hidden></div>
 <div class="sheet" id="tg-sheet" role="dialog" aria-modal="true" aria-labelledby="tg-title" hidden>
   <div class="grip" aria-hidden="true"></div>
   <div class="sheet-head">
     <h2 id="tg-title" data-i18n="tgTitle">Kimga yozamiz?</h2>
-    <button type="button" class="sheet-close" id="tg-close" aria-label="Yopish" data-i18n-label="close">×</button>
+    <button type="button" class="sheet-close" aria-label="Yopish" data-i18n-label="close">×</button>
   </div>
   <p class="sheet-note" data-i18n="tgNote">Savolingizga mos menejerni tanlang</p>
   <ul class="managers">
 {{TELEGRAM_ITEMS}}
+  </ul>
+</div>
+<div class="sheet" id="call-sheet" role="dialog" aria-modal="true" aria-labelledby="call-title" hidden>
+  <div class="grip" aria-hidden="true"></div>
+  <div class="sheet-head">
+    <h2 id="call-title" data-i18n="callTitle">Kimga qo'ng'iroq qilamiz?</h2>
+    <button type="button" class="sheet-close" aria-label="Yopish" data-i18n-label="close">×</button>
+  </div>
+  <p class="sheet-note" data-i18n="callNote">Raqamni bosing — telefon qo'ng'iroqni boshlaydi</p>
+  <ul class="managers">
+{{PHONE_ITEMS}}
   </ul>
 </div>
 
@@ -443,18 +434,18 @@ button.link { width: 100%; font: inherit; text-align: left; cursor: pointer; }
       s1: "Aviachiptalar", s2: "Turlar", s3: "Vizalar",
       tg: "Telegramda yozing", tgSub: "Menejer tez javob beradi",
       tgTitle: "Kimga yozamiz?", tgNote: "Savolingizga mos menejerni tanlang", close: "Yopish",
-      call: "Qo'ng'iroq qilish", visa: "Onlayn viza arizasi",
-      office: "Bizning ofis", addr: "Farg'ona, Ma'rifat ko'chasi, 43",
-      addrHint: "Kelishdan oldin qo'ng'iroq qiling — menejer joyida bo'lishini tekshiring."
+      call: "Qo'ng'iroq qilish", callSub: "Menejerni tanlang", visa: "Onlayn viza arizasi",
+      callTitle: "Kimga qo'ng'iroq qilamiz?", callNote: "Raqamni bosing — telefon qo'ng'iroqni boshlaydi",
+      channel: "Telegram kanalimiz", loc: "Lokatsiya", addr: "Farg'ona, Ma'rifat ko'chasi, 43"
     },
     ru: {
       lead: "Путешествуйте и открывайте мир",
       s1: "Авиабилеты", s2: "Туры", s3: "Визы",
       tg: "Написать в Telegram", tgSub: "Менеджер ответит быстро",
       tgTitle: "Кому написать?", tgNote: "Выберите менеджера по вашему вопросу", close: "Закрыть",
-      call: "Позвонить", visa: "Онлайн-заявка на визу",
-      office: "Наш офис", addr: "Фергана, ул. Маърифат, 43",
-      addrHint: "Перед визитом позвоните, чтобы менеджер был на месте."
+      call: "Позвонить", callSub: "Выберите менеджера", visa: "Онлайн-заявка на визу",
+      callTitle: "Кому позвонить?", callNote: "Нажмите на номер — телефон начнёт звонок",
+      channel: "Наш Telegram-канал", loc: "Локация", addr: "Фергана, ул. Маърифат, 43"
     }
   };
   function apply(lang) {
@@ -483,27 +474,29 @@ button.link { width: 100%; font: inherit; text-align: left; cursor: pointer; }
     b.addEventListener("click", function () { apply(b.dataset.lang); });
   });
 
-  // Шторка выбора менеджера
-  var openBtn = document.getElementById("tg-open");
-  var sheet = document.getElementById("tg-sheet");
-  var scrim = document.getElementById("tg-scrim");
-  function openSheet() {
+  // Шторки выбора менеджера (Telegram и звонок)
+  var scrim = document.getElementById("scrim");
+  var sheet = null, opener = null;
+  function openSheet(btn) {
+    opener = btn;
+    sheet = document.getElementById(btn.getAttribute("data-sheet"));
     sheet.hidden = false; scrim.hidden = false;
     document.body.style.overflow = "hidden";
-    var first = sheet.querySelector(".mgr");
-    (first || document.getElementById("tg-close")).focus();
+    (sheet.querySelector(".mgr") || sheet.querySelector(".sheet-close")).focus();
   }
   function closeSheet() {
-    if (sheet.hidden) return;
-    sheet.hidden = true; scrim.hidden = true;
+    if (!sheet) return;
+    sheet.hidden = true; scrim.hidden = true; sheet = null;
     document.body.style.overflow = "";
-    openBtn.focus();
+    opener.focus();
   }
-  openBtn.addEventListener("click", openSheet);
+  document.querySelectorAll("[data-sheet]").forEach(function (b) {
+    b.addEventListener("click", function () { openSheet(b); });
+  });
+  document.querySelectorAll(".sheet-close").forEach(function (b) { b.addEventListener("click", closeSheet); });
   scrim.addEventListener("click", closeSheet);
-  document.getElementById("tg-close").addEventListener("click", closeSheet);
   document.addEventListener("keydown", function (e) {
-    if (sheet.hidden) return;
+    if (!sheet) return;
     if (e.key === "Escape") { closeSheet(); return; }
     if (e.key === "Tab") {
       var f = sheet.querySelectorAll("a, button");
