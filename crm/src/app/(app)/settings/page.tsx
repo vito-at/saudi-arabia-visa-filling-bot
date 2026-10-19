@@ -85,6 +85,13 @@ async function IntegrationTab() {
   const capiCounts = await prisma.conversionEvent.groupBy({ by: ["status"], _count: { _all: true } });
   const capiCount = (st: string) => capiCounts.find((c) => c.status === st)?._count._all ?? 0;
   const capiStats = { sent: capiCount("SENT"), pending: capiCount("PENDING"), failed: capiCount("FAILED") };
+  // продажи за 30 дней: сколько из них по лидам из форм Meta (только их можно передать) и сколько «Converted» реально ушло
+  const since = new Date(Date.now() - 30 * 86_400_000);
+  const [salesTotal, salesMeta, salesSent] = await Promise.all([
+    prisma.lead.count({ where: { status: { kind: "WON" }, statusChangedAt: { gte: since } } }),
+    prisma.lead.count({ where: { status: { kind: "WON" }, statusChangedAt: { gte: since }, leadgenId: { not: null } } }),
+    prisma.conversionEvent.count({ where: { eventName: "Converted", status: "SENT", eventTime: { gte: since } } }),
+  ]);
   const base = (process.env.APP_URL || "http://localhost:3000").replace(/\/$/, "");
   let pageTokenMask = "";
   try {
@@ -130,6 +137,7 @@ async function IntegrationTab() {
               capiTestCode: i.capiTestCode ?? "",
               capiEnabled: i.capiEnabled,
               capiStats,
+              capiSales: { total: salesTotal, meta: salesMeta, sent: salesSent },
               capiLastError: i.capiLastError,
             }}
           />

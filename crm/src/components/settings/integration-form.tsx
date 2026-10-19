@@ -33,6 +33,7 @@ export interface IntegrationView {
   capiTestCode: string;
   capiEnabled: boolean;
   capiStats: { sent: number; pending: number; failed: number };
+  capiSales: { total: number; meta: number; sent: number };
   capiLastError: string | null;
 }
 
@@ -115,7 +116,10 @@ export function IntegrationForm({ v }: { v: IntegrationView }) {
             <input type="checkbox" name="capiEnabled" defaultChecked={v.capiEnabled} /> {t("integ.capiEnabled")}
           </label>
           {(v.capiEnabled || v.capiStats.sent + v.capiStats.pending + v.capiStats.failed > 0) && (
-            <p className="mt-2 text-xs text-muted-foreground">{t("integ.capiStats", v.capiStats)}</p>
+            <>
+              <p className="mt-2 text-xs text-muted-foreground">{t("integ.capiStats", v.capiStats)}</p>
+              <p className="mt-1 text-xs text-muted-foreground">{t("integ.capiSales", v.capiSales)}</p>
+            </>
           )}
           {v.capiLastError && <p className="mt-1 text-xs text-red-600">{t("integ.capiLastError", { error: v.capiLastError })}</p>}
         </div>

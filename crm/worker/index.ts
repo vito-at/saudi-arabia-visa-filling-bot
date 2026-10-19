@@ -10,7 +10,7 @@ import { scanNotifications } from "../src/lib/notify";
 import { processAiReplies } from "../src/lib/chats/ai";
 import { processSiteEvents, processSiteFetches } from "../src/lib/orient-visa";
 import { syncSpend } from "../src/lib/meta/insights";
-import { sendPendingConversions } from "../src/lib/meta/capi";
+import { backfillConversions, sendPendingConversions } from "../src/lib/meta/capi";
 import { isRateStale, RATE_RETRY_UNTIL_HOUR, updateUsdRate } from "../src/lib/rates";
 import { distributeQueue, endShifts } from "../src/lib/leads/distribution";
 import { i18nFor } from "../src/i18n/instance";
@@ -74,8 +74,10 @@ async function tickRate(force = false) {
 /** Conversions API: повтор событий, которые не ушли сразу при смене статуса */
 async function tickConversions() {
   try {
+    // досылка статусов, сменённых, пока Conversions API был выключен (за последние 7 дней)
+    const queued = await backfillConversions();
     const r = await sendPendingConversions();
-    if (r.sent || r.failed) log("Conversions API:", r);
+    if (queued || r.sent || r.failed) log("Conversions API:", { ...r, queued });
   } catch (e) {
     log("Ошибка Conversions API:", e);
   }

@@ -709,6 +709,7 @@ export const uz: Messages = {
     capiEnabled: "Hodisalarni Meta’ga yuborish",
     capiHint: "CRM Meta’ga formadagi lid bilan nima bo‘lganini xabar qiladi: voronka bosqichiga yetdi («Voronkada» belgisi bor statuslar; «Qo‘ng‘iroq qilib bo‘lmadi» va «Qayta qo‘ng‘iroq» hisobga olinmaydi), sotuv (summa bilan) yoki rad. Meta reklamani sotib oladiganlarga ko‘rsatishni o‘rganadi. Ma’lumotlar to‘plami va token — Events Manager’da: «Ma’lumot manbalarini ulash» → CRM → to‘plam sozlamalari → «Kirish tokenini yaratish».",
     capiLastError: "Oxirgi xato: {error}",
+    capiSales: "30 kunda sotuvlar: {total}, shundan Meta formalari lidlari bo‘yicha: {meta}, Meta’ga «Converted» sifatida yuborilgan: {sent}. Meta faqat o‘z formalaridan kelgan lidlar bo‘yicha sotuvlarni (Direct, Telegram, qo‘ng‘iroq va ofis emas) va faqat oxirgi 7 kun uchun qabul qiladi — undan oldingilarini yuborib bo‘lmaydi.",
     capiStats: "Yuborildi: {sent} · navbatda: {pending} · xato bilan: {failed}",
     capiTestCode: "Test hodisalari kodi (ixtiyoriy)",
     capiTestCodeHint: "«Test hodisalari» bo‘limida tekshirish uchun; tekshiruvdan so‘ng maydonni tozalang",
