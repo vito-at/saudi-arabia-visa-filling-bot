@@ -75,6 +75,8 @@ model User {
   role           Role      @default(MANAGER)
   isActive       Boolean   @default(true)
   lastAssignedAt DateTime?
+  /// «В работе»: при автораспределении лиды получают только менеджеры на смене
+  onShift        Boolean   @default(false)
   createdAt      DateTime  @default(now())
   /// Зарплата: оклад в месяц, процент от прибыли своих сделок и надбавка к проценту при выполнении плана по прибыли
   salaryBase     Decimal   @default(0) @db.Decimal(18, 2)
@@ -429,6 +431,8 @@ model AppSettings {
   id                  Int              @id @default(1)
   distributionMode    DistributionMode @default(MANUAL)
   unprocessedAlertMin Int              @default(15)
+  /// автораспределение: сколько необработанных (статус «Новый») лидов одновременно может быть у менеджера
+  leadLimit           Int              @default(5)
   /// Курс продажи $ (банк покупает доллары, дешёвый) — по нему пересчитывается выручка
   usdRate             Decimal          @default(12800) @db.Decimal(12, 2)
   /// Курс покупки $ (банк продаёт доллары, дорогой) — по нему пересчитываются себестоимость, реклама и расходы компании
