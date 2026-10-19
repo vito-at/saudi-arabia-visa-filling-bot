@@ -156,3 +156,28 @@
     display: none;
   }
 }
+
+/* тонкая полупрозрачная полоса прокрутки без стрелок (боковое меню) */
+@utility thin-scrollbar {
+  &::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  &::-webkit-scrollbar-button {
+    display: none;
+  }
+  &::-webkit-scrollbar-thumb {
+    border-radius: 9999px;
+    background: color-mix(in oklab, var(--sidebar-muted, #888) 30%, transparent);
+  }
+  &:hover::-webkit-scrollbar-thumb {
+    background: color-mix(in oklab, var(--sidebar-muted, #888) 55%, transparent);
+  }
+  @supports not selector(::-webkit-scrollbar) {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklab, var(--sidebar-muted, #888) 40%, transparent) transparent;
+  }
+}
