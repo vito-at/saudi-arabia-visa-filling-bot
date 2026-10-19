@@ -13,6 +13,7 @@ import { recordDayRates } from "@/lib/rate-history";
 import { requireAdmin } from "@/lib/session";
 import { ValidationError } from "@/lib/leads/service";
 import { timeToMin } from "@/lib/work-hours";
+import { distributeSoon } from "@/lib/leads/distribution";
 
 const str = (v: FormDataEntryValue | null) => (typeof v === "string" ? v.trim() : "");
 const revalidateAll = () => revalidatePath("/", "layout");
@@ -26,6 +27,8 @@ export async function saveGeneralAction(formData: FormData) {
     if (mode !== "MANUAL" && mode !== "ROUND_ROBIN") throw new ValidationError("err.distribution");
     const alert = Number(formData.get("unprocessedAlertMin"));
     if (!Number.isInteger(alert) || alert < 1 || alert > 10080) throw new ValidationError("err.alertMin");
+    const limit = formData.has("leadLimit") ? Number(formData.get("leadLimit")) : null;
+    if (limit !== null && (!Number.isInteger(limit) || limit < 1 || limit > 50)) throw new ValidationError("err.leadLimitRange");
     // рабочее время офиса: по нему считается скорость реакции на лид (поля могут отсутствовать в старой форме)
     const work = formData.has("workStart")
       ? (() => {
@@ -36,7 +39,9 @@ export async function saveGeneralAction(formData: FormData) {
           return { workStartMin: start, workEndMin: end, workDays: days };
         })()
       : {};
-    await prisma.appSettings.update({ where: { id: 1 }, data: { distributionMode: mode, unprocessedAlertMin: alert, ...work } });
+    await prisma.appSettings.update({ where: { id: 1 }, data: { distributionMode: mode, unprocessedAlertMin: alert, ...(limit !== null && { leadLimit: limit }), ...work } });
+    // включили автораспределение или подняли лимит — сразу раздаём очередь
+    await distributeSoon();
     revalidateAll();
     return (await getI18n()).t("msg.saved");
   });

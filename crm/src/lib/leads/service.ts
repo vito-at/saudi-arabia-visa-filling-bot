@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db";
 import { normalizePhone } from "@/lib/phone";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { SERVICE_LABELS, SOURCE_LABELS } from "@/lib/constants";
-import { pickNextManager } from "./distribution";
+import { canReceive, distributeSoon, takeBlocked } from "./distribution";
 import { notifyLeadAssigned } from "@/lib/notify";
 import { queueConversions } from "@/lib/meta/capi";
 import type { TKey, TVars } from "@/i18n/core";
@@ -89,16 +89,16 @@ export async function createLead(input: NewLeadInput, actorId: string | null) {
       let managerId = input.managerId ?? null;
       let autoAssigned = false;
       if (!managerId) {
-        // повторного клиента отдаём тому же менеджеру, что вёл его раньше
+        // повторного клиента отдаём тому же менеджеру, что вёл его раньше (при автораспределении — если он в работе
+        // и не превысил лимит); остальные лиды раздаются из очереди после создания (distributeSoon)
         if (isRepeat) {
           const prev = await tx.lead.findFirst({
             where: { clientId: client.id, managerId: { not: null }, manager: { isActive: true } },
             orderBy: { createdAt: "desc" },
             select: { managerId: true },
           });
-          managerId = prev?.managerId ?? null;
+          if (prev?.managerId && (await canReceive(tx, prev.managerId))) managerId = prev.managerId;
         }
-        if (!managerId) managerId = await pickNextManager(tx);
         autoAssigned = !!managerId;
       }
 
@@ -162,6 +162,7 @@ export async function createLead(input: NewLeadInput, actorId: string | null) {
     });
     // уведомление менеджеру, получившему лид (вне транзакции: его сбой не мешает созданию лида)
     await notifyLeadAssigned(created, actorId);
+    if (!created.managerId) await distributeSoon();
     return created;
   } catch (e) {
     // гонка вебхука и опроса: второй вставляющий получает нарушение уникальности leadgenId
@@ -186,11 +187,13 @@ export interface StatusChange {
 /** Смена статуса с проверками: «Отказ» требует причину, «Продано» — сделку, «Перезвонить» — время звонка. */
 export async function changeStatus(leadId: string, change: StatusChange, actor: { id: string; role: string }) {
   let reached: { kind: StatusKind; inFunnel: boolean } | null = null;
+  let wasNew = false;
   const result = await prisma.$transaction(async (tx) => {
     const lead = await tx.lead.findUniqueOrThrow({ where: { id: leadId }, include: { status: true, _count: { select: { deals: true } } } });
     const target = await tx.leadStatus.findUnique({ where: { id: change.statusId } });
     if (!target) throw new ValidationError("err.statusNotFound");
     reached = target;
+    wasNew = lead.status.kind === "NEW";
     // «Перезвонить» можно выбрать повторно — это перенос звонка
     if (target.id === lead.statusId && target.kind !== "LOST" && target.kind !== "CALLBACK") return lead;
 
@@ -237,7 +240,10 @@ export async function changeStatus(leadId: string, change: StatusChange, actor: 
       // повторное «Не дозвонились» по лиду из общего списка — остаётся общим
       data.hiddenFromManagers = false;
     } else if (!lead.managerId && actor.role === "MANAGER") {
-      // менеджер, взявший нераспределённый лид в работу (сменил статус), становится ответственным
+      // менеджер, взявший нераспределённый лид в работу (сменил статус), становится ответственным;
+      // новый лид из очереди при автораспределении — только в работе и в пределах лимита
+      const blocked = lead.status.kind === "NEW" ? await takeBlocked(tx, actor.id) : null;
+      if (blocked) throw new ValidationError(blocked);
       claim = true;
       data.managerId = actor.id;
       data.assignedAt = new Date();
@@ -272,6 +278,8 @@ export async function changeStatus(leadId: string, change: StatusChange, actor: 
   // (reached присваивается внутри транзакции — TypeScript этого не видит)
   const to = reached as { kind: StatusKind; inFunnel: boolean } | null;
   if (to) await queueConversions(leadId, to).catch((e) => console.error("Conversions API:", e));
+  // лид обработан (ушёл из «Нового») или вернулся в общий список — у менеджера освободилось место в очереди
+  if (wasNew || !result.managerId) await distributeSoon();
   return result;
 }
 
@@ -300,6 +308,8 @@ export async function assignManager(leadIds: string[], managerId: string | null,
     return changed;
   }).then(async (changed) => {
     if (managerId && managerId !== actorId) for (const l of changed) await notifyLeadAssigned({ id: l.id, name: l.name, managerId }, actorId);
+    // снятые с менеджера новые лиды возвращаются в очередь
+    if (changed.length) await distributeSoon();
     return changed.length;
   });
 }
@@ -320,6 +330,9 @@ export async function takeLead(leadId: string, actor: { id: string; role: string
       // Два менеджера могут нажать «Взять» одновременно: лид достаётся тому, кто успел первым,
       // второй получает «лид уже взят» (а не перезаписывает ответственного молча)
       await prisma.$transaction(async (tx) => {
+        // новый лид из очереди при автораспределении — только в работе и в пределах лимита
+        const blocked = !lead.managerId && lead.status.kind === "NEW" ? await takeBlocked(tx, actor.id) : null;
+        if (blocked) throw new ValidationError(blocked);
         const { count } = await tx.lead.updateMany({
           where: { id: leadId, managerId: null },
           data: { managerId: actor.id, assignedAt: new Date() },
@@ -432,5 +445,8 @@ export async function deleteLead(leadId: string) {
     const rest = await tx.lead.count({ where: { clientId: lead.clientId } });
     if (rest === 0) await tx.client.delete({ where: { id: lead.clientId } });
     return { clientDeleted: rest === 0 };
+  }).then(async (r) => {
+    await distributeSoon();
+    return r;
   });
 }

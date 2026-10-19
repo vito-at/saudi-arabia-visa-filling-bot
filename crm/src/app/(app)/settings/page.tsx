@@ -159,6 +159,7 @@ async function GeneralTab() {
       v={{
         distributionMode: s.distributionMode,
         unprocessedAlertMin: s.unprocessedAlertMin,
+        leadLimit: s.leadLimit,
         workStart: minToTime(s.workStartMin),
         workEnd: minToTime(s.workEndMin),
         workDays: s.workDays,
