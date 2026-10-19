@@ -5,6 +5,9 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DocChecklist } from "@/components/visa/doc-checklist";
 import { VisaPanel } from "@/components/visa/visa-panel";
+import { SiteCard } from "@/components/visa/site-card";
+import { readSiteData } from "@/lib/orient-visa";
+import { toNum } from "@/lib/money";
 import { VisaStatusBadge } from "@/components/visa/visa-status";
 import { prisma } from "@/lib/db";
 import { formatDate, formatDateTime } from "@/lib/format";
@@ -26,6 +29,8 @@ export default async function VisaApplicationPage({ params }: { params: Promise<
     where: { id, ...handedVisa },
     include: {
       assignee: { select: { id: true, name: true } },
+      siteEvents: { orderBy: { createdAt: "desc" }, take: 20, select: { sentAt: true, lastError: true } },
+      documents: { orderBy: { createdAt: "asc" }, select: { id: true, fileName: true, docType: true, externalId: true, travelerName: true } },
       events: { orderBy: { createdAt: "desc" }, include: { user: { select: { name: true } } } },
       lead: {
         select: {
@@ -46,6 +51,9 @@ export default async function VisaApplicationPage({ params }: { params: Promise<
   });
   if (!s) notFound();
   const [view] = await loadServiceViews({ id: s.id });
+  const site = !!s.externalId;
+  const pendingEvents = s.siteEvents.filter((e) => !e.sentAt);
+  const lastSent = s.siteEvents.find((e) => e.sentAt)?.sentAt ?? null;
   const lead = s.lead;
   const wa = whatsappLink(lead.phone);
   const tg = telegramLink(lead.phone);
@@ -110,6 +118,31 @@ export default async function VisaApplicationPage({ params }: { params: Promise<
               {s.note && <p className="rounded-md bg-muted/50 p-2 text-sm whitespace-pre-wrap">{s.note}</p>}
             </CardContent>
           </Card>
+          {site && (
+            <Card>
+              <CardHeader>
+                <CardTitle>{t("ov.title")}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <SiteCard
+                  serviceId={s.id}
+                  data={readSiteData(s.siteDataEnc)}
+                  info={{
+                    number: s.externalNumber,
+                    url: s.externalUrl,
+                    visaType: s.visaType,
+                    urgent: s.urgent,
+                    paidAmount: s.paidAmount === null ? null : toNum(s.paidAmount),
+                    agency: s.agencyName ? `${s.agencyName}${s.agencyInn ? `, ИНН ${s.agencyInn}` : ""}` : null,
+                    fetchedAt: s.siteFetchedAt ? formatDateTime(s.siteFetchedAt) : null,
+                    fetchError: s.siteFetchError,
+                    fetchPending: s.siteFetchNeeded,
+                    events: { pending: pendingEvents.length, failed: pendingEvents.find((e) => e.lastError)?.lastError ?? null, lastSentAt: lastSent ? formatDateTime(lastSent) : null },
+                  }}
+                />
+              </CardContent>
+            </Card>
+          )}
           <Card>
             <CardHeader>
               <CardTitle>{t("visa.docs")}</CardTitle>
@@ -123,7 +156,21 @@ export default async function VisaApplicationPage({ params }: { params: Promise<
               <CardTitle>{t("visa.stage")}</CardTitle>
             </CardHeader>
             <CardContent>
-              <VisaPanel serviceId={s.id} status={s.status} assignee={s.assignee?.name ?? null} isMine={s.assignee?.id === user.id} />
+              <VisaPanel
+                serviceId={s.id}
+                status={s.status}
+                assignee={s.assignee?.name ?? null}
+                isMine={s.assignee?.id === user.id}
+                site={
+                  site
+                    ? {
+                        siteDocs: s.documents.filter((d) => d.externalId).map((d) => ({ externalId: d.externalId!, title: d.docType, traveler: d.travelerName })),
+                        files: s.documents.map((d) => ({ id: d.id, name: d.fileName, docType: d.docType })),
+                        portalReference: s.portalReference,
+                      }
+                    : null
+                }
+              />
             </CardContent>
           </Card>
           <Card>
@@ -140,7 +187,12 @@ export default async function VisaApplicationPage({ params }: { params: Promise<
                       {e.user && <span>· {e.user.name}</span>}
                       {e.status && <VisaStatusBadge status={e.status} />}
                     </div>
-                    {e.comment && <p className="mt-1 whitespace-pre-wrap">{e.comment}</p>}
+                    {e.comment && (
+                      <p className="mt-1 whitespace-pre-wrap">
+                        {e.toClient && <span className="mr-1 rounded bg-sky-100 px-1 text-[10px] text-sky-800 dark:bg-sky-950 dark:text-sky-300">{t("ov.toClientBadge")}</span>}
+                        {e.comment}
+                      </p>
+                    )}
                     {!e.comment && e.status && <p className="mt-1 text-muted-foreground">{t("visa.stageSet", { stage: t(`visa.status.${e.status}` as TKey) })}</p>}
                   </li>
                 ))}

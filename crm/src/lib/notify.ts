@@ -7,7 +7,7 @@ import { prisma } from "@/lib/db";
 import { toInputDate } from "@/lib/format";
 import { toNum } from "@/lib/money";
 
-export type NotificationType = "lead" | "task" | "debt" | "cost" | "trip" | "chat" | "pool" | "ai" | "visa" | "visaNew";
+export type NotificationType = "lead" | "task" | "debt" | "cost" | "trip" | "chat" | "pool" | "ai" | "visa" | "visaNew" | "visaFix";
 
 export interface NotifyInput {
   userId: string;

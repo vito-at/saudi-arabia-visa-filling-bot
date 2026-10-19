@@ -443,6 +443,10 @@ model AppSettings {
   workDays            Int[]            @default([1, 2, 3, 4, 5, 6])
   /// ключ API для заявок с сайта (хранится хэш; сам ключ показывается один раз при создании)
   siteApiKeyHash      String?
+  /// сайт Orient Visa: адрес, ключ для загрузки анкет (Bearer) и секрет подписи событий — те же, что на сайте
+  orientVisaUrl       String?
+  orientVisaKeyEnc    String?
+  orientVisaSecretEnc String?
 }
 
 /// История курсов USD→UZS по дням: суммы пересчитываются по курсу дня операции, поэтому отчёты за прошлые даты не меняются
@@ -722,8 +726,29 @@ model LeadService {
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
 
-  documents LeadDocument[]
-  events    VisaEvent[]
+  /// Заявка с сайта Orient Visa: id заявки на сайте — ключ идемпотентности (docs/orient-visa-integration.md)
+  externalId      String?   @unique
+  externalNumber  String?
+  externalUrl     String?
+  visaType        String?
+  urgent          Boolean   @default(false)
+  /// оплачено на сайте, сум
+  paidAmount      Decimal?  @db.Decimal(14, 2)
+  agencyName      String?
+  agencyInn       String?
+  /// номер заявки на визовом портале страны
+  portalReference String?
+  /// анкета туристов и контакты с сайта — зашифрованный JSON (персональные данные)
+  siteDataEnc     String?
+  /// нужно (заново) забрать анкету и документы с сайта
+  siteFetchNeeded Boolean   @default(false)
+  siteFetchedAt   DateTime?
+  siteFetchError  String?
+  siteFetchTries  Int       @default(0)
+
+  documents  LeadDocument[]
+  events     VisaEvent[]
+  siteEvents SiteEvent[]
 
   @@index([leadId])
   @@index([type, handedAt])
@@ -754,6 +779,9 @@ model LeadDocument {
   data          Bytes
   /// сохранён из переписки
   chatMessageId String?
+  /// документ с сайта: его id на сайте и турист, к которому он относится
+  externalId    String?
+  travelerName  String?
   uploadedById  String?
   uploadedBy    User?       @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
   createdAt     DateTime    @default(now())
@@ -771,7 +799,25 @@ model VisaEvent {
   user      User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
   status    VisaStatus?
   comment   String?
+  /// комментарий отправлен клиенту на сайт
+  toClient  Boolean     @default(false)
   createdAt DateTime    @default(now())
 
   @@index([serviceId, createdAt])
+}
+
+/// Очередь событий CRM → сайт Orient Visa: отправка с повторами; id — X-Event-Id (сайт отсеивает повторы)
+model SiteEvent {
+  id        String      @id @default(cuid())
+  serviceId String
+  service   LeadService @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  payload   Json
+  attempts  Int         @default(0)
+  nextAt    DateTime    @default(now())
+  sentAt    DateTime?
+  lastError String?
+  createdAt DateTime    @default(now())
+
+  @@index([sentAt, nextAt])
+  @@index([serviceId])
 }

@@ -225,6 +225,7 @@ export async function changeStatus(leadId: string, change: StatusChange, actor: 
       data.callbackAt = null;
     }
 
+    let claim = false;
     if (target.toPool && target.id !== lead.statusId && lead.managerId) {
       // «Не дозвонились»: лид уходит в общий список — дозвониться может любой менеджер
       data.managerId = null;
@@ -237,6 +238,7 @@ export async function changeStatus(leadId: string, change: StatusChange, actor: 
       data.hiddenFromManagers = false;
     } else if (!lead.managerId && actor.role === "MANAGER") {
       // менеджер, взявший нераспределённый лид в работу (сменил статус), становится ответственным
+      claim = true;
       data.managerId = actor.id;
       data.assignedAt = new Date();
       const me = await tx.user.findUnique({ where: { id: actor.id }, select: { name: true } });
@@ -245,6 +247,11 @@ export async function changeStatus(leadId: string, change: StatusChange, actor: 
 
     if (target.id !== lead.statusId) {
       history.push({ leadId, userId: actor.id, field: "status", oldValue: lead.status.name, newValue: target.name, toStatusId: target.id });
+    }
+    if (claim) {
+      // Лид из общего списка: если другой менеджер успел взять его раньше — не перезаписываем
+      const { count } = await tx.lead.updateMany({ where: { id: leadId, managerId: null }, data: { managerId: actor.id } });
+      if (count === 0) throw new ValidationError("err.leadTaken");
     }
     const updated = await tx.lead.update({ where: { id: leadId }, data });
     if (history.length) await tx.leadHistory.createMany({ data: history });
@@ -306,7 +313,23 @@ export async function takeLead(leadId: string, actor: { id: string; role: string
   if (lead.managerId && lead.managerId !== actor.id && actor.role !== "ADMIN") {
     throw new ValidationError("err.leadTaken");
   }
-  if (lead.managerId !== actor.id) await assignManager([leadId], actor.id, actor.id);
+  if (lead.managerId !== actor.id) {
+    if (actor.role === "ADMIN") {
+      await assignManager([leadId], actor.id, actor.id);
+    } else {
+      // Два менеджера могут нажать «Взять» одновременно: лид достаётся тому, кто успел первым,
+      // второй получает «лид уже взят» (а не перезаписывает ответственного молча)
+      await prisma.$transaction(async (tx) => {
+        const { count } = await tx.lead.updateMany({
+          where: { id: leadId, managerId: null },
+          data: { managerId: actor.id, assignedAt: new Date() },
+        });
+        if (count === 0) throw new ValidationError("err.leadTaken");
+        const me = await tx.user.findUnique({ where: { id: actor.id }, select: { name: true } });
+        await tx.leadHistory.create({ data: { leadId, userId: actor.id, field: "manager", oldValue: null, newValue: me?.name ?? null } });
+      });
+    }
+  }
   if (lead.status.kind === "NEW") {
     const inProgress = await prisma.leadStatus.findFirst({ where: { kind: "IN_PROGRESS" }, orderBy: { order: "asc" } });
     if (inProgress) await changeStatus(leadId, { statusId: inProgress.id }, actor);

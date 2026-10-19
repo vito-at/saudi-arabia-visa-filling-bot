@@ -10,6 +10,7 @@ import { ValidationError } from "@/lib/leads/service";
 import { SERVICE_TYPES } from "@/lib/constants";
 import { getTelegram, telegramBot } from "@/lib/chats/telegram";
 import { notify } from "@/lib/notify";
+import { enqueueMessageEvent, enqueueStatusEvent, fetchSiteApplication } from "@/lib/orient-visa";
 import { DOC_MAX, FINAL_VISA, VISA_STATUSES, ensureLeadServices, guessMime, requirementsFor, serviceScope } from "@/lib/visa";
 
 async function getService(user: CurrentUser, serviceId: string) {
@@ -88,31 +89,102 @@ export async function handOverAction(serviceId: string) {
 
 // ——— Этапы визы (визовый специалист и администратор) ———
 
-export async function setVisaStatusAction(serviceId: string, status: string, comment: string) {
+export interface VisaStatusInput {
+  status: string;
+  comment: string;
+  /** комментарий увидит клиент на сайте (для заявок с сайта) */
+  toClient?: boolean;
+  /** id документов на сайте, которые клиент должен переделать (запрос доп. документов) */
+  rejectedDocuments?: string[];
+  portalReference?: string;
+  /** файл визы / подтверждения отказа из документов заявки */
+  fileDocumentId?: string;
+  proofType?: string;
+}
+
+export async function setVisaStatusAction(serviceId: string, input: VisaStatusInput) {
   return runAction(async () => {
     const user = await requireUser();
     if (user.role !== "VISA" && user.role !== "ADMIN") throw new AccessError();
     const s = await getService(user, serviceId);
     if (s.type !== "VISA" || !s.handedAt) throw new AccessError("err.serviceNotFound");
-    const st = status as VisaStatus;
+    const st = input.status as VisaStatus;
     if (!VISA_STATUSES.includes(st)) throw new ValidationError("err.visaStatus");
-    const text = comment.trim().slice(0, 2000) || null;
+    const text = input.comment.trim().slice(0, 2000) || null;
     if (st === "DOCS_REQUESTED" && !text) throw new ValidationError("err.visaDocsComment");
-    if (st === s.status && !text) return;
+    const site = !!s.externalId;
+    const portalReference = input.portalReference?.trim().slice(0, 100) || null;
+    // заявке с сайта при одобрении / отказе нужен файл (виза или подтверждение отказа) — клиент скачает его в кабинете
+    let fileDocumentId: string | null = null;
+    if (site && FINAL_VISA.includes(st)) {
+      const doc = input.fileDocumentId ? await prisma.leadDocument.findFirst({ where: { id: input.fileDocumentId, serviceId: s.id }, select: { id: true } }) : null;
+      if (!doc) throw new ValidationError("err.visaResultFile");
+      fileDocumentId = doc.id;
+    }
+    const proofType = st === "REJECTED" && site ? (["OFFICIAL", "EMAIL", "SCREENSHOT"].includes(input.proofType ?? "") ? (input.proofType as "OFFICIAL" | "EMAIL" | "SCREENSHOT") : null) : null;
+    if (st === "REJECTED" && site && !proofType) throw new ValidationError("err.visaProofType");
+    if (st === s.status && !text && !portalReference) return;
+    const toClient = site && (input.toClient ?? true);
     const now = new Date();
     await prisma.$transaction([
       prisma.leadService.update({
         where: { id: s.id },
-        data: { status: st, statusAt: now, closed: FINAL_VISA.includes(st), ...(user.role === "VISA" && !s.assigneeId ? { assigneeId: user.id } : {}) },
+        data: {
+          status: st,
+          statusAt: now,
+          closed: FINAL_VISA.includes(st),
+          ...(portalReference ? { portalReference } : {}),
+          ...(user.role === "VISA" && !s.assigneeId ? { assigneeId: user.id } : {}),
+        },
       }),
-      prisma.visaEvent.create({ data: { serviceId: s.id, userId: user.id, status: st === s.status ? null : st, comment: text } }),
+      prisma.visaEvent.create({ data: { serviceId: s.id, userId: user.id, status: st === s.status ? null : st, comment: text, toClient: toClient && !!text } }),
       prisma.leadHistory.create({ data: { leadId: s.leadId, userId: user.id, field: "visa", newValue: `Виза${s.country ? `: ${s.country}` : ""} — ${STATUS_RU[st]}${text ? ` (${text})` : ""}` } }),
     ]);
+    // сайт Orient Visa: этап, комментарий клиенту, отклонённые документы, номер на портале, файл визы / отказа
+    if (site && (st !== s.status || (toClient && text) || portalReference)) {
+      await enqueueStatusEvent(s, {
+        status: st,
+        comment: toClient ? text : null,
+        rejectedDocuments: st === "DOCS_REQUESTED" ? (input.rejectedDocuments ?? []).filter((x) => typeof x === "string").slice(0, 100) : [],
+        portalReference: portalReference ?? s.portalReference,
+        fileDocumentId,
+        proofType,
+      });
+    }
     // менеджеру лида — что изменилось по визе его клиента
     if (s.lead.managerId && s.lead.managerId !== user.id && st !== s.status) {
       await notify([{ userId: s.lead.managerId, type: "visa", key: `visa:${s.id}:${st}:${now.getTime()}`, link: `/leads/${s.leadId}`, data: { name: s.lead.name, status: st } }]);
     }
     revalidate(s.leadId, s.id);
+  });
+}
+
+/** Сообщение визового специалиста клиенту — в переписку заявки на сайте */
+export async function sendClientMessageAction(serviceId: string, message: string) {
+  return runAction(async () => {
+    const user = await requireUser();
+    if (user.role !== "VISA" && user.role !== "ADMIN") throw new AccessError();
+    const s = await getService(user, serviceId);
+    if (!s.externalId) throw new ValidationError("err.notSiteApplication");
+    const text = message.trim().slice(0, 2000);
+    if (!text) throw new ValidationError("err.commentEmpty");
+    await prisma.visaEvent.create({ data: { serviceId: s.id, userId: user.id, comment: text, toClient: true } });
+    await enqueueMessageEvent(s, text);
+    revalidate(s.leadId, s.id);
+  });
+}
+
+/** Забрать анкету и документы с сайта заново (например, если ссылки устарели или была ошибка) */
+export async function refetchSiteAction(serviceId: string) {
+  return runAction(async () => {
+    const user = await requireUser();
+    if (user.role !== "VISA" && user.role !== "ADMIN") throw new AccessError();
+    const s = await getService(user, serviceId);
+    if (!s.externalId) throw new ValidationError("err.notSiteApplication");
+    const r = await fetchSiteApplication(s.id);
+    revalidate(s.leadId, s.id);
+    if (!r.ok) throw new ValidationError("err.siteFetch", { error: r.error ?? "" });
+    return r.added;
   });
 }
 
@@ -143,7 +215,10 @@ export async function takeVisaAction(serviceId: string) {
     if (user.role !== "VISA" && user.role !== "ADMIN") throw new AccessError();
     const s = await getService(user, serviceId);
     await prisma.leadService.update({ where: { id: s.id }, data: { assigneeId: user.id, ...(s.status === "NEW" ? { status: "IN_PROGRESS", statusAt: new Date() } : {}) } });
-    if (s.status === "NEW") await prisma.visaEvent.create({ data: { serviceId: s.id, userId: user.id, status: "IN_PROGRESS" } });
+    if (s.status === "NEW") {
+      await prisma.visaEvent.create({ data: { serviceId: s.id, userId: user.id, status: "IN_PROGRESS" } });
+      await enqueueStatusEvent(s, { status: "IN_PROGRESS" });
+    }
     revalidate(s.leadId, s.id);
   });
 }
