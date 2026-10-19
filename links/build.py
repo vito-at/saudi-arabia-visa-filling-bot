@@ -11,11 +11,9 @@ HERE = pathlib.Path(__file__).parent
 
 # Telegram-аккаунты в шторке «Кому написать?» — в том порядке, в каком они показываются.
 # username — без @; uz / ru — подпись на двух языках (направление или имя менеджера).
-# ПРИМЕРЫ: замените username и подписи на настоящие.
 TELEGRAM_ACCOUNTS = [
-    {"username": "username1", "uz": "Vizalar", "ru": "Визы"},
-    {"username": "username2", "uz": "Turlar", "ru": "Туры"},
-    {"username": "username3", "uz": "Aviachiptalar", "ru": "Авиабилеты"},
+    {"username": "orient_support", "uz": "Sabina", "ru": "Сабина"},
+    {"username": "orient_travell", "uz": "Diora", "ru": "Диора"},
 ]
 
 TG_ICON = (
