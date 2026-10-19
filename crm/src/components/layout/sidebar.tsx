@@ -56,7 +56,7 @@ export function Sidebar(props: SidebarProps) {
 
   return (
     <>
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col overflow-y-auto border-r border-sidebar-border bg-sidebar text-sidebar-foreground lg:flex">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col overflow-y-auto thin-scrollbar border-r border-sidebar-border bg-sidebar text-sidebar-foreground lg:flex">
         <SidebarContent {...props} />
       </aside>
 
@@ -79,7 +79,7 @@ export function Sidebar(props: SidebarProps) {
       {open && (
         <div className="fixed inset-0 z-50 lg:hidden" role="dialog" aria-modal="true">
           <div className="absolute inset-0 bg-black/40" onClick={() => setOpen(false)} />
-          <aside className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col overflow-y-auto border-r border-sidebar-border bg-sidebar text-sidebar-foreground shadow-xl">
+          <aside className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col overflow-y-auto thin-scrollbar border-r border-sidebar-border bg-sidebar text-sidebar-foreground shadow-xl">
             <button type="button" onClick={() => setOpen(false)} aria-label={t("common.close")} className="absolute right-2 top-3 rounded-md p-2 text-sidebar-muted hover:bg-sidebar-hover cursor-pointer">
               <X className="size-5" />
             </button>
@@ -104,7 +104,7 @@ function SidebarContent({ user, counters, logout, rate }: SidebarProps) {
         <NotificationBell className="-mr-2 hidden lg:block" />
       </div>
       {/* при сильном увеличении (Ctrl +) список разделов прокручивается своим ползунком */}
-      <nav className="min-h-40 flex-1 space-y-0.5 overflow-y-auto px-3">
+      <nav className="min-h-40 flex-1 space-y-0.5 overflow-y-auto thin-scrollbar px-3">
         {NAV.filter((n) =>
           // визовый специалист видит только свой кабинет; «Визы» — ему и администратору
           user.role === "VISA" ? "visa" in n : "visa" in n ? user.role === "ADMIN" : !("admin" in n) || user.role === "ADMIN",

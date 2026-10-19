@@ -25,6 +25,10 @@ export function NotificationBell({ className }: { className?: string }) {
   const [items, setItems] = useState<Item[]>([]);
   const [unread, setUnread] = useState(0);
   const box = useRef<HTMLDivElement>(null);
+  const btn = useRef<HTMLButtonElement>(null);
+  // на компьютере окно позиционируется от колокольчика поверх всей страницы:
+  // боковая панель прокручивается и обрезала бы его
+  const [pos, setPos] = useState<React.CSSProperties | undefined>();
   const pathname = usePathname();
 
   const load = useCallback(async () => {
@@ -47,9 +51,24 @@ export function NotificationBell({ className }: { className?: string }) {
   useEffect(() => {
     if (!open) return;
     const close = (e: MouseEvent) => !box.current?.contains(e.target as Node) && setOpen(false);
+    const shut = () => setOpen(false);
     document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
+    window.addEventListener("resize", shut);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      window.removeEventListener("resize", shut);
+    };
   }, [open]);
+
+  function toggle() {
+    const r = btn.current?.getBoundingClientRect();
+    if (!open && r && window.innerWidth >= 640) {
+      const width = Math.min(384, window.innerWidth - 16);
+      const top = r.bottom + 6;
+      setPos({ top, left: Math.max(8, Math.min(r.left, window.innerWidth - width - 8)), width, maxHeight: Math.min(window.innerHeight * 0.7, window.innerHeight - top - 8) });
+    } else if (!open) setPos(undefined);
+    setOpen(!open);
+  }
 
   async function read(id?: string) {
     await fetch("/api/notifications", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(id ? { id } : {}) }).catch(() => undefined);
@@ -68,12 +87,12 @@ export function NotificationBell({ className }: { className?: string }) {
 
   return (
     <div ref={box} className={cn("relative", className)}>
-      <button type="button" onClick={() => setOpen(!open)} className="relative rounded-md p-2 text-sidebar-muted hover:bg-sidebar-hover hover:text-foreground cursor-pointer" aria-label={t("notif.title")} title={t("notif.title")}>
+      <button ref={btn} type="button" onClick={toggle} className="relative rounded-md p-2 text-sidebar-muted hover:bg-sidebar-hover hover:text-foreground cursor-pointer" aria-label={t("notif.title")} title={t("notif.title")}>
         <Bell className="size-5" />
         {unread > 0 && <span className="absolute right-0.5 top-0.5 min-w-4 rounded-full bg-red-500 px-1 text-center text-[10px] font-semibold leading-4 text-white">{unread > 99 ? "99+" : unread}</span>}
       </button>
       {open && (
-        <div className="fixed inset-x-2 top-14 z-50 max-h-[70vh] overflow-hidden rounded-xl border bg-card shadow-xl sm:absolute sm:inset-x-auto sm:left-0 sm:top-11 sm:w-96">
+        <div style={pos} className={cn("fixed z-50 flex max-h-[70vh] flex-col overflow-hidden rounded-xl border bg-card shadow-xl", !pos && "inset-x-2 top-14")}>
           <div className="flex items-center justify-between border-b px-4 py-2.5">
             <span className="font-semibold">{t("notif.title")}</span>
             {unread > 0 && (
@@ -82,7 +101,7 @@ export function NotificationBell({ className }: { className?: string }) {
               </button>
             )}
           </div>
-          <ul className="max-h-[calc(70vh-3rem)] divide-y overflow-y-auto">
+          <ul className="min-h-0 flex-1 divide-y overflow-y-auto">
             {items.map((n) => (
               <li key={n.id}>
                 <Link href={n.link ?? "#"} onClick={() => !n.read && void read(n.id)} className={cn("flex gap-3 px-4 py-2.5 text-sm hover:bg-accent", !n.read && "bg-primary/5")}>
