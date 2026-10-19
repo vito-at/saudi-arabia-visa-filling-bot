@@ -26,6 +26,7 @@
   --ink-muted: #5b616b;
   --border: #e3e5e8;
   --focus-ring: #11161c;
+  --scrim: rgba(17, 22, 28, 0.45);
   --logo-light: block;
   --logo-dark: none;
 
@@ -38,6 +39,7 @@
     --brand-orange-text: #f77426; --brand-orange-tint: #3a2414;
     --surface: #11161c; --surface-raised: #1a2029;
     --ink: #ffffff; --ink-muted: #a1a8b3; --border: #2a313b; --focus-ring: #f77426;
+    --scrim: rgba(0, 0, 0, 0.6);
     --logo-light: none; --logo-dark: block;
     color-scheme: dark;
   }
@@ -46,6 +48,7 @@
   --brand-orange-text: #f77426; --brand-orange-tint: #3a2414;
   --surface: #11161c; --surface-raised: #1a2029;
   --ink: #ffffff; --ink-muted: #a1a8b3; --border: #2a313b; --focus-ring: #f77426;
+  --scrim: rgba(0, 0, 0, 0.6);
   --logo-light: none; --logo-dark: block;
   color-scheme: dark;
 }
@@ -158,7 +161,48 @@ a { color: inherit; text-decoration: none; }
 .chip b { color: var(--brand-orange-text); font-weight: 700; }
 
 
-@media (prefers-reduced-motion: reduce) { .link { transition: none; } .link:active { transform: none; } }
+button.link { width: 100%; font: inherit; text-align: left; cursor: pointer; }
+
+/* Выбор менеджера в Telegram: шторка снизу */
+.scrim { position: fixed; inset: 0; z-index: 20; background: var(--scrim); animation: fade .2s ease; }
+.sheet {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 21;
+  max-width: 480px; margin: 0 auto;
+  max-height: 85%; overflow-y: auto;
+  background: var(--surface); color: var(--ink);
+  border: 1px solid var(--border); border-bottom: 0;
+  border-radius: 24px 24px 0 0;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 10px max(24px, env(safe-area-inset-bottom, 0px));
+  display: flex; flex-direction: column; gap: var(--space-4);
+  animation: rise .25s cubic-bezier(.2, .8, .2, 1);
+}
+.grip { width: 40px; height: 4px; border-radius: var(--radius-pill); background: var(--border); align-self: center; }
+.sheet-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); }
+.sheet-head h2 { margin: 0; font-size: 20px; line-height: 28px; font-weight: 800; }
+.sheet-close {
+  width: 36px; height: 36px; flex: none; border: 0; border-radius: 50%; cursor: pointer;
+  background: var(--surface-raised); color: var(--ink); font: 400 22px/1 var(--font);
+}
+.sheet-note { margin: -8px 0 0; color: var(--ink-muted); font-size: 14px; line-height: 20px; }
+.managers { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.mgr {
+  display: grid; grid-template-columns: 40px 1fr auto; align-items: center; gap: 12px;
+  padding: 10px 16px 10px 10px; border-radius: var(--radius-lg);
+  background: var(--surface-raised); border: 1px solid var(--border);
+}
+.mgr:hover { border-color: var(--brand-orange); }
+.mgr .ico { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: var(--brand-orange-tint); color: var(--brand-orange-text); }
+.mgr .ico svg { width: 20px; height: 20px; }
+.mgr .txt { min-width: 0; display: flex; flex-direction: column; }
+.mgr .ttl { font-weight: 700; }
+.mgr .sub { font-size: 14px; line-height: 20px; color: var(--ink-muted); overflow-wrap: anywhere; }
+.mgr .go { color: var(--brand-orange-text); font-size: 14px; }
+@keyframes rise { from { transform: translateY(100%); } to { transform: none; } }
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+
+@media (prefers-reduced-motion: reduce) { .link { transition: none; } .link:active { transform: none; } .sheet, .scrim { animation: none; } }
 </style>
 
 <canvas id="globe" aria-hidden="true"></canvas>
@@ -183,11 +227,11 @@ a { color: inherit; text-decoration: none; }
   </header>
 
   <nav class="links" aria-label="Kontaktlar">
-    <a class="link primary" href="https://t.me/" target="_blank" rel="noopener">
+    <button type="button" class="link primary" id="tg-open" aria-haspopup="dialog" aria-controls="tg-sheet">
       <span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M21.4 3.6 2.9 10.8c-1.3.5-1.3 1.2-.2 1.6l4.7 1.5 1.8 5.6c.2.6.1.9.8.9.5 0 .7-.2 1-.5l2.3-2.2 4.8 3.5c.9.5 1.5.2 1.7-.8l3.1-14.8c.3-1.3-.5-1.9-1.5-1.5ZM8.6 13.6l9.9-6.2c.5-.3.9-.1.5.2l-8.4 7.6-.3 3.6-1.7-5.2Z"/></svg></span>
       <span class="txt"><span class="ttl" data-i18n="tg">Telegramda yozing</span><span class="sub" data-i18n="tgSub">Menejer tez javob beradi</span></span>
       <span class="go" aria-hidden="true">►</span>
-    </a>
+    </button>
 
     <a class="link" href="tel:+998705146363">
       <span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1A17 17 0 0 1 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1l-2.3 2.2Z"/></svg></span>
@@ -221,6 +265,21 @@ a { color: inherit; text-decoration: none; }
   </section>
 
 </main>
+
+<div class="scrim" id="tg-scrim" hidden></div>
+<div class="sheet" id="tg-sheet" role="dialog" aria-modal="true" aria-labelledby="tg-title" hidden>
+  <div class="grip" aria-hidden="true"></div>
+  <div class="sheet-head">
+    <h2 id="tg-title" data-i18n="tgTitle">Kimga yozamiz?</h2>
+    <button type="button" class="sheet-close" id="tg-close" aria-label="Yopish" data-i18n-label="close">×</button>
+  </div>
+  <p class="sheet-note" data-i18n="tgNote">Savolingizga mos menejerni tanlang</p>
+  <ul class="managers">
+    <li><a class="mgr" href="https://t.me/username1" target="_blank" rel="noopener"><span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M21.4 3.6 2.9 10.8c-1.3.5-1.3 1.2-.2 1.6l4.7 1.5 1.8 5.6c.2.6.1.9.8.9.5 0 .7-.2 1-.5l2.3-2.2 4.8 3.5c.9.5 1.5.2 1.7-.8l3.1-14.8c.3-1.3-.5-1.9-1.5-1.5ZM8.6 13.6l9.9-6.2c.5-.3.9-.1.5.2l-8.4 7.6-.3 3.6-1.7-5.2Z"/></svg></span><span class="txt"><span class="ttl" data-uz="Vizalar" data-ru="Визы">Vizalar</span><span class="sub">@username1</span></span><span class="go" aria-hidden="true">►</span></a></li>
+    <li><a class="mgr" href="https://t.me/username2" target="_blank" rel="noopener"><span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M21.4 3.6 2.9 10.8c-1.3.5-1.3 1.2-.2 1.6l4.7 1.5 1.8 5.6c.2.6.1.9.8.9.5 0 .7-.2 1-.5l2.3-2.2 4.8 3.5c.9.5 1.5.2 1.7-.8l3.1-14.8c.3-1.3-.5-1.9-1.5-1.5ZM8.6 13.6l9.9-6.2c.5-.3.9-.1.5.2l-8.4 7.6-.3 3.6-1.7-5.2Z"/></svg></span><span class="txt"><span class="ttl" data-uz="Turlar" data-ru="Туры">Turlar</span><span class="sub">@username2</span></span><span class="go" aria-hidden="true">►</span></a></li>
+    <li><a class="mgr" href="https://t.me/username3" target="_blank" rel="noopener"><span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M21.4 3.6 2.9 10.8c-1.3.5-1.3 1.2-.2 1.6l4.7 1.5 1.8 5.6c.2.6.1.9.8.9.5 0 .7-.2 1-.5l2.3-2.2 4.8 3.5c.9.5 1.5.2 1.7-.8l3.1-14.8c.3-1.3-.5-1.9-1.5-1.5ZM8.6 13.6l9.9-6.2c.5-.3.9-.1.5.2l-8.4 7.6-.3 3.6-1.7-5.2Z"/></svg></span><span class="txt"><span class="ttl" data-uz="Aviachiptalar" data-ru="Авиабилеты">Aviachiptalar</span><span class="sub">@username3</span></span><span class="go" aria-hidden="true">►</span></a></li>
+  </ul>
+</div>
 
 <script>
 /* Глобус: точки суши (маска 2°), дуги рейсов из Ташкента, медленное вращение. */
@@ -394,6 +453,7 @@ a { color: inherit; text-decoration: none; }
       lead: "Sayohat qiling, dunyoni kashf eting",
       s1: "Aviachiptalar", s2: "Turlar", s3: "Vizalar",
       tg: "Telegramda yozing", tgSub: "Menejer tez javob beradi",
+      tgTitle: "Kimga yozamiz?", tgNote: "Savolingizga mos menejerni tanlang", close: "Yopish",
       call: "Qo'ng'iroq qilish", visa: "Onlayn viza arizasi",
       office: "Bizning ofis", addr: "Farg'ona, Saylgoh ko'chasi, 42",
       addrHint: "Kelishdan oldin qo'ng'iroq qiling — menejer joyida bo'lishini tekshiring."
@@ -402,6 +462,7 @@ a { color: inherit; text-decoration: none; }
       lead: "Путешествуйте и открывайте мир",
       s1: "Авиабилеты", s2: "Туры", s3: "Визы",
       tg: "Написать в Telegram", tgSub: "Менеджер ответит быстро",
+      tgTitle: "Кому написать?", tgNote: "Выберите менеджера по вашему вопросу", close: "Закрыть",
       call: "Позвонить", visa: "Онлайн-заявка на визу",
       office: "Наш офис", addr: "Фергана, ул. Сайлгох, 42",
       addrHint: "Перед визитом позвоните, чтобы менеджер был на месте."
@@ -414,6 +475,13 @@ a { color: inherit; text-decoration: none; }
       var k = el.getAttribute("data-i18n");
       if (t[k]) el.textContent = t[k];
     });
+    document.querySelectorAll("[data-i18n-label]").forEach(function (el) {
+      var k = el.getAttribute("data-i18n-label");
+      if (t[k]) el.setAttribute("aria-label", t[k]);
+    });
+    document.querySelectorAll("[data-" + lang + "]").forEach(function (el) {
+      el.textContent = el.getAttribute("data-" + lang);
+    });
     document.querySelectorAll(".lang button").forEach(function (b) {
       b.setAttribute("aria-pressed", String(b.dataset.lang === lang));
     });
@@ -424,6 +492,36 @@ a { color: inherit; text-decoration: none; }
   apply(saved || "uz");
   document.querySelectorAll(".lang button").forEach(function (b) {
     b.addEventListener("click", function () { apply(b.dataset.lang); });
+  });
+
+  // Шторка выбора менеджера
+  var openBtn = document.getElementById("tg-open");
+  var sheet = document.getElementById("tg-sheet");
+  var scrim = document.getElementById("tg-scrim");
+  function openSheet() {
+    sheet.hidden = false; scrim.hidden = false;
+    document.body.style.overflow = "hidden";
+    var first = sheet.querySelector(".mgr");
+    (first || document.getElementById("tg-close")).focus();
+  }
+  function closeSheet() {
+    if (sheet.hidden) return;
+    sheet.hidden = true; scrim.hidden = true;
+    document.body.style.overflow = "";
+    openBtn.focus();
+  }
+  openBtn.addEventListener("click", openSheet);
+  scrim.addEventListener("click", closeSheet);
+  document.getElementById("tg-close").addEventListener("click", closeSheet);
+  document.addEventListener("keydown", function (e) {
+    if (sheet.hidden) return;
+    if (e.key === "Escape") { closeSheet(); return; }
+    if (e.key === "Tab") {
+      var f = sheet.querySelectorAll("a, button");
+      var a = f[0], z = f[f.length - 1];
+      if (e.shiftKey && document.activeElement === a) { e.preventDefault(); z.focus(); }
+      else if (!e.shiftKey && document.activeElement === z) { e.preventDefault(); a.focus(); }
+    }
   });
 })();
 </script>
