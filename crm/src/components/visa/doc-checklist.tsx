@@ -101,7 +101,11 @@ export function DocChecklist({ service, userId, isAdmin, canUpload = true }: { s
           <li key={d.id} className="flex items-start gap-2 text-sm">
             <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-sky-600" />
             <div className="min-w-0 flex-1">
-              <div>{d.docType}</div>
+              <div>
+                {d.docType}
+                {d.traveler && <span className="text-xs text-muted-foreground"> — {d.traveler}</span>}
+                {d.fromSite && <span className="ml-1.5 rounded bg-muted px-1 text-[10px] text-muted-foreground">{t("ov.fromSite")}</span>}
+              </div>
               <DocLink d={d} canDelete={canDelete(d)} />
             </div>
           </li>

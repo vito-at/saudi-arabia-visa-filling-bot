@@ -15,7 +15,7 @@ import { SyncLogTable } from "@/components/settings/sync-log";
 import { MessengersForm } from "@/components/settings/messengers-form";
 import { AiBotForm } from "@/components/settings/ai-bot-form";
 import { TemplatesEditor } from "@/components/settings/templates-editor";
-import { RequirementsEditor, SiteKeyCard, type RequirementList } from "@/components/settings/visa-settings";
+import { OrientVisaCard, RequirementsEditor, SiteKeyCard, type RequirementList } from "@/components/settings/visa-settings";
 import { ensureDocDefaults } from "@/lib/visa";
 import { getAiSettings, workHoursText } from "@/lib/chats/ai";
 import { scheduleOf } from "@/lib/work-hours";
@@ -269,7 +269,12 @@ async function MessengersTab() {
 
 async function VisaTab() {
   await ensureDocDefaults();
-  const [rows, settings] = await Promise.all([prisma.docRequirement.findMany({ orderBy: [{ order: "asc" }] }), getSettings()]);
+  const [rows, settings, pendingEvents, failedEvent] = await Promise.all([
+    prisma.docRequirement.findMany({ orderBy: [{ order: "asc" }] }),
+    getSettings(),
+    prisma.siteEvent.count({ where: { sentAt: null } }),
+    prisma.siteEvent.findFirst({ where: { sentAt: null, lastError: { not: null } }, orderBy: { createdAt: "asc" }, select: { lastError: true } }),
+  ]);
   const lists: RequirementList[] = [];
   for (const r of rows) {
     const l = lists.find((x) => x.type === r.type && x.country === r.country);
@@ -281,6 +286,14 @@ async function VisaTab() {
     <div className="space-y-5">
       <RequirementsEditor lists={lists} />
       <SiteKeyCard hasKey={!!settings.siteApiKeyHash} url={`${base}/api/public/visa-application`} />
+      <OrientVisaCard
+        url={settings.orientVisaUrl ?? process.env.SITE_URL ?? ""}
+        hasKey={!!settings.orientVisaKeyEnc || !!process.env.SITE_INTEGRATION_KEY}
+        hasSecret={!!settings.orientVisaSecretEnc || !!process.env.CRM_WEBHOOK_SECRET}
+        fromEnv={!settings.orientVisaUrl && !!process.env.SITE_URL}
+        pending={pendingEvents}
+        failed={failedEvent?.lastError ?? null}
+      />
     </div>
   );
 }

@@ -8,6 +8,7 @@ import crypto from "node:crypto";
 import type { LeadService, Prisma, ServiceType, VisaStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { leadScope } from "@/lib/access";
+export { guessMime } from "@/lib/mime";
 import type { CurrentUser } from "@/lib/session";
 
 export const VISA_STATUSES: VisaStatus[] = ["NEW", "IN_PROGRESS", "PAID_WAITING", "DOCS_REQUESTED", "APPROVED", "REJECTED"];
@@ -79,15 +80,6 @@ export function documentScope(user: CurrentUser): Prisma.LeadDocumentWhereInput 
 /** Документы клиенту: до 20 МБ */
 export const DOC_MAX = 20 * 1024 * 1024;
 
-/** Тип файла по имени, если браузер или мессенджер его не прислал */
-export function guessMime(name: string, given?: string | null): string {
-  if (given && given !== "application/octet-stream") return given;
-  const ext = name.split(".").pop()?.toLowerCase() ?? "";
-  return (
-    { pdf: "application/pdf", jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp", heic: "image/heic", doc: "application/msword", docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" }[ext] ??
-    "application/octet-stream"
-  );
-}
 
 /** Ключ API сайта храним только хэшем */
 export const hashSiteKey = (key: string) => crypto.createHash("sha256").update(key).digest("hex");

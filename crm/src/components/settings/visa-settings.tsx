@@ -2,11 +2,11 @@
 
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Copy, FileCheck2, KeyRound } from "lucide-react";
+import { Copy, FileCheck2, Globe, KeyRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, Input, NativeSelect, Textarea } from "@/components/ui/input";
-import { generateSiteKeyAction, revokeSiteKeyAction, saveRequirementsAction } from "@/app/(app)/settings/visa-actions";
+import { generateSiteKeyAction, revokeSiteKeyAction, saveOrientVisaAction, saveRequirementsAction } from "@/app/(app)/settings/visa-actions";
 import { SERVICE_TYPES, VISA_COUNTRIES } from "@/lib/constants";
 import { serviceLabel } from "@/i18n/labels";
 import { useI18n } from "@/i18n/client";
@@ -168,6 +168,74 @@ export function SiteKeyCard({ hasKey, url }: { hasKey: boolean; url: string }) {
               </Button>
             )}
           </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+/** Связь с сайтом Orient Visa (docs/orient-visa-integration.md): значения те же, что в окружении сайта */
+export function OrientVisaCard({ url, hasKey, hasSecret, fromEnv, pending, failed }: { url: string; hasKey: boolean; hasSecret: boolean; fromEnv: boolean; pending: number; failed: string | null }) {
+  const { t } = useI18n();
+  const [v, setV] = useState({ url, key: "", secret: "" });
+  const [busy, start] = useTransition();
+  const ready = !!url && hasKey && hasSecret;
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Globe className="size-5 text-muted-foreground" /> {t("ov.settingsTitle")}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3 text-sm">
+        <p className="text-muted-foreground">{t("ov.settingsHint")}</p>
+        <p className={ready ? "text-emerald-700 dark:text-emerald-400" : "text-muted-foreground"}>
+          {ready ? t("ov.connected") : t("ov.notConnected")}
+          {fromEnv && ` (${t("ov.fromEnv")})`}
+        </p>
+        {(pending > 0 || failed) && <p className={failed ? "text-xs text-red-600" : "text-xs text-muted-foreground"}>{t("ov.eventsPending", { n: pending })}{failed ? ` — ${failed}` : ""}</p>}
+        <div className="grid grid-cols-1 gap-3 [&>*]:min-w-0">
+          <Field label={t("ov.siteUrl")}>
+            <Input value={v.url} onChange={(e) => setV({ ...v, url: e.target.value })} placeholder="https://orientvisa.uz" />
+          </Field>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 [&>*]:min-w-0">
+            <Field label="SITE_INTEGRATION_KEY">
+              <Input type="password" autoComplete="off" value={v.key} onChange={(e) => setV({ ...v, key: e.target.value })} placeholder={hasKey ? t("ai.keySaved") : ""} />
+            </Field>
+            <Field label="CRM_WEBHOOK_SECRET">
+              <Input type="password" autoComplete="off" value={v.secret} onChange={(e) => setV({ ...v, secret: e.target.value })} placeholder={hasSecret ? t("ai.keySaved") : ""} />
+            </Field>
+          </div>
+        </div>
+        <div className="flex justify-end gap-2">
+          {ready && !fromEnv && (
+            <Button
+              variant="outline"
+              disabled={busy}
+              onClick={() =>
+                confirm(t("ov.disconnectConfirm")) &&
+                start(async () => {
+                  const r = await saveOrientVisaAction({ url: "", key: "", secret: "", clear: true });
+                  if (!r.ok) toast.error(r.error);
+                })
+              }
+            >
+              {t("docset.revoke")}
+            </Button>
+          )}
+          <Button
+            disabled={busy}
+            onClick={() =>
+              start(async () => {
+                const r = await saveOrientVisaAction(v);
+                if (!r.ok) return void toast.error(r.error);
+                toast.success(t("common.saved"));
+                setV({ ...v, key: "", secret: "" });
+              })
+            }
+          >
+            {busy ? t("common.saving") : t("common.save")}
+          </Button>
         </div>
       </CardContent>
     </Card>

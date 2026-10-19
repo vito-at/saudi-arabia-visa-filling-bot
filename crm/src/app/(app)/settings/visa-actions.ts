@@ -9,6 +9,7 @@ import { requireAdmin } from "@/lib/session";
 import { ValidationError } from "@/lib/leads/service";
 import { SERVICE_TYPES } from "@/lib/constants";
 import { ensureDocDefaults, hashSiteKey } from "@/lib/visa";
+import { encrypt } from "@/lib/crypto";
 
 /** Список документов для типа услуги и страны (country пусто — общий список). Пустой список страны — удалить его */
 export async function saveRequirementsAction(input: { type: string; country: string; names: string }) {
@@ -43,6 +44,28 @@ export async function revokeSiteKeyAction() {
   return runAction(async () => {
     await requireAdmin();
     await prisma.appSettings.update({ where: { id: 1 }, data: { siteApiKeyHash: null } });
+    revalidatePath("/settings");
+  });
+}
+
+/** Связь с сайтом Orient Visa: адрес, ключ для загрузки анкет и секрет подписи событий (пустое поле — оставить как было) */
+export async function saveOrientVisaAction(input: { url: string; key: string; secret: string; clear?: boolean }) {
+  return runAction(async () => {
+    await requireAdmin();
+    if (input.clear) {
+      await prisma.appSettings.update({ where: { id: 1 }, data: { orientVisaUrl: null, orientVisaKeyEnc: null, orientVisaSecretEnc: null } });
+      revalidatePath("/settings");
+      return;
+    }
+    const url = input.url.trim().replace(/\/$/, "");
+    if (!/^https:\/\/[^\s/]+/.test(url) && !/^http:\/\/localhost(:\d+)?$/.test(url)) throw new ValidationError("err.siteUrl");
+    const key = input.key.trim();
+    const secret = input.secret.trim();
+    if ((key && key.length < 16) || (secret && secret.length < 16)) throw new ValidationError("err.siteSecretShort");
+    await prisma.appSettings.update({
+      where: { id: 1 },
+      data: { orientVisaUrl: url, ...(key ? { orientVisaKeyEnc: encrypt(key) } : {}), ...(secret ? { orientVisaSecretEnc: encrypt(secret) } : {}) },
+    });
     revalidatePath("/settings");
   });
 }
