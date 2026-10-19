@@ -54,7 +54,14 @@ body {
 a { color: inherit; text-decoration: none; }
 :focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 
+/* Фон: вращающийся точечный глобус с рейсами из Ташкента */
+#globe {
+  position: fixed; inset: 0; width: 100%; height: 100%;
+  z-index: 0; pointer-events: none;
+}
+
 .page {
+  position: relative; z-index: 1;
   max-width: 480px;
   margin: 0 auto;
   padding-left: max(16px, env(safe-area-inset-left, 0px));
@@ -79,6 +86,8 @@ a { color: inherit; text-decoration: none; }
 .lang button[aria-pressed="true"] { background: var(--surface); color: var(--ink); }
 
 .hero { display: flex; flex-direction: column; align-items: center; text-align: center; gap: var(--space-4); padding-block: var(--space-2) 0; }
+/* место под глобус над логотипом (класс ставит скрипт глобуса) */
+.has-globe .hero { padding-top: clamp(150px, 38vw, 230px); }
 .hero img { width: min(240px, 70%); height: auto; }
 .hero .on-light { display: var(--logo-light); }
 .hero .on-dark { display: var(--logo-dark); }
@@ -144,6 +153,8 @@ a { color: inherit; text-decoration: none; }
 @media (prefers-reduced-motion: reduce) { .link { transition: none; } .link:active { transform: none; } }
 </style>
 
+<canvas id="globe" aria-hidden="true"></canvas>
+
 <main class="page">
   <div class="top">
     <div class="lang" role="group" aria-label="Til / Язык">
@@ -204,6 +215,171 @@ a { color: inherit; text-decoration: none; }
 </main>
 
 <script>
+/* Глобус: точки суши (маска 2°), дуги рейсов из Ташкента, медленное вращение. */
+(function () {
+  var cv = document.getElementById("globe");
+  var ctx = cv.getContext && cv.getContext("2d");
+  if (!ctx) return;
+  document.documentElement.classList.add("has-globe");
+
+  var MASK = atob("{{LAND_MASK}}");
+  var STEP = 2, COLS = 360 / STEP;
+  var RAD = Math.PI / 180;
+
+  function isLand(lat, lon) {
+    var idx = Math.floor((90 - lat) / STEP) * COLS + Math.floor((lon + 180) / STEP);
+    return (MASK.charCodeAt(idx >> 3) >> (7 - (idx & 7))) & 1;
+  }
+  function vec(lat, lon) {
+    var c = Math.cos(lat * RAD);
+    return [c * Math.sin(lon * RAD), Math.sin(lat * RAD), c * Math.cos(lon * RAD)];
+  }
+
+  // Точки суши: шаг по долготе растёт к полюсам, чтобы плотность была ровной
+  var dots = [];
+  for (var lat = 90 - STEP / 2; lat > -90; lat -= STEP) {
+    var n = Math.max(1, Math.round(COLS * Math.cos(lat * RAD)));
+    for (var k = 0; k < n; k++) {
+      var lon = -180 + (k + 0.5) * 360 / n;
+      if (isLand(lat, lon)) dots.push(vec(lat, lon));
+    }
+  }
+
+  // Рейсы из Ташкента
+  var HOME = vec(41.3, 69.24);
+  var DEST = [
+    [41.01, 28.98],   // Стамбул
+    [25.2, 55.27],    // Дубай
+    [55.75, 37.62],   // Москва
+    [36.9, 30.7],     // Анталья
+    [27.91, 34.33],   // Шарм-эш-Шейх
+    [3.14, 101.69],   // Куала-Лумпур
+    [37.57, 126.98],  // Сеул
+    [13.75, 100.5]    // Бангкок
+  ];
+  var routes = DEST.map(function (d, i) {
+    var b = vec(d[0], d[1]);
+    var dot = HOME[0] * b[0] + HOME[1] * b[1] + HOME[2] * b[2];
+    var om = Math.acos(Math.min(1, dot)), so = Math.sin(om);
+    var lift = 0.06 + om * 0.18, pts = [];
+    for (var s = 0; s <= 48; s++) {
+      var t = s / 48;
+      var p = Math.sin((1 - t) * om) / so, q = Math.sin(t * om) / so;
+      var h = 1 + lift * Math.sin(Math.PI * t);
+      pts.push([(p * HOME[0] + q * b[0]) * h, (p * HOME[1] + q * b[1]) * h, (p * HOME[2] + q * b[2]) * h]);
+    }
+    return { pts: pts, end: b, period: 5200 + i * 430, offset: i * 911 };
+  });
+
+  var colors = {};
+  function readColors() {
+    var cs = getComputedStyle(document.documentElement);
+    colors.dot = cs.getPropertyValue("--ink-muted").trim() || "#5b616b";
+    colors.accent = cs.getPropertyValue("--brand-orange").trim() || "#f77426";
+    colors.line = cs.getPropertyValue("--border").trim() || "#e3e5e8";
+  }
+  readColors();
+  if (window.matchMedia) {
+    var mq = window.matchMedia("(prefers-color-scheme: dark)");
+    (mq.addEventListener ? mq.addEventListener("change", readColors) : mq.addListener(readColors));
+  }
+  new MutationObserver(readColors).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+  var W, H, R, CX, CY, dpr;
+  function resize() {
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth; H = window.innerHeight;
+    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+    // Ташкент держится в полосе над логотипом, примерно на высоте 110px
+    R = Math.min(W * 0.42, 240);
+    CX = W / 2; CY = 110 + 0.25 * R;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  resize();
+  window.addEventListener("resize", resize);
+
+  var TILT = 25 * RAD, ct = Math.cos(TILT), st = Math.sin(TILT);
+  var cy_, sy_;
+  // Поворот вокруг оси Y (вращение), затем наклон к зрителю
+  function project(v, out) {
+    var x = v[0] * cy_ - v[2] * sy_;
+    var z = v[0] * sy_ + v[2] * cy_;
+    var y = v[1] * ct - z * st;
+    z = v[1] * st + z * ct;
+    out[0] = CX + x * R; out[1] = CY - y * R; out[2] = z;
+    return out;
+  }
+
+  var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var a = [0, 0, 0], b2 = [0, 0, 0];
+
+  function frame(now) {
+    var rot = (95 - (reduce ? 0 : (now * 0.004) % 360)) * RAD; // к зрителю — долгота rot; оборот примерно за 90 секунд
+    cy_ = Math.cos(rot); sy_ = Math.sin(rot);
+    ctx.clearRect(0, 0, W, H);
+
+    // Контур сферы
+    ctx.strokeStyle = colors.line; ctx.globalAlpha = 1; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(CX, CY, R, 0, Math.PI * 2); ctx.stroke();
+
+    // Суша
+    ctx.fillStyle = colors.dot;
+    var ds = Math.max(1.1, R / 190);
+    for (var i = 0; i < dots.length; i++) {
+      project(dots[i], a);
+      if (a[2] <= 0) continue;
+      ctx.globalAlpha = 0.18 + 0.5 * a[2];
+      ctx.fillRect(a[0] - ds / 2, a[1] - ds / 2, ds, ds);
+    }
+
+    // Рейсы
+    ctx.strokeStyle = colors.accent; ctx.fillStyle = colors.accent; ctx.lineCap = "round";
+    routes.forEach(function (r) {
+      var pts = r.pts, last = pts.length - 1;
+      var head = reduce ? 1 : ((now + r.offset) % r.period) / r.period * 1.25; // 0..1 полёт, затем пауза
+      // тонкая трасса
+      ctx.lineWidth = 1;
+      for (var s = 0; s < last; s++) {
+        project(pts[s], a); project(pts[s + 1], b2);
+        if (a[2] < -0.05) continue;
+        ctx.globalAlpha = 0.35 * Math.max(0.2, a[2] + 0.3);
+        ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b2[0], b2[1]); ctx.stroke();
+      }
+      // самолёт со шлейфом
+      if (head <= 1) {
+        var hi = Math.round(head * last), lo = Math.max(0, hi - 12);
+        ctx.lineWidth = 2;
+        for (var s2 = lo; s2 < hi; s2++) {
+          project(pts[s2], a); project(pts[s2 + 1], b2);
+          if (a[2] < -0.05) continue;
+          ctx.globalAlpha = (s2 - lo + 1) / (hi - lo);
+          ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b2[0], b2[1]); ctx.stroke();
+        }
+        project(pts[hi], a);
+        if (a[2] > -0.05) { ctx.globalAlpha = 1; ctx.beginPath(); ctx.arc(a[0], a[1], 2.6, 0, Math.PI * 2); ctx.fill(); }
+      }
+      // точка назначения
+      project(r.end, a);
+      if (a[2] > 0) { ctx.globalAlpha = 0.5 + 0.5 * a[2]; ctx.beginPath(); ctx.arc(a[0], a[1], 2, 0, Math.PI * 2); ctx.fill(); }
+    });
+
+    // Ташкент с пульсом
+    project(HOME, a);
+    if (a[2] > 0) {
+      ctx.globalAlpha = 1; ctx.beginPath(); ctx.arc(a[0], a[1], 3.5, 0, Math.PI * 2); ctx.fill();
+      if (!reduce) {
+        var p = (now % 2400) / 2400;
+        ctx.globalAlpha = 1 - p; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.arc(a[0], a[1], 4 + p * 14, 0, Math.PI * 2); ctx.stroke();
+      }
+    }
+    ctx.globalAlpha = 1;
+    if (!reduce) requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+  window.addEventListener("resize", function () { if (reduce) requestAnimationFrame(frame); });
+})();
+
 (function () {
   var dict = {
     uz: {

@@ -24,6 +24,7 @@ def data_uri(path: pathlib.Path) -> str:
 def main() -> None:
     body = (HERE / "page.template.html").read_text(encoding="utf-8")
     body = body.replace("{{TELEGRAM_URL}}", TELEGRAM_URL)
+    body = body.replace("{{LAND_MASK}}", (HERE / "assets/land-mask.b64").read_text().strip())
     for key, path in LOGOS.items():
         body = body.replace("{{%s}}" % key, data_uri(path))
 
