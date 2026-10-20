@@ -41,6 +41,12 @@ enum Currency {
 
 /// Тип статуса — от него зависит логика (сделка, причина отказа, подсветка новых),
 /// поэтому статусы можно свободно переименовывать.
+/// От чего считается процент менеджера: от суммы продаж или от прибыли
+enum CommissionBase {
+  REVENUE
+  PROFIT
+}
+
 enum StatusKind {
   NEW
   IN_PROGRESS
@@ -78,10 +84,11 @@ model User {
   /// «В работе»: при автораспределении лиды получают только менеджеры на смене
   onShift        Boolean   @default(false)
   createdAt      DateTime  @default(now())
-  /// Зарплата: оклад в месяц, процент от прибыли своих сделок и надбавка к проценту при выполнении плана по прибыли
-  salaryBase     Decimal   @default(0) @db.Decimal(18, 2)
-  salaryCurrency Currency  @default(UZS)
-  commissionPct  Decimal   @default(0) @db.Decimal(5, 2)
+  /// Зарплата: оклад в месяц, процент от суммы продаж (или прибыли) своих сделок и надбавка к проценту при выполнении плана по прибыли
+  salaryBase     Decimal        @default(1500000) @db.Decimal(18, 2)
+  salaryCurrency Currency       @default(UZS)
+  commissionPct  Decimal        @default(5) @db.Decimal(5, 2)
+  commissionFrom CommissionBase @default(REVENUE)
   planBonusPct   Decimal   @default(0) @db.Decimal(5, 2)
 
   leads         Lead[]         @relation("LeadManager")
@@ -89,6 +96,7 @@ model User {
   dealPayments  DealPayment[]
   chatMessages  ChatMessage[]
   plans         ManagerPlan[]
+  salaryTerms   SalaryTerm[]
   notifications Notification[]
   comments      Comment[]
   history       LeadHistory[]
@@ -601,6 +609,24 @@ model ManagerPlan {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, month])
+}
+
+/// Условия зарплаты, действующие с месяца fromMonth до следующей записи: изменение не пересчитывает прошлые месяцы
+model SalaryTerm {
+  id             String         @id @default(cuid())
+  userId         String
+  /// первое число месяца (UTC)
+  fromMonth      DateTime       @db.Date
+  base           Decimal        @db.Decimal(18, 2)
+  currency       Currency       @default(UZS)
+  pct            Decimal        @db.Decimal(5, 2)
+  bonusPct       Decimal        @default(0) @db.Decimal(5, 2)
+  commissionFrom CommissionBase @default(REVENUE)
+  createdAt      DateTime       @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, fromMonth])
 }
 
 /// Уведомление сотруднику (колокольчик): новый лид, просроченная задача, срок долга, продажа без себестоимости…
