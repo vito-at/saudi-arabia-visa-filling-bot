@@ -396,6 +396,8 @@ export async function plansTable(f: ReportFilters, ym: string | undefined): Prom
       { key: "done", label: t("plans.done"), type: "pct" },
       { key: "rate", label: `${t("plans.rate")}, %`, type: "int" },
       { key: "total", label: t("plans.total"), type: "text" },
+      { key: "paid", label: t("plans.paid"), type: "text" },
+      { key: "left", label: t("plans.left"), type: "text" },
     ],
     rows: rows.map((r) => ({
       name: r.name,
@@ -407,7 +409,9 @@ export async function plansTable(f: ReportFilters, ym: string | undefined): Prom
       profitPlan: r.plan.profit,
       done: r.done.profit,
       rate: r.ratePct,
-      total: `${r.total} ${r.currency}`,
+      total: r.tracked ? `${r.total} ${r.currency}` : t("plans.notTracked"),
+      paid: `${r.paid} ${r.currency}`,
+      left: `${r.left} ${r.currency}`,
     })),
   };
 }

@@ -10,6 +10,7 @@ import { SERVICE_LABELS, SERVICE_TYPES } from "@/lib/constants";
 import { toNum } from "@/lib/money";
 import { confirmVisaDeals } from "@/lib/deal-costs";
 import { monthKey, monthRange } from "@/lib/salary";
+import { parseInputDate } from "@/lib/format";
 
 export interface CellDeal {
   id: string;
@@ -133,6 +134,39 @@ export async function savePlanAction(input: {
             }),
           ]),
     ]);
+    revalidatePath("/reports");
+  });
+}
+
+/** Выплата зарплаты менеджеру за месяц (частями); «Осталось» в отчёте уменьшается на сумму выплаты */
+export async function addSalaryPayoutAction(input: { userId: string; month: string; amount: string; paidAt: string; note: string; currency: string }) {
+  return runAction(async () => {
+    const admin = await requireAdmin();
+    const range = monthRange(input.month);
+    const amount = num(input.amount);
+    if (amount === null || Number.isNaN(amount) || amount <= 0) throw new ValidationError("err.payoutAmount");
+    const paidAt = parseInputDate(input.paidAt) ?? new Date();
+    const user = await prisma.user.findFirst({ where: { id: input.userId, role: "MANAGER" }, select: { id: true } });
+    if (!user) throw new ValidationError("err.managerNotFound");
+    await prisma.salaryPayout.create({
+      data: {
+        userId: user.id,
+        month: monthKey(range.ym),
+        amount,
+        currency: input.currency === "USD" ? "USD" : "UZS",
+        paidAt,
+        note: input.note.trim().slice(0, 300) || null,
+        createdById: admin.id,
+      },
+    });
+    revalidatePath("/reports");
+  });
+}
+
+export async function deleteSalaryPayoutAction(id: string) {
+  return runAction(async () => {
+    await requireAdmin();
+    await prisma.salaryPayout.delete({ where: { id } }).catch(() => undefined);
     revalidatePath("/reports");
   });
 }
