@@ -1,16 +1,17 @@
 /**
  * Планы менеджеров и зарплата за месяц.
  * Факт: лиды, назначенные менеджеру и созданные в месяце; продажи — количество в сделках, оплаченных в месяце;
- * прибыль — по этим сделкам (выручка − себестоимость, по курсам дня оплаты).
- * Зарплата = оклад + прибыль × (процент + надбавка, если план по прибыли выполнен).
+ * сумма продаж и прибыль — по этим сделкам (по курсам дня оплаты).
+ * Зарплата = оклад + сумма продаж (или прибыль — задаётся у менеджера) × (процент + надбавка, если план по прибыли выполнен).
+ * По умолчанию: 1 500 000 сум + 5% от суммы продаж.
  */
-import type { Currency } from "@prisma/client";
+import type { CommissionBase, Currency } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { parseInputDate } from "@/lib/format";
 import { round2, toNum } from "@/lib/money";
 import { getSettings } from "@/lib/refs";
 import { loadRateBook } from "@/lib/rate-history";
-import { dealProfit } from "@/lib/reports/calc";
+import { dealProfit, dealRevenue } from "@/lib/reports/calc";
 
 export interface MonthRange {
   ym: string;
@@ -41,6 +42,8 @@ export interface SalaryTerms {
   currency: Currency;
   pct: number;
   bonusPct: number;
+  /** процент — от суммы продаж или от прибыли */
+  from: CommissionBase;
 }
 
 export interface PlanValues {
@@ -55,8 +58,12 @@ export interface PlanFact {
   sales: number;
   /** прибыль в долларах — для сравнения с планом */
   profitUsd: number;
-  /** прибыль в валюте зарплаты — для комиссии */
+  /** прибыль в валюте зарплаты — для комиссии от прибыли */
   profitSalary: number;
+  /** сумма продаж в долларах — для показа */
+  revenueUsd: number;
+  /** сумма продаж в валюте зарплаты — для комиссии от продаж */
+  revenueSalary: number;
 }
 
 export interface PayoutRow {
@@ -80,7 +87,8 @@ export function calcPayout(terms: SalaryTerms, plan: PlanValues, fact: PlanFact)
   const planMet = done.profit !== null && done.profit >= 1;
   const ratePct = terms.pct + (planMet ? terms.bonusPct : 0);
   // убыточный месяц не уменьшает оклад
-  const commission = round2((Math.max(0, fact.profitSalary) * ratePct) / 100);
+  const basis = terms.from === "PROFIT" ? fact.profitSalary : fact.revenueSalary;
+  const commission = round2((Math.max(0, basis) * ratePct) / 100);
   return { plan, fact, done, planMet, ratePct, commission, base: terms.base, total: round2(terms.base + commission), currency: terms.currency };
 }
 
@@ -111,13 +119,16 @@ export async function loadManagerMonths(range: MonthRange, managerId: string | n
   ]);
   return users.map((u) => {
     const own = deals.filter((d) => d.managerId === u.id).map((d) => ({ ...d, amount: toNum(d.amount), cost: toNum(d.cost) }));
-    const terms: SalaryTerms = { base: toNum(u.salaryBase), currency: u.salaryCurrency, pct: toNum(u.commissionPct), bonusPct: toNum(u.planBonusPct) };
+    const terms: SalaryTerms = { base: toNum(u.salaryBase), currency: u.salaryCurrency, pct: toNum(u.commissionPct), bonusPct: toNum(u.planBonusPct), from: u.commissionFrom };
     const profitIn = (currency: Currency) => round2(own.reduce((s, d) => s + dealProfit(d, { currency, rate, costRate, book }), 0));
+    const revenueIn = (currency: Currency) => round2(own.reduce((s, d) => s + dealRevenue(d, { currency, rate, costRate, book }), 0));
     const fact: PlanFact = {
       leads: leads.find((l) => l.managerId === u.id)?._count._all ?? 0,
       sales: own.reduce((s, d) => s + d.quantity, 0),
       profitUsd: profitIn("USD"),
       profitSalary: profitIn(terms.currency),
+      revenueUsd: revenueIn("USD"),
+      revenueSalary: revenueIn(terms.currency),
     };
     const p = u.plans[0];
     const plan: PlanValues = { leads: p?.leads ?? null, sales: p?.sales ?? null, profit: p?.profit === null || p?.profit === undefined ? null : toNum(p.profit) };

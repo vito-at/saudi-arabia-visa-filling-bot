@@ -93,6 +93,7 @@ export async function savePlanAction(input: {
   salaryCurrency: string;
   commissionPct: string;
   planBonusPct: string;
+  commissionFrom: string;
 }) {
   return runAction(async () => {
     await requireAdmin();
@@ -111,7 +112,7 @@ export async function savePlanAction(input: {
         update: { leads: leads === null ? null : Math.round(leads), sales: sales === null ? null : Math.round(sales), profit },
         create: { userId: input.userId, month: monthKey(range.ym), leads: leads === null ? null : Math.round(leads), sales: sales === null ? null : Math.round(sales), profit },
       }),
-      prisma.user.update({ where: { id: input.userId }, data: { salaryBase: base, salaryCurrency: currency, commissionPct: pct, planBonusPct: bonus } }),
+      prisma.user.update({ where: { id: input.userId }, data: { salaryBase: base, salaryCurrency: currency, commissionPct: pct, planBonusPct: bonus, commissionFrom: input.commissionFrom === "PROFIT" ? "PROFIT" : "REVENUE" } }),
     ]);
     revalidatePath("/reports");
   });
