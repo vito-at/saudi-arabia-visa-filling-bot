@@ -49,7 +49,7 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
   );
 
   return (
-    <div className="max-w-4xl">
+    <div>
       <PageHeader title={t("tasks.title")} description={t("tasks.description")} />
       <div className="mb-4 flex items-center gap-3">
         <div className="flex rounded-lg bg-slate-200/60 p-1">
