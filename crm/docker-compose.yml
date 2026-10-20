@@ -47,12 +47,14 @@ services:
     profiles: ["https"]
     environment:
       DOMAIN: ${DOMAIN:?Укажите DOMAIN в .env}
+      LINKS_DOMAIN: ${LINKS_DOMAIN:-link.orienttravel.uz}
     ports:
       - "80:80"
       - "443:443"
       - "443:443/udp"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ../links:/srv/links:ro   # страница-визитка (после git pull обновляется сама)
       - caddy_data:/data
       - caddy_config:/config
     depends_on:

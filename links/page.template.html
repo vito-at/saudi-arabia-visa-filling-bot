@@ -1,0 +1,509 @@
+<title>Orient Travel</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Orient Travel — aviachiptalar, turlar, vizalar. Farg'ona.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;700;800&display=swap">
+<style>
+/* Layout: одна узкая колонка «как в Instagram-ссылке» — логотип, главная оранжевая кнопка, список контактов, адрес, тёмный футер. Токены — из дизайн-системы Orient Travel. */
+:root {
+  --brand-orange: #f77426;
+  --brand-navy: #11161c;
+  --brand-orange-text: #b5500f;
+  --brand-orange-tint: #fdeadf;
+  --on-brand: #11161c;
+  --surface: #ffffff;
+  --surface-raised: #f4f5f7;
+  --ink: #000000;
+  --ink-muted: #5b616b;
+  --border: #e3e5e8;
+  --focus-ring: #11161c;
+  --scrim: rgba(17, 22, 28, 0.45);
+  --logo-light: block;
+  --logo-dark: none;
+
+  --font: "Manrope", "Helvetica Neue", Arial, sans-serif;
+  --space-1: 4px; --space-2: 8px; --space-4: 16px; --space-6: 24px; --space-12: 48px;
+  --radius-sm: 6px; --radius-lg: 16px; --radius-pill: 999px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --brand-orange-text: #f77426; --brand-orange-tint: #3a2414;
+    --surface: #11161c; --surface-raised: #1a2029;
+    --ink: #ffffff; --ink-muted: #a1a8b3; --border: #2a313b; --focus-ring: #f77426;
+    --scrim: rgba(0, 0, 0, 0.6);
+    --logo-light: none; --logo-dark: block;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --brand-orange-text: #f77426; --brand-orange-tint: #3a2414;
+  --surface: #11161c; --surface-raised: #1a2029;
+  --ink: #ffffff; --ink-muted: #a1a8b3; --border: #2a313b; --focus-ring: #f77426;
+  --scrim: rgba(0, 0, 0, 0.6);
+  --logo-light: none; --logo-dark: block;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { min-height: 100%; }
+body {
+  margin: 0;
+  background: var(--surface);
+  color: var(--ink);
+  font: 400 16px/24px var(--font);
+  -webkit-font-smoothing: antialiased;
+}
+a { color: inherit; text-decoration: none; }
+:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+
+/* Фон: вращающийся точечный глобус с рейсами из Ташкента */
+#globe {
+  position: fixed; inset: 0; width: 100%; height: 100%;
+  z-index: 0; pointer-events: none;
+}
+
+.page {
+  position: relative; z-index: 1;
+  max-width: 480px;
+  margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: var(--space-6) var(--space-12);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+/* Шапка */
+.top { display: flex; justify-content: flex-end; }
+.lang {
+  display: inline-flex; padding: 3px; gap: 2px;
+  background: var(--surface-raised); border-radius: var(--radius-pill);
+}
+.lang button {
+  font: 700 13px/20px var(--font); letter-spacing: .04em;
+  border: 0; background: transparent; color: var(--ink-muted);
+  padding: 4px 12px; border-radius: var(--radius-pill); cursor: pointer;
+}
+.lang button[aria-pressed="true"] { background: var(--surface); color: var(--ink); }
+
+.hero { display: flex; flex-direction: column; align-items: center; text-align: center; gap: var(--space-4); padding-block: var(--space-2) 0; }
+/* место под глобус над логотипом (класс ставит скрипт глобуса) */
+.has-globe .hero { padding-top: clamp(150px, 38vw, 230px); }
+.hero img { width: min(240px, 70%); height: auto; }
+.hero .on-light { display: var(--logo-light); }
+.hero .on-dark { display: var(--logo-dark); }
+.lead { margin: 0; font-weight: 300; font-size: 20px; line-height: 28px; text-wrap: balance; max-width: 26ch; }
+
+.services { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
+.services li {
+  font: 700 13px/20px var(--font);
+  padding: 4px 12px; border-radius: var(--radius-pill);
+  background: var(--brand-orange-tint); color: var(--ink);
+}
+
+/* Кнопки-ссылки */
+.links { display: flex; flex-direction: column; gap: 12px; }
+.link {
+  display: grid; grid-template-columns: 44px 1fr auto; align-items: center; gap: 14px;
+  min-height: 72px; padding: 12px 20px 12px 14px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  transition: transform .15s ease, border-color .15s ease;
+}
+.link:hover { border-color: var(--brand-orange); }
+.link:active { transform: scale(.985); }
+.link .ico {
+  width: 44px; height: 44px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--surface); color: var(--brand-orange-text);
+}
+.link .ico svg { width: 22px; height: 22px; }
+.link .txt { min-width: 0; display: flex; flex-direction: column; }
+.link .ttl { font-weight: 700; font-size: 16px; line-height: 22px; }
+.link .sub { font-size: 14px; line-height: 20px; color: var(--ink-muted); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.link .go { color: var(--brand-orange-text); font-size: 14px; }
+
+.link.primary { background: var(--brand-orange); border-color: var(--brand-orange); color: var(--on-brand); }
+.link.primary .ico { background: var(--on-brand); color: var(--brand-orange); }
+.link.primary .sub { color: var(--on-brand); opacity: .8; }
+.link.primary .go { color: var(--on-brand); }
+
+.section-label {
+  margin: var(--space-2) 0 0; font: 700 12px/16px var(--font);
+  letter-spacing: .12em; text-transform: uppercase; color: var(--ink-muted);
+}
+
+
+
+button.link { width: 100%; font: inherit; text-align: left; cursor: pointer; }
+
+/* Выбор менеджера в Telegram: шторка снизу */
+.scrim { position: fixed; inset: 0; z-index: 20; background: var(--scrim); animation: fade .2s ease; }
+.sheet {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 21;
+  max-width: 480px; margin: 0 auto;
+  max-height: 85%; overflow-y: auto;
+  background: var(--surface); color: var(--ink);
+  border: 1px solid var(--border); border-bottom: 0;
+  border-radius: 24px 24px 0 0;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 10px max(24px, env(safe-area-inset-bottom, 0px));
+  display: flex; flex-direction: column; gap: var(--space-4);
+  animation: rise .25s cubic-bezier(.2, .8, .2, 1);
+}
+.grip { width: 40px; height: 4px; border-radius: var(--radius-pill); background: var(--border); align-self: center; }
+.sheet-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); }
+.sheet-head h2 { margin: 0; font-size: 20px; line-height: 28px; font-weight: 800; }
+.sheet-close {
+  width: 36px; height: 36px; flex: none; border: 0; border-radius: 50%; cursor: pointer;
+  background: var(--surface-raised); color: var(--ink); font: 400 22px/1 var(--font);
+}
+.sheet-note { margin: -8px 0 0; color: var(--ink-muted); font-size: 14px; line-height: 20px; }
+.managers { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.mgr {
+  display: grid; grid-template-columns: 40px 1fr auto; align-items: center; gap: 12px;
+  padding: 10px 16px 10px 10px; border-radius: var(--radius-lg);
+  background: var(--surface-raised); border: 1px solid var(--border);
+}
+.mgr:hover { border-color: var(--brand-orange); }
+.mgr .ico { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: var(--brand-orange-tint); color: var(--brand-orange-text); }
+.mgr .ico svg { width: 20px; height: 20px; }
+.mgr .txt { min-width: 0; display: flex; flex-direction: column; }
+.mgr .ttl { font-weight: 700; }
+.mgr .sub { font-size: 14px; line-height: 20px; color: var(--ink-muted); overflow-wrap: anywhere; }
+.mgr .go { color: var(--brand-orange-text); font-size: 14px; }
+@keyframes rise { from { transform: translateY(100%); } to { transform: none; } }
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+
+@media (prefers-reduced-motion: reduce) { .link { transition: none; } .link:active { transform: none; } .sheet, .scrim { animation: none; } }
+</style>
+
+<canvas id="globe" aria-hidden="true"></canvas>
+
+<main class="page">
+  <div class="top">
+    <div class="lang" role="group" aria-label="Til / Язык">
+      <button type="button" id="lang-uz" data-lang="uz" aria-pressed="true">UZ</button>
+      <button type="button" id="lang-ru" data-lang="ru" aria-pressed="false">RU</button>
+    </div>
+  </div>
+
+  <header class="hero">
+    <img class="on-light" src="{{LOGO_LIGHT}}" alt="orient travel" width="408" height="134">
+    <img class="on-dark" src="{{LOGO_DARK}}" alt="orient travel" width="408" height="134">
+    <p class="lead" data-i18n="lead">Sayohat qiling, dunyoni kashf eting</p>
+    <ul class="services">
+      <li data-i18n="s1">Aviachiptalar</li>
+      <li data-i18n="s2">Turlar</li>
+      <li data-i18n="s3">Vizalar</li>
+    </ul>
+  </header>
+
+  <nav class="links" aria-label="Kontaktlar">
+    <a class="link" href="https://t.me/orient_travel" target="_blank" rel="noopener">
+      <span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M21.4 3.6 2.9 10.8c-1.3.5-1.3 1.2-.2 1.6l4.7 1.5 1.8 5.6c.2.6.1.9.8.9.5 0 .7-.2 1-.5l2.3-2.2 4.8 3.5c.9.5 1.5.2 1.7-.8l3.1-14.8c.3-1.3-.5-1.9-1.5-1.5ZM8.6 13.6l9.9-6.2c.5-.3.9-.1.5.2l-8.4 7.6-.3 3.6-1.7-5.2Z"/></svg></span>
+      <span class="txt"><span class="ttl" data-i18n="channel">Telegram kanalimiz</span><span class="sub">@orient_travel</span></span>
+      <span class="go" aria-hidden="true">►</span>
+    </a>
+
+    <button type="button" class="link primary" data-sheet="tg-sheet" aria-haspopup="dialog" aria-controls="tg-sheet">
+      <span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M21.4 3.6 2.9 10.8c-1.3.5-1.3 1.2-.2 1.6l4.7 1.5 1.8 5.6c.2.6.1.9.8.9.5 0 .7-.2 1-.5l2.3-2.2 4.8 3.5c.9.5 1.5.2 1.7-.8l3.1-14.8c.3-1.3-.5-1.9-1.5-1.5ZM8.6 13.6l9.9-6.2c.5-.3.9-.1.5.2l-8.4 7.6-.3 3.6-1.7-5.2Z"/></svg></span>
+      <span class="txt"><span class="ttl" data-i18n="tg">Telegramda yozing</span><span class="sub" data-i18n="tgSub">Menejer tez javob beradi</span></span>
+      <span class="go" aria-hidden="true">►</span>
+    </button>
+
+    <button type="button" class="link" data-sheet="call-sheet" aria-haspopup="dialog" aria-controls="call-sheet">
+      <span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1A17 17 0 0 1 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1l-2.3 2.2Z"/></svg></span>
+      <span class="txt"><span class="ttl" data-i18n="call">Qo'ng'iroq qilish</span><span class="sub" data-i18n="callSub">Menejerni tanlang</span></span>
+      <span class="go" aria-hidden="true">►</span>
+    </button>
+
+    <a class="link" href="https://yandex.ru/maps/org/orient_travel/6552049796/" target="_blank" rel="noopener">
+      <span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7Zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5Z"/></svg></span>
+      <span class="txt"><span class="ttl" data-i18n="loc">Lokatsiya</span><span class="sub" data-i18n="addr">Farg'ona, Ma'rifat ko'chasi, 43</span></span>
+      <span class="go" aria-hidden="true">►</span>
+    </a>
+
+    <a class="link" href="https://orientvisa.uz" target="_blank" rel="noopener">
+      <span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.7 3.8 5.7 3.8 9s-1.3 6.3-3.8 9c-2.5-2.7-3.8-5.7-3.8-9S9.5 5.7 12 3Z"/></svg></span>
+      <span class="txt"><span class="ttl" data-i18n="visa">Onlayn viza arizasi</span><span class="sub">orientvisa.uz</span></span>
+      <span class="go" aria-hidden="true">►</span>
+    </a>
+  </nav>
+</main>
+
+<div class="scrim" id="scrim" hidden></div>
+<div class="sheet" id="tg-sheet" role="dialog" aria-modal="true" aria-labelledby="tg-title" hidden>
+  <div class="grip" aria-hidden="true"></div>
+  <div class="sheet-head">
+    <h2 id="tg-title" data-i18n="tgTitle">Kimga yozamiz?</h2>
+    <button type="button" class="sheet-close" aria-label="Yopish" data-i18n-label="close">×</button>
+  </div>
+  <p class="sheet-note" data-i18n="tgNote">Savolingizga mos menejerni tanlang</p>
+  <ul class="managers">
+{{TELEGRAM_ITEMS}}
+  </ul>
+</div>
+<div class="sheet" id="call-sheet" role="dialog" aria-modal="true" aria-labelledby="call-title" hidden>
+  <div class="grip" aria-hidden="true"></div>
+  <div class="sheet-head">
+    <h2 id="call-title" data-i18n="callTitle">Kimga qo'ng'iroq qilamiz?</h2>
+    <button type="button" class="sheet-close" aria-label="Yopish" data-i18n-label="close">×</button>
+  </div>
+  <p class="sheet-note" data-i18n="callNote">Raqamni bosing — telefon qo'ng'iroqni boshlaydi</p>
+  <ul class="managers">
+{{PHONE_ITEMS}}
+  </ul>
+</div>
+
+<script>
+/* Глобус: точки суши (маска 2°), дуги рейсов из Ташкента, медленное вращение. */
+(function () {
+  var cv = document.getElementById("globe");
+  var ctx = cv.getContext && cv.getContext("2d");
+  if (!ctx) return;
+  document.documentElement.classList.add("has-globe");
+
+  var MASK = atob("{{LAND_MASK}}");
+  var STEP = 2, COLS = 360 / STEP;
+  var RAD = Math.PI / 180;
+
+  function isLand(lat, lon) {
+    var idx = Math.floor((90 - lat) / STEP) * COLS + Math.floor((lon + 180) / STEP);
+    return (MASK.charCodeAt(idx >> 3) >> (7 - (idx & 7))) & 1;
+  }
+  function vec(lat, lon) {
+    var c = Math.cos(lat * RAD);
+    return [c * Math.sin(lon * RAD), Math.sin(lat * RAD), c * Math.cos(lon * RAD)];
+  }
+
+  // Точки суши: шаг по долготе растёт к полюсам, чтобы плотность была ровной
+  var dots = [];
+  for (var lat = 90 - STEP / 2; lat > -90; lat -= STEP) {
+    var n = Math.max(1, Math.round(COLS * Math.cos(lat * RAD)));
+    for (var k = 0; k < n; k++) {
+      var lon = -180 + (k + 0.5) * 360 / n;
+      if (isLand(lat, lon)) dots.push(vec(lat, lon));
+    }
+  }
+
+  // Рейсы из Ташкента
+  var HOME = vec(41.3, 69.24);
+  var DEST = [
+    [41.01, 28.98],   // Стамбул
+    [25.2, 55.27],    // Дубай
+    [55.75, 37.62],   // Москва
+    [36.9, 30.7],     // Анталья
+    [27.91, 34.33],   // Шарм-эш-Шейх
+    [3.14, 101.69],   // Куала-Лумпур
+    [37.57, 126.98],  // Сеул
+    [13.75, 100.5]    // Бангкок
+  ];
+  var routes = DEST.map(function (d, i) {
+    var b = vec(d[0], d[1]);
+    var dot = HOME[0] * b[0] + HOME[1] * b[1] + HOME[2] * b[2];
+    var om = Math.acos(Math.min(1, dot)), so = Math.sin(om);
+    var lift = 0.06 + om * 0.18, pts = [];
+    for (var s = 0; s <= 48; s++) {
+      var t = s / 48;
+      var p = Math.sin((1 - t) * om) / so, q = Math.sin(t * om) / so;
+      var h = 1 + lift * Math.sin(Math.PI * t);
+      pts.push([(p * HOME[0] + q * b[0]) * h, (p * HOME[1] + q * b[1]) * h, (p * HOME[2] + q * b[2]) * h]);
+    }
+    return { pts: pts, end: b, period: 5200 + i * 430, offset: i * 911 };
+  });
+
+  var colors = {};
+  function readColors() {
+    var cs = getComputedStyle(document.documentElement);
+    colors.dot = cs.getPropertyValue("--ink-muted").trim() || "#5b616b";
+    colors.accent = cs.getPropertyValue("--brand-orange").trim() || "#f77426";
+    colors.line = cs.getPropertyValue("--border").trim() || "#e3e5e8";
+  }
+  readColors();
+  if (window.matchMedia) {
+    var mq = window.matchMedia("(prefers-color-scheme: dark)");
+    (mq.addEventListener ? mq.addEventListener("change", readColors) : mq.addListener(readColors));
+  }
+  new MutationObserver(readColors).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+  var W, H, R, CX, CY, dpr;
+  function resize() {
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth; H = window.innerHeight;
+    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+    // Ташкент держится в полосе над логотипом, примерно на высоте 110px
+    R = Math.min(W * 0.42, 240);
+    CX = W / 2; CY = 110 + 0.25 * R;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  resize();
+  window.addEventListener("resize", resize);
+
+  var TILT = 25 * RAD, ct = Math.cos(TILT), st = Math.sin(TILT);
+  var cy_, sy_;
+  // Поворот вокруг оси Y (вращение), затем наклон к зрителю
+  function project(v, out) {
+    var x = v[0] * cy_ - v[2] * sy_;
+    var z = v[0] * sy_ + v[2] * cy_;
+    var y = v[1] * ct - z * st;
+    z = v[1] * st + z * ct;
+    out[0] = CX + x * R; out[1] = CY - y * R; out[2] = z;
+    return out;
+  }
+
+  var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var a = [0, 0, 0], b2 = [0, 0, 0];
+
+  function frame(now) {
+    var rot = (95 - (reduce ? 0 : (now * 0.004) % 360)) * RAD; // к зрителю — долгота rot; оборот примерно за 90 секунд
+    cy_ = Math.cos(rot); sy_ = Math.sin(rot);
+    ctx.clearRect(0, 0, W, H);
+
+    // Контур сферы
+    ctx.strokeStyle = colors.line; ctx.globalAlpha = 1; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(CX, CY, R, 0, Math.PI * 2); ctx.stroke();
+
+    // Суша
+    ctx.fillStyle = colors.dot;
+    var ds = Math.max(1.1, R / 190);
+    for (var i = 0; i < dots.length; i++) {
+      project(dots[i], a);
+      if (a[2] <= 0) continue;
+      ctx.globalAlpha = 0.18 + 0.5 * a[2];
+      ctx.fillRect(a[0] - ds / 2, a[1] - ds / 2, ds, ds);
+    }
+
+    // Рейсы
+    ctx.strokeStyle = colors.accent; ctx.fillStyle = colors.accent; ctx.lineCap = "round";
+    routes.forEach(function (r) {
+      var pts = r.pts, last = pts.length - 1;
+      var head = reduce ? 1 : ((now + r.offset) % r.period) / r.period * 1.25; // 0..1 полёт, затем пауза
+      // тонкая трасса
+      ctx.lineWidth = 1;
+      for (var s = 0; s < last; s++) {
+        project(pts[s], a); project(pts[s + 1], b2);
+        if (a[2] < -0.05) continue;
+        ctx.globalAlpha = 0.35 * Math.max(0.2, a[2] + 0.3);
+        ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b2[0], b2[1]); ctx.stroke();
+      }
+      // самолёт со шлейфом
+      if (head <= 1) {
+        var hi = Math.round(head * last), lo = Math.max(0, hi - 12);
+        ctx.lineWidth = 2;
+        for (var s2 = lo; s2 < hi; s2++) {
+          project(pts[s2], a); project(pts[s2 + 1], b2);
+          if (a[2] < -0.05) continue;
+          ctx.globalAlpha = (s2 - lo + 1) / (hi - lo);
+          ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b2[0], b2[1]); ctx.stroke();
+        }
+        project(pts[hi], a);
+        if (a[2] > -0.05) { ctx.globalAlpha = 1; ctx.beginPath(); ctx.arc(a[0], a[1], 2.6, 0, Math.PI * 2); ctx.fill(); }
+      }
+      // точка назначения
+      project(r.end, a);
+      if (a[2] > 0) { ctx.globalAlpha = 0.5 + 0.5 * a[2]; ctx.beginPath(); ctx.arc(a[0], a[1], 2, 0, Math.PI * 2); ctx.fill(); }
+    });
+
+    // Ташкент с пульсом
+    project(HOME, a);
+    if (a[2] > 0) {
+      ctx.globalAlpha = 1; ctx.beginPath(); ctx.arc(a[0], a[1], 3.5, 0, Math.PI * 2); ctx.fill();
+      if (!reduce) {
+        var p = (now % 2400) / 2400;
+        ctx.globalAlpha = 1 - p; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.arc(a[0], a[1], 4 + p * 14, 0, Math.PI * 2); ctx.stroke();
+      }
+    }
+    ctx.globalAlpha = 1;
+    if (!reduce) requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+  window.addEventListener("resize", function () { if (reduce) requestAnimationFrame(frame); });
+})();
+
+(function () {
+  var dict = {
+    uz: {
+      lead: "Sayohat qiling, dunyoni kashf eting",
+      s1: "Aviachiptalar", s2: "Turlar", s3: "Vizalar",
+      tg: "Telegramda yozing", tgSub: "Menejer tez javob beradi",
+      tgTitle: "Kimga yozamiz?", tgNote: "Savolingizga mos menejerni tanlang", close: "Yopish",
+      call: "Qo'ng'iroq qilish", callSub: "Menejerni tanlang", visa: "Onlayn viza arizasi",
+      callTitle: "Kimga qo'ng'iroq qilamiz?", callNote: "Raqamni bosing — telefon qo'ng'iroqni boshlaydi",
+      channel: "Telegram kanalimiz", loc: "Lokatsiya", addr: "Farg'ona, Ma'rifat ko'chasi, 43"
+    },
+    ru: {
+      lead: "Путешествуйте и открывайте мир",
+      s1: "Авиабилеты", s2: "Туры", s3: "Визы",
+      tg: "Написать в Telegram", tgSub: "Менеджер ответит быстро",
+      tgTitle: "Кому написать?", tgNote: "Выберите менеджера по вашему вопросу", close: "Закрыть",
+      call: "Позвонить", callSub: "Выберите менеджера", visa: "Онлайн-заявка на визу",
+      callTitle: "Кому позвонить?", callNote: "Нажмите на номер — телефон начнёт звонок",
+      channel: "Наш Telegram-канал", loc: "Локация", addr: "Фергана, ул. Маърифат, 43"
+    }
+  };
+  function apply(lang) {
+    var t = dict[lang] || dict.uz;
+    document.documentElement.lang = lang;
+    document.querySelectorAll("[data-i18n]").forEach(function (el) {
+      var k = el.getAttribute("data-i18n");
+      if (t[k]) el.textContent = t[k];
+    });
+    document.querySelectorAll("[data-i18n-label]").forEach(function (el) {
+      var k = el.getAttribute("data-i18n-label");
+      if (t[k]) el.setAttribute("aria-label", t[k]);
+    });
+    document.querySelectorAll("[data-" + lang + "]").forEach(function (el) {
+      el.textContent = el.getAttribute("data-" + lang);
+    });
+    document.querySelectorAll(".lang button").forEach(function (b) {
+      b.setAttribute("aria-pressed", String(b.dataset.lang === lang));
+    });
+    try { localStorage.setItem("ot-lang", lang); } catch (e) {}
+  }
+  var saved = null;
+  try { saved = localStorage.getItem("ot-lang"); } catch (e) {}
+  apply(saved || "uz");
+  document.querySelectorAll(".lang button").forEach(function (b) {
+    b.addEventListener("click", function () { apply(b.dataset.lang); });
+  });
+
+  // Шторки выбора менеджера (Telegram и звонок)
+  var scrim = document.getElementById("scrim");
+  var sheet = null, opener = null;
+  function openSheet(btn) {
+    opener = btn;
+    sheet = document.getElementById(btn.getAttribute("data-sheet"));
+    sheet.hidden = false; scrim.hidden = false;
+    document.body.style.overflow = "hidden";
+    (sheet.querySelector(".mgr") || sheet.querySelector(".sheet-close")).focus();
+  }
+  function closeSheet() {
+    if (!sheet) return;
+    sheet.hidden = true; scrim.hidden = true; sheet = null;
+    document.body.style.overflow = "";
+    opener.focus();
+  }
+  document.querySelectorAll("[data-sheet]").forEach(function (b) {
+    b.addEventListener("click", function () { openSheet(b); });
+  });
+  document.querySelectorAll(".sheet-close").forEach(function (b) { b.addEventListener("click", closeSheet); });
+  scrim.addEventListener("click", closeSheet);
+  document.addEventListener("keydown", function (e) {
+    if (!sheet) return;
+    if (e.key === "Escape") { closeSheet(); return; }
+    if (e.key === "Tab") {
+      var f = sheet.querySelectorAll("a, button");
+      var a = f[0], z = f[f.length - 1];
+      if (e.shiftKey && document.activeElement === a) { e.preventDefault(); z.focus(); }
+      else if (!e.shiftKey && document.activeElement === z) { e.preventDefault(); a.focus(); }
+    }
+  });
+})();
+</script>
