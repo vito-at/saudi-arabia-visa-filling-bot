@@ -53,9 +53,9 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   const active: Tab = tab in TABS ? tab : "general";
 
   return (
-    <div className="max-w-5xl">
+    <div>
       <PageHeader title={t("settings.title")} />
-      <div className="no-scrollbar -mx-3 mb-5 flex gap-1 overflow-x-auto overflow-y-hidden overscroll-x-contain whitespace-nowrap px-3 shadow-[inset_0_-1px_0_var(--border)] sm:mx-0 sm:px-0">
+      <div className="no-scrollbar -mx-3 mb-5 flex gap-1 overflow-x-auto overflow-y-hidden overscroll-x-contain whitespace-nowrap px-3 shadow-[inset_0_-1px_0_var(--border)] sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
         {(Object.keys(TABS) as Tab[]).map((k) => (
           <Link
             key={k}
