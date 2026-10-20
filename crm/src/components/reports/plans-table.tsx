@@ -24,6 +24,7 @@ export interface PlanRowView {
   total: number;
   currency: "UZS" | "USD";
   terms: { base: number; currency: "UZS" | "USD"; pct: number; bonusPct: number; from: "REVENUE" | "PROFIT" };
+  termsSince: string | null;
 }
 
 /** Факт / план с полоской выполнения: зелёная — план выполнен, оранжевая — нет */
@@ -88,7 +89,10 @@ function EditDialog({ row, month, onClose }: { row: PlanRowView; month: string; 
               <Input inputMode="decimal" value={v.profit} onChange={set("profit")} />
             </Field>
           </div>
-          <div className="text-sm font-semibold">{t("plans.salaryTerms")}</div>
+          <div>
+            <div className="text-sm font-semibold">{t("plans.salaryTerms", { month })}</div>
+            <div className="text-xs text-muted-foreground">{row.termsSince ? t("plans.termsSince", { month: row.termsSince }) : t("plans.termsAlways")}</div>
+          </div>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             <Field label={t("plans.base")}>
               <Input inputMode="decimal" value={v.salaryBase} onChange={set("salaryBase")} />

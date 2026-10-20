@@ -96,6 +96,7 @@ model User {
   dealPayments  DealPayment[]
   chatMessages  ChatMessage[]
   plans         ManagerPlan[]
+  salaryTerms   SalaryTerm[]
   notifications Notification[]
   comments      Comment[]
   history       LeadHistory[]
@@ -608,6 +609,24 @@ model ManagerPlan {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, month])
+}
+
+/// Условия зарплаты, действующие с месяца fromMonth до следующей записи: изменение не пересчитывает прошлые месяцы
+model SalaryTerm {
+  id             String         @id @default(cuid())
+  userId         String
+  /// первое число месяца (UTC)
+  fromMonth      DateTime       @db.Date
+  base           Decimal        @db.Decimal(18, 2)
+  currency       Currency       @default(UZS)
+  pct            Decimal        @db.Decimal(5, 2)
+  bonusPct       Decimal        @default(0) @db.Decimal(5, 2)
+  commissionFrom CommissionBase @default(REVENUE)
+  createdAt      DateTime       @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, fromMonth])
 }
 
 /// Уведомление сотруднику (колокольчик): новый лид, просроченная задача, срок долга, продажа без себестоимости…

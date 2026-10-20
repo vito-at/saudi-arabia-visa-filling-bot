@@ -96,7 +96,12 @@ export interface ManagerMonth extends PayoutRow {
   userId: string;
   name: string;
   terms: SalaryTerms;
+  /** с какого месяца действуют условия («2026-10»); null — с самого начала */
+  termsSince: string | null;
 }
+
+/** Условия до этой даты считаем «с самого начала» (запись миграции) */
+const TERMS_EPOCH = "2000-01";
 
 /** Планы, факт и зарплата менеджеров за месяц (managerId — только один) */
 export async function loadManagerMonths(range: MonthRange, managerId: string | null): Promise<ManagerMonth[]> {
@@ -107,7 +112,11 @@ export async function loadManagerMonths(range: MonthRange, managerId: string | n
   const users = await prisma.user.findMany({
     where: { role: "MANAGER", ...(managerId ? { id: managerId } : { isActive: true }) },
     orderBy: { name: "asc" },
-    include: { plans: { where: { month: monthKey(range.ym) } } },
+    include: {
+      plans: { where: { month: monthKey(range.ym) } },
+      // условия, действующие в этом месяце: последняя запись, начавшаяся не позже него
+      salaryTerms: { where: { fromMonth: { lte: monthKey(range.ym) } }, orderBy: { fromMonth: "desc" }, take: 1 },
+    },
   });
   const ids = users.map((u) => u.id);
   const [leads, deals] = await Promise.all([
@@ -119,7 +128,12 @@ export async function loadManagerMonths(range: MonthRange, managerId: string | n
   ]);
   return users.map((u) => {
     const own = deals.filter((d) => d.managerId === u.id).map((d) => ({ ...d, amount: toNum(d.amount), cost: toNum(d.cost) }));
-    const terms: SalaryTerms = { base: toNum(u.salaryBase), currency: u.salaryCurrency, pct: toNum(u.commissionPct), bonusPct: toNum(u.planBonusPct), from: u.commissionFrom };
+    const st = u.salaryTerms[0];
+    const terms: SalaryTerms = st
+      ? { base: toNum(st.base), currency: st.currency, pct: toNum(st.pct), bonusPct: toNum(st.bonusPct), from: st.commissionFrom }
+      : { base: toNum(u.salaryBase), currency: u.salaryCurrency, pct: toNum(u.commissionPct), bonusPct: toNum(u.planBonusPct), from: u.commissionFrom };
+    const since = st ? st.fromMonth.toISOString().slice(0, 7) : null;
+    const termsSince = since && since > TERMS_EPOCH ? since : null;
     const profitIn = (currency: Currency) => round2(own.reduce((s, d) => s + dealProfit(d, { currency, rate, costRate, book }), 0));
     const revenueIn = (currency: Currency) => round2(own.reduce((s, d) => s + dealRevenue(d, { currency, rate, costRate, book }), 0));
     const fact: PlanFact = {
@@ -132,6 +146,6 @@ export async function loadManagerMonths(range: MonthRange, managerId: string | n
     };
     const p = u.plans[0];
     const plan: PlanValues = { leads: p?.leads ?? null, sales: p?.sales ?? null, profit: p?.profit === null || p?.profit === undefined ? null : toNum(p.profit) };
-    return { userId: u.id, name: u.name, terms, ...calcPayout(terms, plan, fact) };
+    return { userId: u.id, name: u.name, terms, termsSince, ...calcPayout(terms, plan, fact) };
   });
 }
