@@ -4,6 +4,8 @@
  * сумма продаж и прибыль — по этим сделкам (по курсам дня оплаты).
  * Зарплата = оклад + сумма продаж (или прибыль — задаётся у менеджера) × (процент + надбавка, если план по прибыли выполнен).
  * По умолчанию: 1 500 000 сум + 5% от суммы продаж.
+ * Учёт зарплаты в CRM начинается с «salaryStartAt» (настройки): учитываются только сделки, оплаченные с этого момента,
+ * а месяцы целиком до него не считаются (расчёты за них вели вне CRM). Выплаты — частями, «Осталось» = к выплате − выплачено.
  */
 import type { CommissionBase, Currency } from "@prisma/client";
 import { prisma } from "@/lib/db";
@@ -98,6 +100,14 @@ export interface ManagerMonth extends PayoutRow {
   terms: SalaryTerms;
   /** с какого месяца действуют условия («2026-10»); null — с самого начала */
   termsSince: string | null;
+  /** месяц входит в учёт зарплаты CRM (не целиком до даты начала учёта) */
+  tracked: boolean;
+  /** продажи считаются не с начала месяца, а с даты начала учёта (ISO) */
+  countedFrom: string | null;
+  paid: number;
+  /** к выплате − выплачено (отрицательное — переплата) */
+  left: number;
+  payouts: { id: string; amount: number; paidAt: string; note: string | null }[];
 }
 
 /** Условия до этой даты считаем «с самого начала» (запись миграции) */
@@ -119,12 +129,17 @@ export async function loadManagerMonths(range: MonthRange, managerId: string | n
     },
   });
   const ids = users.map((u) => u.id);
-  const [leads, deals] = await Promise.all([
+  const start = settings.salaryStartAt;
+  const tracked = !start || range.to > start;
+  // в месяце начала учёта комиссия — только с даты начала; месяцы до учёта показывают продажи как есть, без начислений
+  const dealsFrom = tracked && start && start > range.from ? start : range.from;
+  const [leads, deals, payouts] = await Promise.all([
     prisma.lead.groupBy({ by: ["managerId"], where: { managerId: { in: ids }, createdAt: { gte: range.from, lt: range.to } }, _count: { _all: true } }),
     prisma.deal.findMany({
-      where: { managerId: { in: ids }, paidAt: { gte: range.from, lt: range.to } },
+      where: { managerId: { in: ids }, paidAt: { gte: dealsFrom, lt: range.to } },
       select: { managerId: true, amount: true, cost: true, currency: true, costCurrency: true, paidAt: true, quantity: true },
     }),
+    prisma.salaryPayout.findMany({ where: { userId: { in: ids }, month: monthKey(range.ym) }, orderBy: { paidAt: "asc" } }),
   ]);
   return users.map((u) => {
     const own = deals.filter((d) => d.managerId === u.id).map((d) => ({ ...d, amount: toNum(d.amount), cost: toNum(d.cost) }));
@@ -146,6 +161,22 @@ export async function loadManagerMonths(range: MonthRange, managerId: string | n
     };
     const p = u.plans[0];
     const plan: PlanValues = { leads: p?.leads ?? null, sales: p?.sales ?? null, profit: p?.profit === null || p?.profit === undefined ? null : toNum(p.profit) };
-    return { userId: u.id, name: u.name, terms, termsSince, ...calcPayout(terms, plan, fact) };
+    const pay = calcPayout(terms, plan, fact);
+    // месяц до начала учёта: зарплату за него платили вне CRM
+    if (!tracked) Object.assign(pay, { commission: 0, base: 0, total: 0 });
+    const mine = payouts.filter((p) => p.userId === u.id);
+    const paid = round2(mine.reduce((s, p) => s + toNum(p.amount), 0));
+    return {
+      userId: u.id,
+      name: u.name,
+      terms,
+      termsSince,
+      ...pay,
+      tracked,
+      countedFrom: tracked && dealsFrom > range.from ? dealsFrom.toISOString() : null,
+      paid,
+      left: round2(pay.total - paid),
+      payouts: mine.map((p) => ({ id: p.id, amount: toNum(p.amount), paidAt: p.paidAt.toISOString(), note: p.note })),
+    };
   });
 }

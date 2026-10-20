@@ -6,7 +6,7 @@ import { FunnelBars, HBars, LossPie } from "@/components/reports/charts";
 import { ReportFilters } from "@/components/reports/report-filters";
 import { ReportTable } from "@/components/reports/report-table";
 import { formatDate, formatNumber, formatPercent } from "@/lib/format";
-import { getManagers } from "@/lib/refs";
+import { getManagers, getSettings } from "@/lib/refs";
 import { readFilters } from "@/lib/reports/data";
 import { AD_LEVELS, adsTable, clientsTable, funnelTable, lossesTables, managersTable, tasksTable, REPORT_TABS, servicesTables, type ReportTab } from "@/lib/reports/tables";
 import type { AdLevel } from "@/lib/reports/calc";
@@ -354,6 +354,7 @@ async function PlansReport({ f, ym, isAdmin, keep }: { f: F; ym: string | undefi
   };
   const fm = formatters(f.locale);
   const allMonths = [rows, ...history];
+  const salaryStart = (await getSettings()).salaryStartAt;
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -376,6 +377,7 @@ async function PlansReport({ f, ym, isAdmin, keep }: { f: F; ym: string | undefi
         </CardHeader>
         <PlansTable rows={rows} month={range.ym} editable={isAdmin} />
         <p className="px-5 py-3 text-xs text-muted-foreground">{f.t("plans.note")}</p>
+        {salaryStart && <p className="px-5 pb-3 text-xs text-muted-foreground">{f.t("plans.countedFrom", { date: formatDate(salaryStart) })}</p>}
       </Card>
       {rows.length > 0 && (
         <Card>
@@ -408,10 +410,15 @@ async function PlansReport({ f, ym, isAdmin, keep }: { f: F; ym: string | undefi
                         <td key={r.userId} className="px-3 py-2.5 text-right whitespace-nowrap tabular-nums">
                           {x ? (
                             <>
-                              <div className="font-medium">{fm.money(x.total, x.currency)}</div>
+                              <div className="font-medium">{x.tracked ? fm.money(x.total, x.currency) : f.t("plans.notTracked")}</div>
                               <div className="text-[11px] text-muted-foreground">
-                                {fm.money(x.fact.profitUsd, "USD")} · {x.fact.sales}
+                                {fm.money(x.fact.revenueUsd, "USD")} · {x.fact.sales}
                               </div>
+                              {(x.tracked || x.paid > 0) && (
+                                <div className={cn("text-[11px]", x.left > 0 ? "text-amber-600" : "text-emerald-600")}>
+                                  {f.t("plans.paid")} {fm.money(x.paid, x.currency)} · {f.t("plans.left")} {fm.money(x.left, x.currency)}
+                                </div>
+                              )}
                             </>
                           ) : (
                             "—"

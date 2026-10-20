@@ -97,6 +97,8 @@ model User {
   chatMessages  ChatMessage[]
   plans         ManagerPlan[]
   salaryTerms   SalaryTerm[]
+  salaryPaid    SalaryPayout[] @relation("PayoutManager")
+  salaryPaidBy  SalaryPayout[] @relation("PayoutAuthor")
   notifications Notification[]
   comments      Comment[]
   history       LeadHistory[]
@@ -439,6 +441,8 @@ model AppSettings {
   id                  Int              @id @default(1)
   distributionMode    DistributionMode @default(MANUAL)
   unprocessedAlertMin Int              @default(15)
+  /// с этого момента CRM считает зарплату (комиссию с продаж и оклад); раньше — расчёты вели вне CRM
+  salaryStartAt       DateTime?
   /// автораспределение: сколько необработанных (статус «Новый») лидов одновременно может быть у менеджера
   leadLimit           Int              @default(5)
   /// Курс продажи $ (банк покупает доллары, дешёвый) — по нему пересчитывается выручка
@@ -627,6 +631,25 @@ model SalaryTerm {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, fromMonth])
+}
+
+/// Выплата зарплаты менеджеру за месяц (можно частями): «Осталось» = к выплате за месяц − сумма выплат
+model SalaryPayout {
+  id          String   @id @default(cuid())
+  userId      String
+  /// месяц, за который выплата (первое число, UTC)
+  month       DateTime @db.Date
+  amount      Decimal  @db.Decimal(18, 2)
+  currency    Currency @default(UZS)
+  paidAt      DateTime @default(now())
+  note        String?
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  user      User  @relation("PayoutManager", fields: [userId], references: [id], onDelete: Cascade)
+  createdBy User? @relation("PayoutAuthor", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([userId, month])
 }
 
 /// Уведомление сотруднику (колокольчик): новый лид, просроченная задача, срок долга, продажа без себестоимости…
