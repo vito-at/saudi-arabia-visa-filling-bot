@@ -15,7 +15,7 @@ export interface PlanRowView {
   userId: string;
   name: string;
   plan: { leads: number | null; sales: number | null; profit: number | null };
-  fact: { leads: number; sales: number; profitUsd: number; profitSalary: number };
+  fact: { leads: number; sales: number; profitUsd: number; profitSalary: number; revenueUsd: number; revenueSalary: number };
   done: { leads: number | null; sales: number | null; profit: number | null };
   planMet: boolean;
   ratePct: number;
@@ -23,7 +23,8 @@ export interface PlanRowView {
   base: number;
   total: number;
   currency: "UZS" | "USD";
-  terms: { base: number; currency: "UZS" | "USD"; pct: number; bonusPct: number };
+  terms: { base: number; currency: "UZS" | "USD"; pct: number; bonusPct: number; from: "REVENUE" | "PROFIT" };
+  termsSince: string | null;
 }
 
 /** Факт / план с полоской выполнения: зелёная — план выполнен, оранжевая — нет */
@@ -60,6 +61,7 @@ function EditDialog({ row, month, onClose }: { row: PlanRowView; month: string; 
     salaryCurrency: row.terms.currency,
     commissionPct: String(row.terms.pct),
     planBonusPct: String(row.terms.bonusPct),
+    commissionFrom: row.terms.from,
   });
   const set = (k: keyof typeof v) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setV({ ...v, [k]: e.target.value });
   function save(e: React.FormEvent) {
@@ -87,8 +89,11 @@ function EditDialog({ row, month, onClose }: { row: PlanRowView; month: string; 
               <Input inputMode="decimal" value={v.profit} onChange={set("profit")} />
             </Field>
           </div>
-          <div className="text-sm font-semibold">{t("plans.salaryTerms")}</div>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div>
+            <div className="text-sm font-semibold">{t("plans.salaryTerms", { month })}</div>
+            <div className="text-xs text-muted-foreground">{row.termsSince ? t("plans.termsSince", { month: row.termsSince }) : t("plans.termsAlways")}</div>
+          </div>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             <Field label={t("plans.base")}>
               <Input inputMode="decimal" value={v.salaryBase} onChange={set("salaryBase")} />
             </Field>
@@ -100,6 +105,12 @@ function EditDialog({ row, month, onClose }: { row: PlanRowView; month: string; 
             </Field>
             <Field label={t("plans.pct")}>
               <Input inputMode="decimal" value={v.commissionPct} onChange={set("commissionPct")} />
+            </Field>
+            <Field label={t("plans.from")}>
+              <NativeSelect value={v.commissionFrom} onChange={set("commissionFrom")}>
+                <option value="REVENUE">{t("plans.fromRevenue")}</option>
+                <option value="PROFIT">{t("plans.fromProfit")}</option>
+              </NativeSelect>
             </Field>
             <Field label={t("plans.bonusPct")}>
               <Input inputMode="decimal" value={v.planBonusPct} onChange={set("planBonusPct")} />
@@ -133,6 +144,7 @@ export function PlansTable({ rows, month, editable }: { rows: PlanRowView[]; mon
               <th className="px-4 py-2 font-medium">{t("rt.managers.manager")}</th>
               <th className="px-3 py-2 font-medium">{t("plans.leads")}</th>
               <th className="px-3 py-2 font-medium">{t("plans.sales")}</th>
+              <th className="px-3 py-2 text-right font-medium">{t("plans.revenueUsd")}</th>
               <th className="px-3 py-2 font-medium">{t("plans.profitUsd")}</th>
               <th className="px-3 py-2 text-right font-medium">{t("plans.rate")}</th>
               <th className="px-3 py-2 text-right font-medium">{t("plans.commission")}</th>
@@ -151,11 +163,14 @@ export function PlansTable({ rows, month, editable }: { rows: PlanRowView[]; mon
                 <td className="px-3 py-3">
                   <Progress fact={r.fact.sales} plan={r.plan.sales} done={r.done.sales} />
                 </td>
+                <td className="px-3 py-3 text-right whitespace-nowrap tabular-nums">{f.money(r.fact.revenueUsd, "USD")}</td>
                 <td className="px-3 py-3">
                   <Progress fact={r.fact.profitUsd} plan={r.plan.profit} done={r.done.profit} money />
                 </td>
                 <td className="px-3 py-3 text-right tabular-nums">
-                  {formatNumber(r.ratePct, 1)}%{r.planMet && r.terms.bonusPct > 0 && <div className="text-[11px] text-emerald-700">{t("plans.bonusOn")}</div>}
+                  {formatNumber(r.ratePct, 1)}%
+                  <div className="text-[11px] text-muted-foreground">{r.terms.from === "PROFIT" ? t("plans.ofProfit") : t("plans.ofRevenue")}</div>
+                  {r.planMet && r.terms.bonusPct > 0 && <div className="text-[11px] text-emerald-700">{t("plans.bonusOn")}</div>}
                 </td>
                 <td className="px-3 py-3 text-right whitespace-nowrap tabular-nums">{f.money(r.commission, r.currency)}</td>
                 <td className="px-3 py-3 text-right whitespace-nowrap tabular-nums text-muted-foreground">{f.money(r.base, r.currency)}</td>

@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { calcPayout, monthRange, shiftMonth } from "@/lib/salary";
 
-const fact = { leads: 40, sales: 12, profitUsd: 5000, profitSalary: 60_000_000 };
+const fact = { leads: 40, sales: 12, profitUsd: 5000, profitSalary: 60_000_000, revenueUsd: 20_000, revenueSalary: 240_000_000 };
 
 describe("зарплата и план", () => {
   it("оклад + процент от прибыли; надбавка при выполнении плана по прибыли", () => {
-    const terms = { base: 3_000_000, currency: "UZS" as const, pct: 8, bonusPct: 2 };
+    const terms = { base: 3_000_000, currency: "UZS" as const, pct: 8, bonusPct: 2, from: "PROFIT" as const };
     const met = calcPayout(terms, { leads: 50, sales: 10, profit: 4000 }, fact);
     expect(met.planMet).toBe(true);
     expect(met.ratePct).toBe(10);
@@ -17,8 +17,13 @@ describe("зарплата и план", () => {
     expect(notMet.commission).toBe(4_800_000);
     expect(notMet.done.leads).toBeNull();
   });
+  it("по умолчанию: 1 500 000 сум + 5% от суммы продаж (не от прибыли)", () => {
+    const r = calcPayout({ base: 1_500_000, currency: "UZS", pct: 5, bonusPct: 0, from: "REVENUE" }, { leads: null, sales: null, profit: null }, fact);
+    expect(r.commission).toBe(12_000_000);
+    expect(r.total).toBe(13_500_000);
+  });
   it("убыточный месяц — только оклад", () => {
-    const r = calcPayout({ base: 500, currency: "USD", pct: 10, bonusPct: 0 }, { leads: null, sales: null, profit: null }, { ...fact, profitUsd: -100, profitSalary: -100 });
+    const r = calcPayout({ base: 500, currency: "USD", pct: 10, bonusPct: 0, from: "PROFIT" }, { leads: null, sales: null, profit: null }, { ...fact, profitUsd: -100, profitSalary: -100 });
     expect(r.commission).toBe(0);
     expect(r.total).toBe(500);
   });

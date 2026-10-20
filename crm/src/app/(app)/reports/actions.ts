@@ -93,6 +93,7 @@ export async function savePlanAction(input: {
   salaryCurrency: string;
   commissionPct: string;
   planBonusPct: string;
+  commissionFrom: string;
 }) {
   return runAction(async () => {
     await requireAdmin();
@@ -105,13 +106,32 @@ export async function savePlanAction(input: {
     const bonus = num(input.planBonusPct) ?? 0;
     if ([leads, sales, profit, base, pct, bonus].some((x) => Number.isNaN(x)) || pct > 100 || bonus > 100) throw new ValidationError("err.planValues");
     const currency = input.salaryCurrency === "USD" ? "USD" : "UZS";
+    const terms = { base, currency, pct, bonusPct: bonus, commissionFrom: input.commissionFrom === "PROFIT" ? "PROFIT" : "REVENUE" } as const;
+    // условия не менялись — новую запись не создаём, чтобы будущая правка более раннего месяца распространялась дальше
+    const current = await prisma.salaryTerm.findFirst({ where: { userId: input.userId, fromMonth: { lte: monthKey(range.ym) } }, orderBy: { fromMonth: "desc" } });
+    const same =
+      current &&
+      toNum(current.base) === base &&
+      current.currency === currency &&
+      toNum(current.pct) === pct &&
+      toNum(current.bonusPct) === bonus &&
+      current.commissionFrom === terms.commissionFrom;
     await prisma.$transaction([
       prisma.managerPlan.upsert({
         where: { userId_month: { userId: input.userId, month: monthKey(range.ym) } },
         update: { leads: leads === null ? null : Math.round(leads), sales: sales === null ? null : Math.round(sales), profit },
         create: { userId: input.userId, month: monthKey(range.ym), leads: leads === null ? null : Math.round(leads), sales: sales === null ? null : Math.round(sales), profit },
       }),
-      prisma.user.update({ where: { id: input.userId }, data: { salaryBase: base, salaryCurrency: currency, commissionPct: pct, planBonusPct: bonus } }),
+      // условия действуют с этого месяца до следующего изменения; прошлые месяцы считаются по прежним условиям
+      ...(same
+        ? []
+        : [
+            prisma.salaryTerm.upsert({
+              where: { userId_fromMonth: { userId: input.userId, fromMonth: monthKey(range.ym) } },
+              update: terms,
+              create: { userId: input.userId, fromMonth: monthKey(range.ym), ...terms },
+            }),
+          ]),
     ]);
     revalidatePath("/reports");
   });

@@ -4,7 +4,7 @@
  * Событие привязывается к лиду по его leadgen id (user_data.lead_id), каждая стадия — один раз на лид.
  * Отправка — сразу после смены статуса и повторно воркером, если Meta была недоступна.
  */
-import type { MetaIntegration, StatusKind } from "@prisma/client";
+import type { Currency, MetaIntegration, Prisma, StatusKind } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { decrypt } from "@/lib/crypto";
 import { convertRevenue, round2, toNum } from "@/lib/money";
@@ -72,15 +72,11 @@ export function capiConfig(i: MetaIntegration | null): CapiConfig | null {
   return { datasetId: i.capiDatasetId, token, testCode: i.capiTestCode || null };
 }
 
-/** Поставить события в очередь (только для лидов из формы Meta и при включённой интеграции) и сразу попробовать отправить */
-export async function queueConversions(leadId: string, to: { kind: StatusKind; inFunnel: boolean }): Promise<void> {
-  const names = conversionEventsFor(to);
-  if (!names.length) return;
-  const integration = await prisma.metaIntegration.findUnique({ where: { id: 1 } });
-  if (!capiConfig(integration)) return;
-  const lead = await prisma.lead.findUnique({ where: { id: leadId }, select: { leadgenId: true, deals: { select: { amount: true, currency: true } } } });
-  if (!lead?.leadgenId || !/^\d+$/.test(lead.leadgenId)) return;
+type LeadForEvents = { id: string; leadgenId: string | null; deals: { amount: Prisma.Decimal; currency: Currency }[] };
 
+/** Строки очереди для лида; eventTime — когда лид перешёл в статус (по умолчанию — сейчас) */
+async function eventRows(lead: LeadForEvents, names: CapiEvent[], eventTime?: Date): Promise<Prisma.ConversionEventCreateManyInput[]> {
+  if (!names.length || !lead.leadgenId || !/^\d+$/.test(lead.leadgenId)) return [];
   let value: number | null = null;
   if (names.includes("Converted")) {
     const s = await prisma.appSettings.findUnique({ where: { id: 1 } });
@@ -89,11 +85,48 @@ export async function queueConversions(leadId: string, to: { kind: StatusKind; i
     // сумма продаж лида в $ (по минимальному курсу, как выручка в отчётах)
     value = sale > 0 ? round2(lead.deals.reduce((sum, d) => sum + convertRevenue(toNum(d.amount), d.currency, "USD", rates), 0)) : null;
   }
-  await prisma.conversionEvent.createMany({
-    data: names.map((eventName) => ({ leadId, leadgenId: lead.leadgenId!, eventName, value: eventName === "Converted" ? value : null })),
-    skipDuplicates: true,
-  });
+  return names.map((eventName) => ({ leadId: lead.id, leadgenId: lead.leadgenId!, eventName, value: eventName === "Converted" ? value : null, ...(eventTime && { eventTime }) }));
+}
+
+const leadForEvents = { id: true, leadgenId: true, deals: { select: { amount: true, currency: true } } } as const;
+
+/** Поставить события в очередь (только для лидов из формы Meta и при включённой интеграции) и сразу попробовать отправить */
+export async function queueConversions(leadId: string, to: { kind: StatusKind; inFunnel: boolean }): Promise<void> {
+  const names = conversionEventsFor(to);
+  if (!names.length) return;
+  const integration = await prisma.metaIntegration.findUnique({ where: { id: 1 } });
+  if (!capiConfig(integration)) return;
+  const lead = await prisma.lead.findUnique({ where: { id: leadId }, select: leadForEvents });
+  if (!lead) return;
+  await prisma.conversionEvent.createMany({ data: await eventRows(lead, names), skipDuplicates: true });
   await sendPendingConversions();
+}
+
+/**
+ * Досылка: лиды из форм, перешедшие в статус за последние 7 дней, по которым событие не попало в очередь
+ * (Conversions API был выключен или не настроен, сбой при смене статуса). Время события — время смены статуса.
+ * Старше 7 дней Meta не принимает — такие продажи передать уже нельзя.
+ */
+export async function backfillConversions(now = new Date()): Promise<number> {
+  if (!capiConfig(await prisma.metaIntegration.findUnique({ where: { id: 1 } }))) return 0;
+  const leads = await prisma.lead.findMany({
+    where: {
+      leadgenId: { not: null },
+      // запас 10 минут, чтобы событие не стало «старше 7 дней» к моменту отправки
+      statusChangedAt: { gte: new Date(now.getTime() - CAPI_MAX_AGE_MS + 10 * 60_000) },
+      status: { OR: [{ kind: { in: ["WON", "LOST"] } }, { kind: { not: "NEW" }, inFunnel: true }] },
+    },
+    select: { ...leadForEvents, statusChangedAt: true, status: { select: { kind: true, inFunnel: true } }, conversions: { select: { eventName: true } } },
+  });
+  const rows: Prisma.ConversionEventCreateManyInput[] = [];
+  for (const l of leads) {
+    const have = new Set(l.conversions.map((e) => e.eventName));
+    const missing = conversionEventsFor(l.status).filter((n) => !have.has(n));
+    rows.push(...(await eventRows(l, missing, l.statusChangedAt)));
+  }
+  if (!rows.length) return 0;
+  const { count } = await prisma.conversionEvent.createMany({ data: rows, skipDuplicates: true });
+  return count;
 }
 
 /** Отправить события из очереди (и повторить неудачные). Возвращает число отправленных. */
