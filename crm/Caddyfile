@@ -9,3 +9,19 @@
 		Referrer-Policy "strict-origin-when-cross-origin"
 	}
 }
+
+# Страница-визитка для Instagram (замена Taplink): links/index.html из репозитория.
+# Домен — LINKS_DOMAIN в .env, по умолчанию link.orienttravel.uz. Нужна A-запись на IP этого сервера.
+{$LINKS_DOMAIN:link.orienttravel.uz} {
+	encode zstd gzip
+	root * /srv/links
+	rewrite * /index.html
+	file_server
+	header {
+		Cache-Control "public, max-age=300"
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+	}
+}

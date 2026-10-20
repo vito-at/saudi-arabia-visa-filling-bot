@@ -11,6 +11,7 @@ on:
       - claude/determined-ritchie-kij49y
     paths:
       - "crm/**"
+      - "links/index.html"
       - ".github/workflows/crm-deploy.yml"
   workflow_dispatch:
 
