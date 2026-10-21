@@ -1571,6 +1571,7 @@ export const ru = {
     no: "Нет",
     noForm: "Анкеты пока нет",
     notConnected: "Связь не настроена",
+    nationality: "Гражданство",
     number: "Номер на сайте",
     openOnSite: "Открыть на сайте",
     paid: "Оплачено на сайте",

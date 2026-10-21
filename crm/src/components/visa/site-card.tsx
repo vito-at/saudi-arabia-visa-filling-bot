@@ -12,6 +12,8 @@ export interface SiteInfo {
   number: string | null;
   url: string | null;
   visaType: string | null;
+  /** ISO2; null — гражданин Узбекистана */
+  nationality: string | null;
   urgent: boolean;
   paidAmount: number | null;
   agency: string | null;
@@ -23,11 +25,19 @@ export interface SiteInfo {
 
 /** Заявка с сайта Orient Visa: сведения о заказе, анкета туристов, состояние обмена с сайтом */
 export function SiteCard({ serviceId, info, data }: { serviceId: string; info: SiteInfo; data: SiteData | null }) {
-  const { t, f } = useI18n();
+  const { t, f, locale } = useI18n();
+  const nat = info.nationality ?? "UZ";
+  let natName = nat;
+  try {
+    natName = new Intl.DisplayNames([locale === "uz" ? "uz-Latn" : locale], { type: "region" }).of(nat) ?? nat;
+  } catch {
+    // старый браузер без Intl.DisplayNames — показываем код
+  }
   const [pending, start] = useTransition();
   const rows: [string, React.ReactNode][] = [
     [t("ov.number"), info.number ?? "—"],
     [t("ov.visaType"), info.visaType ?? "—"],
+    [t("ov.nationality"), <span key="nat" className={nat !== "UZ" ? "font-semibold text-amber-700 dark:text-amber-400" : undefined}>{`${natName} (${nat})`}</span>],
     [t("ov.urgent"), info.urgent ? t("ov.yes") : t("ov.no")],
     [t("ov.paid"), info.paidAmount !== null ? f.money(info.paidAmount, "UZS") : "—"],
     ...(info.agency ? ([[t("ov.agency"), info.agency]] as [string, React.ReactNode][]) : []),

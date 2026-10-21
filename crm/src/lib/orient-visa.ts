@@ -139,6 +139,8 @@ export interface SiteData {
   number: string | null;
   status: string | null;
   visaType: string | null;
+  /** гражданство заявителя (ISO2); нет — Узбекистан */
+  nationality?: string | null;
   urgent: boolean;
   travelDate: string | null;
   returnDate: string | null;
@@ -196,6 +198,7 @@ export async function fetchSiteApplication(serviceId: string, fetchFn: FetchFn =
     number: str(json.number),
     status: str(json.status),
     visaType: str(json.visaType),
+    nationality: typeof json.nationality === "string" && /^[A-Za-z]{2}$/.test(json.nationality) ? json.nationality.toUpperCase() : null,
     urgent: !!json.urgent,
     travelDate: str(json.travelDate),
     returnDate: str(json.returnDate),
@@ -240,6 +243,7 @@ export async function fetchSiteApplication(serviceId: string, fetchFn: FetchFn =
     data: {
       siteDataEnc: encrypt(JSON.stringify(data)),
       ...(data.visaType ? { visaType: data.visaType } : {}),
+      ...(data.nationality ? { nationality: data.nationality } : {}),
       ...(data.number ? { externalNumber: data.number } : {}),
       // не скачались не все файлы — попробуем ещё раз (ссылки при повторе будут новые)
       siteFetchNeeded: errors.length > 0,

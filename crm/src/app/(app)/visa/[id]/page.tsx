@@ -131,6 +131,7 @@ export default async function VisaApplicationPage({ params }: { params: Promise<
                     number: s.externalNumber,
                     url: s.externalUrl,
                     visaType: s.visaType,
+                    nationality: s.nationality,
                     urgent: s.urgent,
                     paidAmount: s.paidAmount === null ? null : toNum(s.paidAmount),
                     agency: s.agencyName ? `${s.agencyName}${s.agencyInn ? `, ИНН ${s.agencyInn}` : ""}` : null,
