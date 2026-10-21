@@ -29,6 +29,8 @@ export async function saveGeneralAction(formData: FormData) {
     if (!Number.isInteger(alert) || alert < 1 || alert > 10080) throw new ValidationError("err.alertMin");
     const limit = formData.has("leadLimit") ? Number(formData.get("leadLimit")) : null;
     if (limit !== null && (!Number.isInteger(limit) || limit < 1 || limit > 50)) throw new ValidationError("err.leadLimitRange");
+    const flightPct = formData.has("flightPoolPct") ? Number(str(formData.get("flightPoolPct")).replace(",", ".")) : null;
+    if (flightPct !== null && (!Number.isFinite(flightPct) || flightPct < 0 || flightPct > 100)) throw new ValidationError("err.flightPoolPct");
     // рабочее время офиса: по нему считается скорость реакции на лид (поля могут отсутствовать в старой форме)
     const work = formData.has("workStart")
       ? (() => {
@@ -39,7 +41,7 @@ export async function saveGeneralAction(formData: FormData) {
           return { workStartMin: start, workEndMin: end, workDays: days };
         })()
       : {};
-    await prisma.appSettings.update({ where: { id: 1 }, data: { distributionMode: mode, unprocessedAlertMin: alert, ...(limit !== null && { leadLimit: limit }), ...work } });
+    await prisma.appSettings.update({ where: { id: 1 }, data: { distributionMode: mode, unprocessedAlertMin: alert, ...(limit !== null && { leadLimit: limit }), ...(flightPct !== null && { flightPoolPct: flightPct }), ...work } });
     // включили автораспределение или подняли лимит — сразу раздаём очередь
     await distributeSoon();
     revalidateAll();

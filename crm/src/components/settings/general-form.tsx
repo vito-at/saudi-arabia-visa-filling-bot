@@ -14,6 +14,7 @@ export interface GeneralView {
   distributionMode: "MANUAL" | "ROUND_ROBIN";
   unprocessedAlertMin: number;
   leadLimit: number;
+  flightPoolPct: number;
   /** рабочее время офиса «09:00», «18:00» и рабочие дни 1–7 */
   workStart: string;
   workEnd: string;
@@ -62,6 +63,9 @@ export function GeneralForm({ v }: { v: GeneralView }) {
             </Field>
             <Field label={t("general.leadLimit")} hint={t("general.leadLimitHint")} className="sm:col-span-2">
               <Input name="leadLimit" type="number" min={1} max={50} defaultValue={v.leadLimit} className="w-32" />
+            </Field>
+            <Field label={t("general.flightPoolPct")} hint={t("general.flightPoolPctHint")} className="sm:col-span-2">
+              <Input name="flightPoolPct" inputMode="decimal" defaultValue={v.flightPoolPct} className="w-32" />
             </Field>
             <Field label={t("general.workHours")} hint={t("general.workHoursHint")} className="sm:col-span-2">
               <div className="flex flex-wrap items-center gap-2">

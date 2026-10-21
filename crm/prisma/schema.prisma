@@ -98,6 +98,7 @@ model User {
   plans         ManagerPlan[]
   salaryTerms   SalaryTerm[]
   salaryPaid    SalaryPayout[] @relation("PayoutManager")
+  shiftDays     ShiftDay[]
   salaryPaidBy  SalaryPayout[] @relation("PayoutAuthor")
   notifications Notification[]
   comments      Comment[]
@@ -289,6 +290,8 @@ model Deal {
   costCurrency  Currency
   paidAt        DateTime
   product       String
+  /// тип услуги сделки (авиабилеты, тур, виза…) — от него зависит комиссия менеджера
+  serviceType   ServiceType?
   /// Количество продаж в сделке (для визы — число заявлений); меняет только администратор
   quantity      Int       @default(1)
   /// false — сделку закрыл менеджер, себестоимость ещё не указал администратор
@@ -443,6 +446,9 @@ model AppSettings {
   unprocessedAlertMin Int              @default(15)
   /// с этого момента CRM считает зарплату (комиссию с продаж и оклад); раньше — расчёты вели вне CRM
   salaryStartAt       DateTime?
+  /// авиабилеты: процент от чистой прибыли, который делится поровну между менеджерами «В работе» в день продажи;
+  /// каждая получает свою долю только с билетов, проданных ею самой
+  flightPoolPct       Decimal          @default(30) @db.Decimal(5, 2)
   /// автораспределение: сколько необработанных (статус «Новый») лидов одновременно может быть у менеджера
   leadLimit           Int              @default(5)
   /// Курс продажи $ (банк покупает доллары, дешёвый) — по нему пересчитывается выручка
@@ -631,6 +637,17 @@ model SalaryTerm {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, fromMonth])
+}
+
+/// День, когда менеджер был «В работе» (включал переключатель) — для деления процента с авиабилетов
+model ShiftDay {
+  userId String
+  /// ташкентская дата (UTC-ключ)
+  day    DateTime @db.Date
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, day])
 }
 
 /// Выплата зарплаты менеджеру за месяц (можно частями): «Осталось» = к выплате за месяц − сумма выплат

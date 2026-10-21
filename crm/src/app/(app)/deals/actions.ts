@@ -97,6 +97,8 @@ export async function createDealAction(leadId: string, input: DealInput, wonStat
       const deal = await tx.deal.create({
         data: {
           ...d,
+          // тип услуги сделки — от него зависит комиссия (авиабилеты — процент от прибыли на смену)
+          serviceType: service ?? serviceType,
           costConfirmed,
           leadId,
           clientId: lead.clientId,

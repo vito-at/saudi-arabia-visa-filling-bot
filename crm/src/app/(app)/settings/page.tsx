@@ -168,6 +168,7 @@ async function GeneralTab() {
         distributionMode: s.distributionMode,
         unprocessedAlertMin: s.unprocessedAlertMin,
         leadLimit: s.leadLimit,
+        flightPoolPct: toNum(s.flightPoolPct),
         workStart: minToTime(s.workStartMin),
         workEnd: minToTime(s.workEndMin),
         workDays: s.workDays,
