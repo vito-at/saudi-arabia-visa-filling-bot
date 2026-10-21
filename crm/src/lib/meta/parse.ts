@@ -51,6 +51,27 @@ export function isNameQuestion(searchKey: string): boolean {
   return NAME_QUESTION.test(searchKey) && !NOT_NAME_QUESTION.test(searchKey);
 }
 
+/** Свой вопрос с телефоном: «Номер телефона для связи?», «Telefon raqamingiz?», «Aloqa uchun raqam» */
+const PHONE_QUESTION = /телефон|номер|nomer|raqam|phone|mobile|telefon|whatsapp|telegram|aloqa|связ/;
+
+export function isPhoneQuestion(searchKey: string): boolean {
+  return PHONE_QUESTION.test(searchKey);
+}
+
+/** Ответ похож на номер телефона: 9–15 цифр, без слов */
+export function looksLikePhone(v: string): boolean {
+  const digits = v.replace(/\D/g, "").length;
+  return digits >= 9 && digits <= 15 && !/[a-zа-яё]{2,}/i.test(v);
+}
+
+/** Телефон из сохранённых ответов формы — для лидов, где номер был в своём вопросе, а не в стандартном поле Meta */
+export function phoneFromAnswers(answers: unknown): string | null {
+  if (!Array.isArray(answers)) return null;
+  const list = (answers as Partial<FormAnswer>[]).filter((a) => typeof a?.value === "string" && looksLikePhone(a.value));
+  const byQuestion = list.find((a) => isPhoneQuestion(norm(`${a.key ?? ""} ${a.label ?? ""}`)));
+  return (byQuestion ?? list[0])?.value?.trim() ?? null;
+}
+
 /** Ответ похож на имя: без цифр и не слишком длинный */
 export function looksLikeName(v: string): boolean {
   const t = v.trim();
@@ -163,6 +184,11 @@ export function parseMetaLead(lead: MetaLead, opts: { formName?: string | null; 
       name = raw;
       continue;
     }
+    // телефон в своём вопросе формы — в поле телефона лида (ответ остаётся и в анкете)
+    if (!phone && isPhoneQuestion(searchKey) && looksLikePhone(raw)) {
+      phone = raw;
+      continue;
+    }
     if (!destination && has(searchKey, DEST_HINTS)) destination = value;
     else if (travelers === null && has(searchKey, PEOPLE_HINTS)) travelers = parseTravelers(value);
     else if (!travelFrom && has(searchKey, DATE_HINTS)) travelFrom = parseAnswerDate(raw);
@@ -170,6 +196,8 @@ export function parseMetaLead(lead: MetaLead, opts: { formName?: string | null; 
   }
 
   if (!name) name = [first, last].filter(Boolean).join(" ") || null;
+  // номер мог прийти в вопросе без «телефон» в названии — берём первый ответ, похожий на номер
+  if (!phone) phone = phoneFromAnswers(answers);
   if (!service) service = guessService(`${opts.formName ?? ""} ${lead.campaign_name ?? ""}`);
   const created = parseMetaTime(lead.created_time);
 

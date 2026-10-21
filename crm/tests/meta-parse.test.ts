@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { guessService, nameFromAnswers, parseAnswerDate, parseMetaLead, parseMetaTime, type MetaLead } from "@/lib/meta/parse";
+import { guessService, nameFromAnswers, parseAnswerDate, parseMetaLead, parseMetaTime, phoneFromAnswers, type MetaLead } from "@/lib/meta/parse";
 
 const base: MetaLead = {
   id: "1234567890123456",
@@ -152,5 +152,23 @@ describe("имя из своего вопроса формы", () => {
     expect(nameFromAnswers([{ key: "q1", label: "Ismingiz?", value: "Jasur" }])).toBe("Jasur");
     expect(nameFromAnswers([{ key: "q2", label: "Куда хотите поехать?", value: "Дубай" }])).toBeNull();
     expect(nameFromAnswers(null)).toBeNull();
+  });
+});
+
+describe("телефон в своём вопросе формы", () => {
+  const lead = (fields: { name: string; values: string[] }[]): MetaLead => ({ ...base, field_data: fields });
+  it("«Номер телефона для связи?» попадает в телефон лида", () => {
+    const r = parseMetaLead(lead([{ name: "full_name", values: ["Уктамов Шахзод"] }, { name: "номер_телефона_для_связи?", values: ["+998 90 123 45 67"] }]), {});
+    expect(r.phone).toBe("+998 90 123 45 67");
+    expect(r.name).toBe("Уктамов Шахзод");
+  });
+  it("вопрос без слова «телефон» — берётся ответ, похожий на номер, а не число туристов", () => {
+    const r = parseMetaLead(lead([{ name: "сколько_человек?", values: ["2"] }, { name: "aloqa_uchun", values: ["901234567"] }]), {});
+    expect(r.phone).toBe("901234567");
+    expect(r.travelers).toBe(2);
+  });
+  it("номер из сохранённых ответов для старых лидов", () => {
+    expect(phoneFromAnswers([{ key: "q1", label: "Куда?", value: "Таиланд" }, { key: "q2", label: "Telefon raqamingiz", value: "93 100 91 23" }])).toBe("93 100 91 23");
+    expect(phoneFromAnswers([{ key: "q1", label: "Куда?", value: "Дубай 2026" }])).toBeNull();
   });
 });

@@ -4,7 +4,7 @@
  */
 import cron from "node-cron";
 import { prisma } from "../src/lib/db";
-import { backfillOrganic, fixUnnamedLeads, syncLeads } from "../src/lib/meta/sync";
+import { backfillOrganic, fixPhonelessLeads, fixUnnamedLeads, syncLeads } from "../src/lib/meta/sync";
 import { createTripFollowUps } from "../src/lib/leads/trip-followup";
 import { scanNotifications } from "../src/lib/notify";
 import { processAiReplies } from "../src/lib/chats/ai";
@@ -107,6 +107,10 @@ void tickLeads();
 void fixUnnamedLeads()
   .then((n) => n && log(`Имя из ответов формы записано в ${n} лидов`))
   .catch((e) => log("Имена из ответов формы:", e));
+// лиды без телефона, чей номер был в своём вопросе формы, — один раз при запуске
+void fixPhonelessLeads()
+  .then((n) => n && log(`Телефон из ответов формы записан в ${n} лидов`))
+  .catch((e) => log("Телефоны из ответов формы:", e));
 // при запуске воркера после 07:00 — догоняем пропущенное обновление
 void tickRate();
 
