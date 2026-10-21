@@ -873,6 +873,10 @@ model VisaEvent {
   comment   String?
   /// комментарий отправлен клиенту на сайт
   toClient  Boolean     @default(false)
+  /// сообщение клиента с сайта Orient Visa
+  fromClient Boolean    @default(false)
+  /// id сообщения на сайте — повтор доставки не создаёт дубль
+  externalId String?    @unique
   createdAt DateTime    @default(now())
 
   @@index([serviceId, createdAt])

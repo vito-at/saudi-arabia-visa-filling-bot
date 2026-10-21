@@ -994,6 +994,7 @@ export const ru = {
     trip: "{name} вернулся из поездки — спросите, как всё прошло",
     visa: "Виза {name}: {status}",
     visaFix: "Клиент прислал исправления по визе: {name}",
+    visaMsg: "Сообщение клиента по визе: {name}",
     visaNew: "Новая визовая заявка: {name}{product}",
   },
   offers: {
@@ -1571,6 +1572,7 @@ export const ru = {
     no: "Нет",
     noForm: "Анкеты пока нет",
     notConnected: "Связь не настроена",
+    fromClientBadge: "от клиента",
     nationality: "Гражданство",
     number: "Номер на сайте",
     openOnSite: "Открыть на сайте",

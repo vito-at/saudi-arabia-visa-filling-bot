@@ -996,6 +996,7 @@ export const uz: Messages = {
     trip: "{name} sayohatdan qaytdi — qanday o‘tganini so‘rang",
     visa: "Viza {name}: {status}",
     visaFix: "Mijoz viza bo‘yicha tuzatishlarni yubordi: {name}",
+    visaMsg: "Viza bo‘yicha mijoz xabari: {name}",
     visaNew: "Yangi viza arizasi: {name}{product}",
   },
   offers: {
@@ -1573,6 +1574,7 @@ export const uz: Messages = {
     no: "Yo‘q",
     noForm: "Anketa hali yo‘q",
     notConnected: "Aloqa sozlanmagan",
+    fromClientBadge: "mijozdan",
     nationality: "Fuqarolik",
     number: "Saytdagi raqam",
     openOnSite: "Saytda ochish",

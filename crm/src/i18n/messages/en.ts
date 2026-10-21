@@ -996,6 +996,7 @@ export const en: Messages = {
     trip: "{name} is back from the trip — ask how it went",
     visa: "Visa {name}: {status}",
     visaFix: "The client sent visa corrections: {name}",
+    visaMsg: "Client message about a visa: {name}",
     visaNew: "New visa application: {name}{product}",
   },
   offers: {
@@ -1573,6 +1574,7 @@ export const en: Messages = {
     no: "No",
     noForm: "No form yet",
     notConnected: "Not connected",
+    fromClientBadge: "from client",
     nationality: "Nationality",
     number: "Website number",
     openOnSite: "Open on website",

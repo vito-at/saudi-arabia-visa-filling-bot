@@ -36,7 +36,7 @@ export default async function VisaPage({ searchParams }: { searchParams: Promise
       orderBy: [{ statusAt: "desc" }],
       take: 300,
       include: {
-        lead: { select: { name: true, phone: true, manager: { select: { name: true } } } },
+        lead: { select: { name: true, phone: true, phoneRaw: true, manager: { select: { name: true } } } },
         assignee: { select: { name: true } },
         documents: { select: { docType: true } },
       },
@@ -112,7 +112,7 @@ export default async function VisaPage({ searchParams }: { searchParams: Promise
                         <Link href={`/visa/${r.id}`} className="font-medium text-primary hover:underline">
                           {r.lead.name}
                         </Link>
-                        <div className="text-xs text-muted-foreground">{prettyPhone(r.lead.phone) || "—"}</div>
+                        <div className="text-xs text-muted-foreground">{r.lead.phone ? prettyPhone(r.lead.phone) : r.lead.phoneRaw || "—"}</div>
                       </td>
                       <td className="px-3 py-2.5">{r.country ?? "—"}</td>
                       <td className="px-3 py-2.5 text-xs">{r.source === "WEBSITE" ? t("visa.fromSite") : t("visa.fromManager", { name: r.lead.manager?.name ?? "—" })}</td>
