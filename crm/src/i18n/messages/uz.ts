@@ -801,6 +801,7 @@ export const uz: Messages = {
       service: "Xizmat turi",
       travelFrom: "Safar sanasi (dan)",
       travelTo: "gacha",
+      departure: "Jo‘nash sanasi",
       travelers: "Sayyohlar",
       visaApplications: "Viza arizalari",
     },

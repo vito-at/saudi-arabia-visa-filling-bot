@@ -799,6 +799,7 @@ export const ru = {
       service: "Тип услуги",
       travelFrom: "Дата поездки с",
       travelTo: "по",
+      departure: "Дата выезда",
       travelers: "Туристов",
       visaApplications: "Заявлений на визу",
     },

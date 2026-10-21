@@ -72,6 +72,22 @@ export function phoneFromAnswers(answers: unknown): string | null {
   return (byQuestion ?? list[0])?.value?.trim() ?? null;
 }
 
+/**
+ * Количество туристов и примерная дата выезда из ответов формы — как их написал клиент («2 взрослых и ребёнок»,
+ * «в ноябре», «через 1-2 месяца»): показываются в карточке, если в поля лида их не удалось разобрать.
+ */
+export function tripFromAnswers(answers: unknown): { people: string | null; when: string | null } {
+  const out = { people: null as string | null, when: null as string | null };
+  if (!Array.isArray(answers)) return out;
+  for (const a of answers as Partial<FormAnswer>[]) {
+    if (typeof a?.value !== "string" || !a.value.trim()) continue;
+    const key = norm(`${a.key ?? ""} ${a.label ?? ""}`);
+    if (!out.people && has(key, PEOPLE_HINTS)) out.people = a.value.trim();
+    else if (!out.when && has(key, DATE_HINTS)) out.when = a.value.trim();
+  }
+  return out;
+}
+
 /** Ответ похож на имя: без цифр и не слишком длинный */
 export function looksLikeName(v: string): boolean {
   const t = v.trim();
