@@ -37,6 +37,7 @@ export default async function VisaApplicationPage({ params }: { params: Promise<
           id: true,
           name: true,
           phone: true,
+          phoneRaw: true,
           source: true,
           createdAt: true,
           travelFrom: true,
@@ -55,10 +56,12 @@ export default async function VisaApplicationPage({ params }: { params: Promise<
   const pendingEvents = s.siteEvents.filter((e) => !e.sentAt);
   const lastSent = s.siteEvents.find((e) => e.sentAt)?.sentAt ?? null;
   const lead = s.lead;
-  const wa = whatsappLink(lead.phone);
-  const tg = telegramLink(lead.phone);
+  // иностранный номер (клиент сайта из другой страны) хранится как есть в phoneRaw
+  const phone = lead.phone ?? lead.phoneRaw;
+  const wa = whatsappLink(phone);
+  const tg = telegramLink(phone);
   const info: [string, React.ReactNode][] = [
-    [t("field.phone"), lead.phone ? prettyPhone(lead.phone) : "—"],
+    [t("field.phone"), phone ? prettyPhone(phone) : "—"],
     ["Email", lead.client.email ?? "—"],
     [t("visa.source"), s.source === "WEBSITE" ? t("visa.fromSite") : t("visa.fromManager", { name: lead.manager?.name ?? "—" })],
     [t("visa.leadSource"), leadSourceLabel(t, lead)],
@@ -98,9 +101,9 @@ export default async function VisaApplicationPage({ params }: { params: Promise<
                   </div>
                 ))}
               </dl>
-              {lead.phone && (
+              {phone && (
                 <div className="flex flex-wrap gap-2">
-                  <a href={`tel:${lead.phone}`} className="inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-sm hover:bg-accent">
+                  <a href={`tel:${phone}`} className="inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-sm hover:bg-accent">
                     <Phone className="size-4" /> {t("visa.call")}
                   </a>
                   {wa && (
@@ -190,6 +193,7 @@ export default async function VisaApplicationPage({ params }: { params: Promise<
                     </div>
                     {e.comment && (
                       <p className="mt-1 whitespace-pre-wrap">
+                        {e.fromClient && <span className="mr-1 rounded bg-amber-100 px-1 text-[10px] text-amber-800 dark:bg-amber-950 dark:text-amber-300">{t("ov.fromClientBadge")}</span>}
                         {e.toClient && <span className="mr-1 rounded bg-sky-100 px-1 text-[10px] text-sky-800 dark:bg-sky-950 dark:text-sky-300">{t("ov.toClientBadge")}</span>}
                         {e.comment}
                       </p>

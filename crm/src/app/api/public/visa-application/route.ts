@@ -63,7 +63,10 @@ async function handle(body: Record<string, unknown>): Promise<NextResponse> {
     return /^\d{4}-\d{2}-\d{2}$/.test(v) ? new Date(`${v}T00:00:00+05:00`) : null;
   };
   const name = str("name", 120);
-  const phone = normalizePhone(str("phone", 40));
+  // сайт регистрирует клиентов из любой страны: узбекский номер приводим к +998…, иностранный сохраняем как есть
+  const phoneIn = str("phone", 40);
+  const digits = phoneIn.replace(/\D/g, "");
+  const phone = normalizePhone(phoneIn) ?? (digits.length >= 8 && digits.length <= 15 && /^\+?[\d\s().-]+$/.test(phoneIn) ? `+${digits}` : null);
   const country = str("country", 100);
   const email = str("email", 200) || null;
   const comment = str("comment", 2000) || null;
