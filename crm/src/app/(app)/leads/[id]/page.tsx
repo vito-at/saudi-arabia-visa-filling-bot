@@ -1,3 +1,4 @@
+import { tripFromAnswers } from "@/lib/meta/parse";
 import { REGULAR_CLIENT_MIN_DEALS, isRegularClient } from "@/lib/constants";
 import { RegularBadge } from "@/components/leads/regular-badge";
 import { loadRateBook } from "@/lib/rate-history";
@@ -82,6 +83,8 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
     visaApplications: lead.visaApplications,
   };
   const answers = (Array.isArray(lead.formAnswers) ? lead.formAnswers : []) as Answer[];
+  // туристы и дата выезда из ответов формы — если в поля лида их не удалось разобрать («в ноябре», «2 взрослых»)
+  const trip = tripFromAnswers(lead.formAnswers);
   const overdue = isOverdueNew(lead, settings.unprocessedAlertMin);
   const book = await loadRateBook(settings);
   const clientTotals = sumDeals(lead.client.deals, "USD", book);
@@ -197,6 +200,8 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
                   travelTo: toInputDate(lead.travelTo),
                   travelers: lead.travelers,
                   visaApplications: lead.visaApplications,
+                  travelersText: trip.people,
+                  travelWhenText: trip.when,
                 }}
               />
             </CardContent>

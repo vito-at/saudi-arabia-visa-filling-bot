@@ -9,6 +9,7 @@ import { ServiceDestinationFields } from "./service-destination-fields";
 import { serviceLabel } from "@/i18n/labels";
 import { useI18n } from "@/i18n/client";
 import { prettyPhone } from "@/lib/phone";
+import { formatDate } from "@/lib/format";
 import { updateLeadAction } from "@/app/(app)/leads/actions";
 
 export interface LeadDetails {
@@ -22,6 +23,9 @@ export interface LeadDetails {
   travelTo: string;
   travelers: number | null;
   visaApplications: number | null;
+  /** ответы формы, если в поля лида их не удалось разобрать: «2 взрослых и ребёнок», «в ноябре» */
+  travelersText: string | null;
+  travelWhenText: string | null;
 }
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
@@ -51,7 +55,10 @@ export function LeadDetailsForm({ lead }: { lead: LeadDetails }) {
         <Row label={t("lead.field.service")}>{lead.serviceType ? serviceLabel(t, lead.serviceType) : null}</Row>
         <Row label={lead.serviceType === "VISA" ? t("lead.visaCountry") : t("lead.field.destination")}>{lead.destination}</Row>
         {lead.serviceType === "VISA" && <Row label={t("lead.field.visaApplications")}>{lead.visaApplications}</Row>}
-        {lead.serviceType !== "VISA" && <Row label={t("lead.field.travelers")}>{lead.travelers}</Row>}
+        <Row label={t("lead.field.travelers")}>{lead.travelers ?? lead.travelersText}</Row>
+        <Row label={t("lead.field.departure")}>
+          {lead.travelFrom ? [formatDate(lead.travelFrom), lead.travelTo && formatDate(lead.travelTo)].filter(Boolean).join(" — ") : lead.travelWhenText}
+        </Row>
       </div>
     );
   }

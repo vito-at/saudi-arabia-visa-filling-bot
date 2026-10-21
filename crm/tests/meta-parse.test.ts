@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { guessService, nameFromAnswers, parseAnswerDate, parseMetaLead, parseMetaTime, phoneFromAnswers, type MetaLead } from "@/lib/meta/parse";
+import { guessService, nameFromAnswers, parseAnswerDate, parseMetaLead, parseMetaTime, phoneFromAnswers, tripFromAnswers, type MetaLead } from "@/lib/meta/parse";
 
 const base: MetaLead = {
   id: "1234567890123456",
@@ -170,5 +170,17 @@ describe("телефон в своём вопросе формы", () => {
   it("номер из сохранённых ответов для старых лидов", () => {
     expect(phoneFromAnswers([{ key: "q1", label: "Куда?", value: "Таиланд" }, { key: "q2", label: "Telefon raqamingiz", value: "93 100 91 23" }])).toBe("93 100 91 23");
     expect(phoneFromAnswers([{ key: "q1", label: "Куда?", value: "Дубай 2026" }])).toBeNull();
+  });
+});
+
+describe("туристы и дата выезда из ответов формы", () => {
+  it("берёт ответы как есть, если их не разобрать в число и дату", () => {
+    expect(
+      tripFromAnswers([
+        { key: "q1", label: "Сколько человек поедет?", value: "2 взрослых и ребёнок" },
+        { key: "q2", label: "Примерная дата выезда", value: "в ноябре" },
+      ]),
+    ).toEqual({ people: "2 взрослых и ребёнок", when: "в ноябре" });
+    expect(tripFromAnswers(null)).toEqual({ people: null, when: null });
   });
 });

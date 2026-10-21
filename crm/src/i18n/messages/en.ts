@@ -801,6 +801,7 @@ export const en: Messages = {
       service: "Service type",
       travelFrom: "Travel from",
       travelTo: "to",
+      departure: "Departure",
       travelers: "Travelers",
       visaApplications: "Visa applications",
     },
