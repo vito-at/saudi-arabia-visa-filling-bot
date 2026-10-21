@@ -15,7 +15,7 @@ export interface PlanRowView {
   userId: string;
   name: string;
   plan: { leads: number | null; sales: number | null; profit: number | null };
-  fact: { leads: number; sales: number; profitUsd: number; profitSalary: number; revenueUsd: number; revenueSalary: number };
+  fact: { leads: number; sales: number; profitUsd: number; profitSalary: number; revenueUsd: number; revenueSalary: number; flightProfitSalary: number; flightCommission: number };
   done: { leads: number | null; sales: number | null; profit: number | null };
   planMet: boolean;
   ratePct: number;
@@ -261,7 +261,10 @@ export function PlansTable({ rows, month, editable }: { rows: PlanRowView[]; mon
                   <div className="text-[11px] text-muted-foreground">{r.terms.from === "PROFIT" ? t("plans.ofProfit") : t("plans.ofRevenue")}</div>
                   {r.planMet && r.terms.bonusPct > 0 && <div className="text-[11px] text-emerald-700">{t("plans.bonusOn")}</div>}
                 </td>
-                <td className="px-3 py-3 text-right whitespace-nowrap tabular-nums">{f.money(r.commission, r.currency)}</td>
+                <td className="px-3 py-3 text-right whitespace-nowrap tabular-nums">
+                  {f.money(r.commission, r.currency)}
+                  {r.fact.flightCommission !== 0 && <div className="text-[11px] text-muted-foreground">{t("plans.flightPart", { sum: f.money(r.fact.flightCommission, r.currency) })}</div>}
+                </td>
                 <td className="px-3 py-3 text-right whitespace-nowrap tabular-nums text-muted-foreground">{f.money(r.base, r.currency)}</td>
                 <td className="px-3 py-3 text-right font-semibold whitespace-nowrap tabular-nums">
                   {r.tracked ? f.money(r.total, r.currency) : <span className="text-xs font-normal text-muted-foreground">{t("plans.notTracked")}</span>}

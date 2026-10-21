@@ -7,6 +7,10 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { notifyLeadAssigned } from "@/lib/notify";
+import { toInputDate } from "@/lib/format";
+
+/** Ташкентская дата как ключ колонки @db.Date (Prisma хранит дату по UTC) */
+export const dayKey = (d: Date) => new Date(`${toInputDate(d)}T00:00:00Z`);
 
 type Tx = Prisma.TransactionClient | PrismaClient;
 
@@ -109,6 +113,8 @@ export function distributeSoon() {
 export async function setOnShift(userId: string, on: boolean) {
   await prisma.$transaction(async (tx) => {
     await tx.user.update({ where: { id: userId }, data: { onShift: on } });
+    // день работы — для деления процента с авиабилетов между теми, кто вышел
+    if (on) await tx.shiftDay.upsert({ where: { userId_day: { userId, day: dayKey(new Date()) } }, update: {}, create: { userId, day: dayKey(new Date()) } });
     if (!on && (await isAuto(tx))) await releaseNewLeads(tx, [userId]);
   });
   await distributeQueue();

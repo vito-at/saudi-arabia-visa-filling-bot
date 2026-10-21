@@ -4,6 +4,9 @@
  * сумма продаж и прибыль — по этим сделкам (по курсам дня оплаты).
  * Зарплата = оклад + сумма продаж (или прибыль — задаётся у менеджера) × (процент + надбавка, если план по прибыли выполнен).
  * По умолчанию: 1 500 000 сум + 5% от суммы продаж.
+ * Авиабилеты — отдельно: процент от чистой прибыли (flightPoolPct, 30%) делится поровну между менеджерами «В работе»
+ * в день продажи (двое — по 15%, одна — 30%), и каждая получает свою долю только с билетов, проданных ею самой.
+ * Остальные услуги — оклад + процент от продаж/прибыли, как выше; авиабилеты в эту базу не входят.
  * Учёт зарплаты в CRM начинается с «salaryStartAt» (настройки): учитываются только сделки, оплаченные с этого момента,
  * а месяцы целиком до него не считаются (расчёты за них вели вне CRM). Выплаты — частями, «Осталось» = к выплате − выплачено.
  */
@@ -14,6 +17,7 @@ import { round2, toNum } from "@/lib/money";
 import { getSettings } from "@/lib/refs";
 import { loadRateBook } from "@/lib/rate-history";
 import { dealProfit, dealRevenue } from "@/lib/reports/calc";
+import { toInputDate } from "@/lib/format";
 
 export interface MonthRange {
   ym: string;
@@ -60,12 +64,16 @@ export interface PlanFact {
   sales: number;
   /** прибыль в долларах — для сравнения с планом */
   profitUsd: number;
-  /** прибыль в валюте зарплаты — для комиссии от прибыли */
+  /** прибыль в валюте зарплаты без авиабилетов — для комиссии от прибыли */
   profitSalary: number;
   /** сумма продаж в долларах — для показа */
   revenueUsd: number;
-  /** сумма продаж в валюте зарплаты — для комиссии от продаж */
+  /** сумма продаж в валюте зарплаты без авиабилетов — для комиссии от продаж */
   revenueSalary: number;
+  /** прибыль с проданных авиабилетов (валюта зарплаты) */
+  flightProfitSalary: number;
+  /** доля с прибыли авиабилетов (валюта зарплаты) — см. flightShares */
+  flightCommission: number;
 }
 
 export interface PayoutRow {
@@ -90,8 +98,23 @@ export function calcPayout(terms: SalaryTerms, plan: PlanValues, fact: PlanFact)
   const ratePct = terms.pct + (planMet ? terms.bonusPct : 0);
   // убыточный месяц не уменьшает оклад
   const basis = terms.from === "PROFIT" ? fact.profitSalary : fact.revenueSalary;
-  const commission = round2((Math.max(0, basis) * ratePct) / 100);
+  const commission = round2((Math.max(0, basis) * ratePct) / 100 + Math.max(0, fact.flightCommission));
   return { plan, fact, done, planMet, ratePct, commission, base: terms.base, total: round2(terms.base + commission), currency: terms.currency };
+}
+
+/**
+ * Доли с авиабилетов: прибыль каждого билета × (процент / число менеджеров «В работе» в день продажи).
+ * Продавшая считается работавшей в этот день, даже если не включила переключатель. Убыточный билет уменьшает долю.
+ */
+export function flightShares(deals: { sellerId: string; day: string; profit: number }[], workers: Map<string, Set<string>>, poolPct: number): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const d of deals) {
+    const team = new Set(workers.get(d.day) ?? []);
+    team.add(d.sellerId);
+    out.set(d.sellerId, (out.get(d.sellerId) ?? 0) + (d.profit * poolPct) / 100 / team.size);
+  }
+  for (const [k, v] of out) out.set(k, round2(v));
+  return out;
 }
 
 export interface ManagerMonth extends PayoutRow {
@@ -133,31 +156,50 @@ export async function loadManagerMonths(range: MonthRange, managerId: string | n
   const tracked = !start || range.to > start;
   // в месяце начала учёта комиссия — только с даты начала; месяцы до учёта показывают продажи как есть, без начислений
   const dealsFrom = tracked && start && start > range.from ? start : range.from;
-  const [leads, deals, payouts] = await Promise.all([
+  const [leads, deals, shiftDays, payouts] = await Promise.all([
     prisma.lead.groupBy({ by: ["managerId"], where: { managerId: { in: ids }, createdAt: { gte: range.from, lt: range.to } }, _count: { _all: true } }),
     prisma.deal.findMany({
       where: { managerId: { in: ids }, paidAt: { gte: dealsFrom, lt: range.to } },
-      select: { managerId: true, amount: true, cost: true, currency: true, costCurrency: true, paidAt: true, quantity: true },
+      select: { managerId: true, amount: true, cost: true, currency: true, costCurrency: true, paidAt: true, quantity: true, serviceType: true },
     }),
+    // кто был «В работе» в дни месяца — все менеджеры, а не только показанные (делим процент с авиабилетов)
+    prisma.shiftDay.findMany({ where: { day: { gte: monthKey(range.ym), lt: monthKey(shiftMonth(range.ym, 1)) } } }),
     prisma.salaryPayout.findMany({ where: { userId: { in: ids }, month: monthKey(range.ym) }, orderBy: { paidAt: "asc" } }),
   ]);
+  const workers = new Map<string, Set<string>>();
+  for (const s of shiftDays) {
+    const day = s.day.toISOString().slice(0, 10);
+    workers.set(day, (workers.get(day) ?? new Set()).add(s.userId));
+  }
+  const poolPct = toNum(settings.flightPoolPct);
   return users.map((u) => {
     const own = deals.filter((d) => d.managerId === u.id).map((d) => ({ ...d, amount: toNum(d.amount), cost: toNum(d.cost) }));
+    const flights = own.filter((d) => d.serviceType === "FLIGHTS");
+    const other = own.filter((d) => d.serviceType !== "FLIGHTS");
     const st = u.salaryTerms[0];
     const terms: SalaryTerms = st
       ? { base: toNum(st.base), currency: st.currency, pct: toNum(st.pct), bonusPct: toNum(st.bonusPct), from: st.commissionFrom }
       : { base: toNum(u.salaryBase), currency: u.salaryCurrency, pct: toNum(u.commissionPct), bonusPct: toNum(u.planBonusPct), from: u.commissionFrom };
     const since = st ? st.fromMonth.toISOString().slice(0, 7) : null;
     const termsSince = since && since > TERMS_EPOCH ? since : null;
-    const profitIn = (currency: Currency) => round2(own.reduce((s, d) => s + dealProfit(d, { currency, rate, costRate, book }), 0));
-    const revenueIn = (currency: Currency) => round2(own.reduce((s, d) => s + dealRevenue(d, { currency, rate, costRate, book }), 0));
+    const money = (currency: Currency) => ({ currency, rate, costRate, book });
+    const profitIn = (currency: Currency, list = own) => round2(list.reduce((s, d) => s + dealProfit(d, money(currency)), 0));
+    const revenueIn = (currency: Currency, list = own) => round2(list.reduce((s, d) => s + dealRevenue(d, money(currency)), 0));
+    const flightCommission =
+      flightShares(
+        flights.map((d) => ({ sellerId: u.id, day: toInputDate(d.paidAt), profit: dealProfit(d, money(terms.currency)) })),
+        workers,
+        poolPct,
+      ).get(u.id) ?? 0;
     const fact: PlanFact = {
       leads: leads.find((l) => l.managerId === u.id)?._count._all ?? 0,
       sales: own.reduce((s, d) => s + d.quantity, 0),
       profitUsd: profitIn("USD"),
-      profitSalary: profitIn(terms.currency),
+      profitSalary: profitIn(terms.currency, other),
       revenueUsd: revenueIn("USD"),
-      revenueSalary: revenueIn(terms.currency),
+      revenueSalary: revenueIn(terms.currency, other),
+      flightProfitSalary: profitIn(terms.currency, flights),
+      flightCommission,
     };
     const p = u.plans[0];
     const plan: PlanValues = { leads: p?.leads ?? null, sales: p?.sales ?? null, profit: p?.profit === null || p?.profit === undefined ? null : toNum(p.profit) };

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { calcPayout, monthRange, shiftMonth } from "@/lib/salary";
+import { calcPayout, flightShares, monthRange, shiftMonth } from "@/lib/salary";
 
-const fact = { leads: 40, sales: 12, profitUsd: 5000, profitSalary: 60_000_000, revenueUsd: 20_000, revenueSalary: 240_000_000 };
+const fact = { leads: 40, sales: 12, profitUsd: 5000, profitSalary: 60_000_000, revenueUsd: 20_000, revenueSalary: 240_000_000, flightProfitSalary: 0, flightCommission: 0 };
 
 describe("зарплата и план", () => {
   it("оклад + процент от прибыли; надбавка при выполнении плана по прибыли", () => {
@@ -21,6 +21,28 @@ describe("зарплата и план", () => {
     const r = calcPayout({ base: 1_500_000, currency: "UZS", pct: 5, bonusPct: 0, from: "REVENUE" }, { leads: null, sales: null, profit: null }, fact);
     expect(r.commission).toBe(12_000_000);
     expect(r.total).toBe(13_500_000);
+  });
+  it("авиабилеты: 30% прибыли делится на тех, кто в работе в день продажи, — только со своих билетов", () => {
+    const workers = new Map([
+      ["2026-10-21", new Set(["a", "b"])],
+      ["2026-10-22", new Set(["a"])],
+    ]);
+    const shares = flightShares(
+      [
+        { sellerId: "a", day: "2026-10-21", profit: 1_000_000 }, // двое в работе → 15%
+        { sellerId: "a", day: "2026-10-22", profit: 1_000_000 }, // одна → 30%
+        { sellerId: "b", day: "2026-10-21", profit: 2_000_000 }, // 15% со своего билета
+        { sellerId: "b", day: "2026-10-23", profit: 500_000 }, // переключатель не включала, но продала — считается одна → 30%
+      ],
+      workers,
+      30,
+    );
+    expect(shares.get("a")).toBe(450_000);
+    expect(shares.get("b")).toBe(450_000);
+    // доля с билетов добавляется к комиссии от остальных продаж
+    const r = calcPayout({ base: 1_500_000, currency: "UZS", pct: 5, bonusPct: 0, from: "REVENUE" }, { leads: null, sales: null, profit: null }, { ...fact, revenueSalary: 10_000_000, flightCommission: 450_000 });
+    expect(r.commission).toBe(950_000);
+    expect(r.total).toBe(2_450_000);
   });
   it("убыточный месяц — только оклад", () => {
     const r = calcPayout({ base: 500, currency: "USD", pct: 10, bonusPct: 0, from: "PROFIT" }, { leads: null, sales: null, profit: null }, { ...fact, profitUsd: -100, profitSalary: -100 });
