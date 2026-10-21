@@ -1573,6 +1573,7 @@ export const uz: Messages = {
     no: "Yo‘q",
     noForm: "Anketa hali yo‘q",
     notConnected: "Aloqa sozlanmagan",
+    nationality: "Fuqarolik",
     number: "Saytdagi raqam",
     openOnSite: "Saytda ochish",
     paid: "Saytda to‘langan",

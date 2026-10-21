@@ -1573,6 +1573,7 @@ export const en: Messages = {
     no: "No",
     noForm: "No form yet",
     notConnected: "Not connected",
+    nationality: "Nationality",
     number: "Website number",
     openOnSite: "Open on website",
     paid: "Paid on website",

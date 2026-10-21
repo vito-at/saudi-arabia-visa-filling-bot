@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
  *   POST /api/public/visa-application
  *   Authorization: Bearer <ключ из «Настройки → Визы и документы»>
  *   { "name": "…", "phone": "+998…", "country": "Таиланд", "email"?: "…", "travelers"?: 2,
- *     "travelFrom"?: "2026-12-01", "travelTo"?: "2026-12-10", "comment"?: "…" }
+ *     "travelFrom"?: "2026-12-01", "travelTo"?: "2026-12-10", "comment"?: "…", "nationality"?: "IN" }
  * Создаётся лид (источник «Сайт») и визовая заявка, сразу переданная визовым специалистам.
  *
  * Сайт Orient Visa (docs/orient-visa-integration.md) дополнительно присылает externalId — ключ идемпотентности:
@@ -52,6 +52,9 @@ async function serialized<T>(key: string, fn: () => Promise<T>): Promise<T> {
     if (inFlight.get(key) === run) inFlight.delete(key);
   }
 }
+
+/** Гражданство: код страны ISO2 («IN»); прочее — не сохраняем */
+const iso2 = (v: unknown) => (typeof v === "string" && /^[A-Za-z]{2}$/.test(v.trim()) ? v.trim().toUpperCase() : null);
 
 async function handle(body: Record<string, unknown>): Promise<NextResponse> {
   const str = (k: string, max: number) => (typeof body[k] === "string" ? (body[k] as string).trim().slice(0, max) : "");
@@ -128,6 +131,7 @@ async function handle(body: Record<string, unknown>): Promise<NextResponse> {
         paidAmount: Number.isFinite(paid) && paid >= 0 ? paid : null,
         agencyName: typeof agency?.name === "string" ? agency.name.slice(0, 200) : null,
         agencyInn: typeof agency?.inn === "string" ? agency.inn.slice(0, 20) : null,
+        nationality: iso2(body.nationality),
         siteFetchNeeded: !!externalId,
       },
     });

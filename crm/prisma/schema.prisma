@@ -806,6 +806,8 @@ model LeadService {
   paidAmount      Decimal?  @db.Decimal(14, 2)
   agencyName      String?
   agencyInn       String?
+  /// гражданство заявителя с сайта Orient Visa (ISO2, «IN»); нет — гражданин Узбекистана
+  nationality     String?
   /// номер заявки на визовом портале страны
   portalReference String?
   /// анкета туристов и контакты с сайта — зашифрованный JSON (персональные данные)
