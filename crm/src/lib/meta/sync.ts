@@ -3,7 +3,8 @@ import { prisma } from "@/lib/db";
 import { createLead } from "@/lib/leads/service";
 import { GraphError, type FetchFn } from "./graph";
 import { getIntegration, markTokenError, markTokenOk, pageClient, readSecrets, type IntegrationSecrets } from "./integration";
-import { LEAD_FIELDS, nameFromAnswers, parseMetaLead, type MetaLead } from "./parse";
+import { LEAD_FIELDS, nameFromAnswers, parseMetaLead, phoneFromAnswers, type MetaLead } from "./parse";
+import { normalizePhone } from "@/lib/phone";
 
 interface MetaFormInfo {
   id: string;
@@ -219,6 +220,34 @@ export async function fixUnnamedLeads(): Promise<number> {
     await prisma.$transaction([
       prisma.lead.update({ where: { id: l.id }, data: { name } }),
       prisma.client.updateMany({ where: { id: l.clientId, name: "Без имени" }, data: { name } }),
+    ]);
+    fixed++;
+  }
+  return fixed;
+}
+
+/**
+ * Лиды без телефона, у которых номер есть в ответах формы на свой вопрос («Номер телефона для связи?»):
+ * раньше CRM брала номер только из стандартного поля Meta. Номер записывается в лид; если клиент с таким номером
+ * уже есть — лид привязывается к нему (повторное обращение), иначе номер получает клиент лида.
+ */
+export async function fixPhonelessLeads(): Promise<number> {
+  const leads = await prisma.lead.findMany({
+    where: { phone: null, phoneRaw: null, formAnswers: { not: Prisma.AnyNull } },
+    select: { id: true, clientId: true, formAnswers: true },
+  });
+  let fixed = 0;
+  for (const l of leads) {
+    const raw = phoneFromAnswers(l.formAnswers);
+    if (!raw) continue;
+    const phone = normalizePhone(raw);
+    const existing = phone ? await prisma.client.findUnique({ where: { phone }, select: { id: true } }) : null;
+    await prisma.$transaction([
+      prisma.lead.update({
+        where: { id: l.id },
+        data: { phone, phoneRaw: raw, ...(existing && existing.id !== l.clientId ? { clientId: existing.id, isRepeat: true } : {}) },
+      }),
+      ...(phone && !existing ? [prisma.client.updateMany({ where: { id: l.clientId, phone: null }, data: { phone } })] : []),
     ]);
     fixed++;
   }
