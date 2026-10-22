@@ -13,27 +13,18 @@ import { prisma } from "@/lib/db";
 import { conversationScope, leadScope } from "@/lib/access";
 import { requireUser } from "@/lib/session";
 import { handedVisa } from "@/lib/visa";
-import { debtOwnerWhere } from "@/lib/debts";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
   const { t } = await getI18n();
 
-  const [newLeads, tasks, meta, settings, pendingCosts, overdueDebts, unreadChats, newVisa] = await Promise.all([
+  const [newLeads, tasks, meta, settings, pendingCosts, unreadChats, newVisa] = await Promise.all([
     prisma.lead.count({ where: { ...leadScope(user), status: { kind: "NEW" } } }),
     prisma.task.count({ where: { assigneeId: user.id, doneAt: null, dueAt: { lt: endOfDayTashkent() } } }),
     prisma.metaIntegration.findUnique({ where: { id: 1 } }),
     prisma.appSettings.findUnique({ where: { id: 1 } }),
     // сделки, закрытые менеджерами без себестоимости, — счётчик у «Финансов» для администратора
     user.role === "ADMIN" ? prisma.deal.count({ where: { costConfirmed: false } }) : Promise.resolve(0),
-    // долги с прошедшим сроком оплаты — счётчик у «Должников»
-    prisma.deal.count({
-      where: {
-        paidAmount: { lt: prisma.deal.fields.amount },
-        dueAt: { lt: startOfDayTashkent() },
-        ...(user.role === "ADMIN" ? {} : debtOwnerWhere(user.id)),
-      },
-    }),
     // переписки с непрочитанными сообщениями — счётчик у «Чатов»
     prisma.conversation.count({ where: { ...conversationScope(user), unreadCount: { gt: 0 } } }),
     // новые визовые заявки — счётчик у «Виз» (визовому специалисту и администратору)
@@ -59,7 +50,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <Sidebar
         user={user}
         onShift={onShift}
-        counters={{ leads: newLeads, tasks, finance: pendingCosts, debtors: overdueDebts, chats: unreadChats, visa: newVisa }}
+        counters={{ leads: newLeads, tasks, finance: pendingCosts, chats: unreadChats, visa: newVisa }}
         rate={{ value: Number(settings?.usdRateCost ?? 0), updatedAt: settings?.usdRateUpdatedAt?.toISOString() ?? null }}
         logout={logout}
       />

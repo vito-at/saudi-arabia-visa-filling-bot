@@ -4,7 +4,7 @@ import { RateWidget } from "./rate-widget";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { BarChart3, CalendarDays, Stamp, CheckSquare, HandCoins, ImagePlus, Inbox, MessageCircle, LayoutDashboard, LogOut, Megaphone, Menu, Settings, Users, Wallet, X } from "lucide-react";
+import { BarChart3, CalendarDays, Stamp, CheckSquare, ImagePlus, Inbox, MessageCircle, LayoutDashboard, LogOut, Megaphone, Menu, Settings, Users, Wallet, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "./logo";
 import { NotificationBell } from "./notification-bell";
@@ -20,10 +20,10 @@ const NAV = [
   { href: "/chats", label: "nav.chats", icon: MessageCircle, badge: "chats" },
   // канбан убран из меню (менеджеры им не пользуются); страница осталась по адресу /kanban — вернуть можно этой строкой:
   // { href: "/kanban", label: "nav.kanban", icon: Columns3, badge: null },
-  { href: "/clients", label: "nav.clients", icon: Users, badge: null },
+  // «Клиенты» в меню — только администратору; страницы открыты всем, на них ведут ссылки из карточки лида
+  { href: "/clients", label: "nav.clients", icon: Users, badge: null, admin: true },
   { href: "/tasks", label: "nav.tasks", icon: CheckSquare, badge: "tasks" },
   { href: "/calendar", label: "nav.calendar", icon: CalendarDays, badge: null },
-  { href: "/debtors", label: "nav.debtors", icon: HandCoins, badge: "debtors" },
   { href: "/posts", label: "nav.posts", icon: ImagePlus, badge: null },
   { href: "/reports", label: "nav.reports", icon: BarChart3, badge: null },
   { href: "/visa", label: "nav.visa", icon: Stamp, badge: "visa", visa: true },
@@ -36,7 +36,7 @@ type SidebarProps = {
   user: { name: string; role: "ADMIN" | "MANAGER" | "VISA" };
   /** «В работе» менеджера при автораспределении; null — переключатель не показывается */
   onShift: boolean | null;
-  counters: { leads: number; tasks: number; finance: number; debtors: number; chats: number; visa: number };
+  counters: { leads: number; tasks: number; finance: number; chats: number; visa: number };
   /** курс $ для расчёта цен клиентам */
   rate: { value: number; updatedAt: string | null };
   logout: () => Promise<void>;
@@ -128,7 +128,7 @@ function SidebarContent({ user, counters, logout, rate, onShift }: SidebarProps)
               <Icon className="size-4" />
               <span className="flex-1">{t(item.label as TKey)}</span>
               {count > 0 && (
-                <span className={cn("rounded-full px-1.5 text-xs font-semibold text-white", item.badge === "leads" || item.badge === "chats" ? "bg-brand" : item.badge === "debtors" ? "bg-red-500" : "bg-amber-500")}>{count}</span>
+                <span className={cn("rounded-full px-1.5 text-xs font-semibold text-white", item.badge === "leads" || item.badge === "chats" ? "bg-brand" : "bg-amber-500")}>{count}</span>
               )}
             </Link>
           );

@@ -4,10 +4,8 @@
  */
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { toInputDate } from "@/lib/format";
-import { toNum } from "@/lib/money";
 
-export type NotificationType = "lead" | "task" | "debt" | "cost" | "trip" | "chat" | "pool" | "ai" | "visa" | "visaNew" | "visaFix" | "visaMsg";
+export type NotificationType = "lead" | "task" | "cost" | "trip" | "chat" | "pool" | "ai" | "visa" | "visaNew" | "visaFix" | "visaMsg";
 
 export interface NotifyInput {
   userId: string;
@@ -48,36 +46,17 @@ export async function notifyCostPending(deal: { id: string; leadId: string; prod
 }
 
 /**
- * Периодическая проверка (воркер): просроченные задачи — исполнителю; долги со сроком сегодня или просроченные —
- * менеджеру и администраторам (раз в день по каждой сделке).
+ * Периодическая проверка (воркер): просроченные задачи — исполнителю.
  */
 export async function scanNotifications(now = new Date()): Promise<number> {
-  const today = toInputDate(now);
-  const endOfDay = new Date(new Date(`${today}T00:00:00+05:00`).getTime() + 86_400_000);
-  const [tasks, debts, admins] = await Promise.all([
-    prisma.task.findMany({
-      where: { doneAt: null, dueAt: { lt: now, gt: new Date(now.getTime() - 7 * 86_400_000) } },
-      select: { id: true, title: true, assigneeId: true, leadId: true, lead: { select: { name: true } } },
-      take: 500,
-    }),
-    prisma.deal.findMany({
-      where: { paidAmount: { lt: prisma.deal.fields.amount }, dueAt: { lt: endOfDay } },
-      select: { id: true, amount: true, paidAmount: true, currency: true, dueAt: true, managerId: true, lead: { select: { id: true, name: true, managerId: true } } },
-      take: 500,
-    }),
-    adminIds(),
-  ]);
+  const tasks = await prisma.task.findMany({
+    where: { doneAt: null, dueAt: { lt: now, gt: new Date(now.getTime() - 7 * 86_400_000) } },
+    select: { id: true, title: true, assigneeId: true, leadId: true, lead: { select: { name: true } } },
+    take: 500,
+  });
   const items: NotifyInput[] = [];
   for (const t of tasks) {
     items.push({ userId: t.assigneeId, type: "task", key: `task:${t.id}`, link: t.leadId ? `/leads/${t.leadId}` : "/tasks", data: { title: t.title, name: t.lead?.name ?? null } });
-  }
-  for (const d of debts) {
-    const left = Math.round((toNum(d.amount) - toNum(d.paidAmount)) * 100) / 100;
-    // менеджеру — только по его клиентам (лид за ним), администраторам — все
-    const users = new Set([d.lead.managerId, ...admins].filter(Boolean) as string[]);
-    for (const userId of users) {
-      items.push({ userId, type: "debt", key: `debt:${d.id}:${today}`, link: "/debtors", data: { name: d.lead.name, left, currency: d.currency, due: d.dueAt ? toInputDate(d.dueAt) : null } });
-    }
   }
   return notify(items);
 }

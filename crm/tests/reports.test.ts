@@ -214,8 +214,15 @@ describe("отчёт по менеджерам", () => {
     const rows = calcManagers(leads, deals, [{ id: "m1", name: "Дилшод" }, { id: "m2", name: "Гулнора" }, { id: "m3", name: "Без лидов" }], m);
     expect(rows).toEqual([
       { managerId: "m1", name: "Дилшод", leads: 3, inWork: 1, sales: 1, lost: 1, conversion: 1 / 3, revenue: 1000, profit: 300, avgFirstResponseMin: 20, medianFirstResponseMin: 20, within15: 1 / 3 },
-      { managerId: "m2", name: "Гулнора", leads: 1, inWork: 1, sales: 0, lost: 0, conversion: 0, revenue: 500, profit: 50, avgFirstResponseMin: null, medianFirstResponseMin: null, within15: 0 },
+      { managerId: "m2", name: "Гулнора", leads: 1, inWork: 1, sales: 1, lost: 0, conversion: 0, revenue: 500, profit: 50, avgFirstResponseMin: null, medianFirstResponseMin: null, within15: 0 },
     ]);
+  });
+  it("«Продаж» — количество продаж в сделках, а не число сделок", () => {
+    const leads = [lead({ managerId: "m1", statusKind: "WON" })];
+    const deals = [{ ...deal(600, 0, "USD", "m1"), quantity: 6 }, deal(100, 50, "USD", "m1"), { ...deal(200, 0, "USD", "m2"), quantity: 2 }];
+    const rows = calcManagers(leads, deals, [{ id: "m1", name: "Дилшод" }, { id: "m2", name: "Гулнора" }], m);
+    expect(rows.find((r) => r.managerId === "m1")).toMatchObject({ sales: 7, conversion: 1, inWork: 0 });
+    expect(rows.find((r) => r.managerId === "m2")).toMatchObject({ leads: 0, sales: 2 });
   });
 });
 

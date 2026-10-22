@@ -15,6 +15,8 @@ export interface RDeal {
   costCurrency?: Currency;
   paidAt: Date;
   managerId: string | null;
+  /** количество продаж в сделке (виза на 6 человек — 6); нет — 1 */
+  quantity?: number;
 }
 
 export interface RLead {
@@ -404,6 +406,7 @@ export interface ManagerRow {
   name: string;
   leads: number;
   inWork: number;
+  /** количество продаж: сумма quantity по сделкам, оплаченным в периоде */
   sales: number;
   lost: number;
   conversion: number | null;
@@ -424,7 +427,8 @@ export function calcManagers(leads: RLead[], deals: RDeal[], managers: { id: str
   return managers
     .map((mg) => {
       const own = leads.filter((l) => l.managerId === mg.id);
-      const sales = own.filter(isWon).length;
+      // «в работе» и конверсия — по лидам периода; «Продаж» — количество продаж в сделках периода
+      const won = own.filter(isWon).length;
       const lost = own.filter((l) => l.statusKind === "LOST").length;
       const responses = own.filter((l) => l.firstResponseAt).map((l) => workMinutesBetween(l.createdAt, l.firstResponseAt!, schedule));
       const myDeals = deals.filter((d) => d.managerId === mg.id);
@@ -432,10 +436,10 @@ export function calcManagers(leads: RLead[], deals: RDeal[], managers: { id: str
         managerId: mg.id,
         name: mg.name,
         leads: own.length,
-        inWork: own.length - sales - lost,
-        sales,
+        inWork: own.length - won - lost,
+        sales: myDeals.reduce((s, d) => s + (d.quantity ?? 1), 0),
         lost,
-        conversion: safeDiv(sales, own.length),
+        conversion: safeDiv(won, own.length),
         revenue: round2(myDeals.reduce((s, d) => s + dealRevenue(d, m), 0)),
         profit: round2(myDeals.reduce((s, d) => s + dealProfit(d, m), 0)),
         avgFirstResponseMin: responses.length ? round2(responses.reduce((a, b) => a + b, 0) / responses.length) : null,
@@ -443,7 +447,7 @@ export function calcManagers(leads: RLead[], deals: RDeal[], managers: { id: str
         within15: safeDiv(responses.filter((r) => r <= 15).length, own.length),
       };
     })
-    .filter((r) => r.leads > 0 || r.revenue > 0)
+    .filter((r) => r.leads > 0 || r.revenue > 0 || r.sales > 0)
     .sort((a, b) => b.profit - a.profit || b.leads - a.leads);
 }
 
