@@ -10,8 +10,6 @@ import { requireUser, AccessError } from "@/lib/session";
 import { changeStatus, ValidationError } from "@/lib/leads/service";
 import { SERVICE_TYPES } from "@/lib/constants";
 import { dealClosesWithoutCost, managerEntersCost, visaLeadPatch } from "@/lib/deals";
-import { debtLeft, debtOwnerWhere, parsePaidAtClose, parsePayment } from "@/lib/debts";
-import { toNum } from "@/lib/money";
 import { notifyCostPending } from "@/lib/notify";
 
 export interface DealInput {
@@ -30,10 +28,6 @@ export interface DealInput {
   visaApplications?: number | null;
   /** количество продаж в сделке; учитывается только от администратора */
   quantity?: string | number;
-  /** оплачено при закрытии сделки; пусто — вся сумма. Меньше суммы — остаток попадает в «Должники» */
-  paid?: string;
-  /** до какого числа клиент обещал доплатить (YYYY-MM-DD) */
-  dueAt?: string;
 }
 
 const isCurrency = (c: unknown): c is Currency => c === "UZS" || c === "USD";
@@ -68,7 +62,7 @@ function parseQuantity(v: string | number | null | undefined): number {
 }
 
 function revalidate(leadId: string, clientId: string) {
-  for (const p of ["/leads", "/kanban", "/", "/clients", "/reports", "/finance", "/debtors"]) revalidatePath(p);
+  for (const p of ["/leads", "/kanban", "/", "/clients", "/reports", "/finance"]) revalidatePath(p);
   revalidatePath(`/leads/${leadId}`);
   revalidatePath(`/clients/${clientId}`);
 }
@@ -89,10 +83,6 @@ export async function createDealAction(leadId: string, input: DealInput, wonStat
     // Количество продаж меняет только администратор; у менеджера — число заявлений для визы, иначе 1
     const quantity = user.role === "ADMIN" ? input.quantity : serviceType === "VISA" && input.visaApplications ? input.visaApplications : 1;
     const d = parseDeal(withCost ? { ...input, quantity } : { ...input, cost: "0", costCurrency: input.currency, quantity });
-    const paid = parsePaidAtClose(input.paid, d.amount);
-    if (paid === null) throw new ValidationError("err.paidAmount");
-    const left = debtLeft(d.amount, paid);
-    const dueAt = left > 0 ? parseInputDate(input.dueAt) : null;
     await prisma.$transaction(async (tx) => {
       const deal = await tx.deal.create({
         data: {
@@ -103,9 +93,8 @@ export async function createDealAction(leadId: string, input: DealInput, wonStat
           leadId,
           clientId: lead.clientId,
           managerId: lead.managerId ?? user.id,
-          paidAmount: paid,
-          dueAt,
-          ...(paid > 0 ? { payments: { create: { amount: paid, paidAt: d.paidAt, userId: user.id } } } : {}),
+          // учёт долгов убран: сделка считается оплаченной полностью
+          paidAmount: d.amount,
         },
       });
       const leadPatch = {
@@ -125,11 +114,6 @@ export async function createDealAction(leadId: string, input: DealInput, wonStat
             : `${d.product}: ${formatMoney(d.amount, d.currency)}, себестоимость укажет администратор`,
         },
       });
-      if (left > 0) {
-        await tx.leadHistory.create({
-          data: { leadId, userId: user.id, field: "debt", newValue: `Оплачено ${formatMoney(paid, d.currency)}, долг ${formatMoney(left, d.currency)}` },
-        });
-      }
       return deal;
     });
     if (!costConfirmed && user.role !== "ADMIN") {
@@ -146,13 +130,6 @@ async function getDealForUser(dealId: string) {
   const deal = await prisma.deal.findUnique({ where: { id: dealId } });
   if (!deal) throw new AccessError("err.dealNotFound");
   await getLeadForUser(user, deal.leadId);
-  return { user, deal };
-}
-
-/** Долг клиента ведёт только его менеджер (лид за ним) или администратор */
-async function getDebtForUser(dealId: string) {
-  const { user, deal } = await getDealForUser(dealId);
-  if (user.role !== "ADMIN" && !(await prisma.deal.count({ where: { id: deal.id, ...debtOwnerWhere(user.id) } }))) throw new AccessError("err.dealNotFound");
   return { user, deal };
 }
 
@@ -211,65 +188,6 @@ export async function deleteDealAction(dealId: string) {
       prisma.deal.delete({ where: { id: dealId } }),
       prisma.leadHistory.create({
         data: { leadId: deal.leadId, userId: user.id, field: "deal", oldValue: `${deal.product}: ${formatMoney(Number(deal.amount), deal.currency)}`, newValue: "удалена" },
-      }),
-    ]);
-    revalidate(deal.leadId, deal.clientId);
-  });
-}
-
-/** Клиент доплатил по сделке: сумма не больше остатка долга. Вносит менеджер лида или администратор. */
-export async function addPaymentAction(dealId: string, input: { amount: string; paidAt: string; note?: string }) {
-  return runAction(async () => {
-    const { user, deal } = await getDebtForUser(dealId);
-    const left = debtLeft(toNum(deal.amount), toNum(deal.paidAmount));
-    if (left <= 0) throw new ValidationError("err.noDebt");
-    const amount = parsePayment(input.amount, left);
-    if (amount === null) throw new ValidationError("err.paymentAmount", { max: formatMoney(left, deal.currency) });
-    const paidAt = parseInputDate(input.paidAt);
-    if (!paidAt) throw new ValidationError("err.paymentDate");
-    const note = input.note?.trim().slice(0, 500) || null;
-    const rest = debtLeft(left, amount);
-    await prisma.$transaction([
-      prisma.dealPayment.create({ data: { dealId, amount, paidAt, note, userId: user.id } }),
-      prisma.deal.update({ where: { id: dealId }, data: { paidAmount: { increment: amount } } }),
-      prisma.leadHistory.create({
-        data: {
-          leadId: deal.leadId,
-          userId: user.id,
-          field: "debt",
-          oldValue: `Долг ${formatMoney(left, deal.currency)}`,
-          newValue: rest > 0 ? `Оплата ${formatMoney(amount, deal.currency)}, осталось ${formatMoney(rest, deal.currency)}` : `Оплата ${formatMoney(amount, deal.currency)}, долг погашен`,
-        },
-      }),
-    ]);
-    revalidate(deal.leadId, deal.clientId);
-    return { left: rest };
-  });
-}
-
-/** Срок, до которого клиент обещал доплатить, и заметка о договорённости */
-export async function setDebtTermsAction(dealId: string, input: { dueAt: string; note: string }) {
-  return runAction(async () => {
-    const { deal } = await getDebtForUser(dealId);
-    const dueAt = input.dueAt ? parseInputDate(input.dueAt) : null;
-    if (input.dueAt && !dueAt) throw new ValidationError("err.dueAt");
-    await prisma.deal.update({ where: { id: dealId }, data: { dueAt, debtNote: input.note.trim().slice(0, 1000) || null } });
-    revalidate(deal.leadId, deal.clientId);
-  });
-}
-
-/** Удалить ошибочно внесённую оплату (только администратор): долг возвращается */
-export async function deletePaymentAction(paymentId: string) {
-  return runAction(async () => {
-    const payment = await prisma.dealPayment.findUnique({ where: { id: paymentId } });
-    if (!payment) throw new AccessError("err.dealNotFound");
-    const { user, deal } = await getDealForUser(payment.dealId);
-    if (user.role !== "ADMIN") throw new AccessError("err.onlyAdminDealEdit");
-    await prisma.$transaction([
-      prisma.dealPayment.delete({ where: { id: paymentId } }),
-      prisma.deal.update({ where: { id: deal.id }, data: { paidAmount: { decrement: payment.amount } } }),
-      prisma.leadHistory.create({
-        data: { leadId: deal.leadId, userId: user.id, field: "debt", oldValue: `Оплата ${formatMoney(toNum(payment.amount), deal.currency)}`, newValue: "удалена" },
       }),
     ]);
     revalidate(deal.leadId, deal.clientId);

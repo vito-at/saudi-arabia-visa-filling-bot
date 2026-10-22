@@ -15,13 +15,12 @@ import { getI18n } from "@/i18n/server";
 const KIND_STYLE: Record<CalendarKind, string> = {
   callback: "bg-orange-100 text-orange-900 dark:bg-orange-950 dark:text-orange-200",
   task: "bg-violet-100 text-violet-900 dark:bg-violet-950 dark:text-violet-200",
-  debt: "bg-red-100 text-red-900 dark:bg-red-950 dark:text-red-200",
   depart: "bg-sky-100 text-sky-900 dark:bg-sky-950 dark:text-sky-200",
   return: "bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200",
 };
-const KINDS: CalendarKind[] = ["callback", "task", "debt", "depart", "return"];
+const KINDS: CalendarKind[] = ["callback", "task", "depart", "return"];
 
-/** Календарь: звонки и задачи, сроки долгов, вылеты и возвращения клиентов */
+/** Календарь: звонки и задачи, вылеты и возвращения клиентов */
 export default async function CalendarPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const params = await searchParams;
   const user = await requireUser();

@@ -1,12 +1,11 @@
-/** Календарь: задачи и звонки, сроки оплаты долгов, вылеты и возвращения клиентов с продажей */
+/** Календарь: задачи и звонки, вылеты и возвращения клиентов с продажей */
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { toInputDate, formatTime } from "@/lib/format";
-import { toNum } from "@/lib/money";
 import type { CurrentUser } from "@/lib/session";
 import type { MonthRange } from "@/lib/salary";
 
-export type CalendarKind = "callback" | "task" | "debt" | "depart" | "return";
+export type CalendarKind = "callback" | "task" | "depart" | "return";
 
 export interface CalendarItem {
   day: string; // YYYY-MM-DD по Ташкенту
@@ -23,15 +22,11 @@ export async function loadCalendar(range: MonthRange, user: CurrentUser, userId:
   const owner = user.role === "ADMIN" ? userId : user.id;
   const leadOwner: Prisma.LeadWhereInput = owner ? { managerId: owner } : {};
   const inMonth = { gte: range.from, lt: range.to };
-  const [tasks, debts, trips] = await Promise.all([
+  const [tasks, trips] = await Promise.all([
     prisma.task.findMany({
       where: { dueAt: inMonth, ...(owner ? { assigneeId: owner } : {}) },
       select: { id: true, title: true, dueAt: true, doneAt: true, isCallback: true, leadId: true, lead: { select: { name: true } }, assignee: { select: { name: true } } },
       orderBy: { dueAt: "asc" },
-    }),
-    prisma.deal.findMany({
-      where: { dueAt: inMonth, paidAmount: { lt: prisma.deal.fields.amount }, lead: leadOwner },
-      select: { id: true, amount: true, paidAmount: true, currency: true, dueAt: true, lead: { select: { id: true, name: true } } },
     }),
     prisma.lead.findMany({
       where: { ...leadOwner, deals: { some: {} }, OR: [{ travelFrom: inMonth }, { travelTo: inMonth }] },
@@ -49,10 +44,6 @@ export async function loadCalendar(range: MonthRange, user: CurrentUser, userId:
       link: t.leadId ? `/leads/${t.leadId}` : "/tasks",
       done: !!t.doneAt,
     });
-  }
-  for (const d of debts) {
-    const left = Math.round((toNum(d.amount) - toNum(d.paidAmount)) * 100) / 100;
-    items.push({ day: toInputDate(d.dueAt!), time: null, kind: "debt", title: d.lead.name, sub: `${left} ${d.currency}`, link: "/debtors", done: false });
   }
   for (const l of trips) {
     if (l.travelFrom && l.travelFrom >= range.from && l.travelFrom < range.to) items.push({ day: toInputDate(l.travelFrom), time: null, kind: "depart", title: l.name, sub: l.destination, link: `/leads/${l.id}`, done: false });

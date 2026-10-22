@@ -20,7 +20,7 @@ interface Item {
 
 /** Колокольчик: новые лиды, просроченные задачи, сроки долгов, продажи без себестоимости, сообщения. Обновление раз в минуту. */
 export function NotificationBell({ className }: { className?: string }) {
-  const { t, f } = useI18n();
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<Item[]>([]);
   const [unread, setUnread] = useState(0);
@@ -78,7 +78,6 @@ export function NotificationBell({ className }: { className?: string }) {
 
   const text = (n: Item) => {
     const d = n.data ?? {};
-    if (n.type === "debt") return t("notif.debt", { name: d.name ?? "", left: f.money(Number(d.left ?? 0), d.currency === "UZS" ? "UZS" : "USD") });
     if (n.type === "task") return t(d.name ? "notif.taskLead" : "notif.task", { title: d.title ?? "", name: d.name ?? "" });
     if (n.type === "visa") return t("notif.visa", { name: d.name ?? "", status: d.status ? t(`visa.status.${d.status}` as TKey) : "" });
     if (n.type === "visaNew") return t("notif.visaNew", { name: d.name ?? "", product: d.product ? ` — ${d.product}` : "" });
