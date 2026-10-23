@@ -5,11 +5,11 @@ import type { Currency, ServiceType } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { getLeadForUser } from "@/lib/access";
 import { runAction } from "@/lib/actions";
-import { formatMoney, parseInputDate } from "@/lib/format";
+import { formatMoney, formatNumber, parseInputDate } from "@/lib/format";
 import { requireUser, AccessError } from "@/lib/session";
 import { changeStatus, ValidationError } from "@/lib/leads/service";
 import { SERVICE_TYPES } from "@/lib/constants";
-import { dealClosesWithoutCost, managerEntersCost, visaLeadPatch } from "@/lib/deals";
+import { currencyMismatch, dealClosesWithoutCost, managerEntersCost, visaLeadPatch } from "@/lib/deals";
 import { notifyCostPending } from "@/lib/notify";
 
 export interface DealInput {
@@ -45,12 +45,22 @@ function parseDeal(input: DealInput) {
   if (!isCurrency(input.currency)) throw new ValidationError("err.currency");
   const costCurrency = input.costCurrency ?? input.currency;
   if (!isCurrency(costCurrency)) throw new ValidationError("err.currency");
+  checkCurrency(amount, input.currency, "amount");
+  checkCurrency(cost, costCurrency, "cost");
   const paidAt = parseInputDate(input.paidAt);
   if (!paidAt) throw new ValidationError("err.paidAt");
   const product = input.product.trim();
   if (!product) throw new ValidationError("err.product");
   const quantity = parseQuantity(input.quantity);
   return { amount, cost, currency: input.currency, costCurrency, paidAt, product, quantity };
+}
+
+/** Сумма не похожа на выбранную валюту (сумы с валютой «$» или наоборот) — не сохраняем, иначе ломаются продажи и зарплата */
+function checkCurrency(value: number, currency: Currency, field: "amount" | "cost") {
+  const bad = currencyMismatch(value, currency);
+  if (!bad) return;
+  const key = field === "amount" ? (bad === "usd" ? "err.amountLooksUzs" : "err.amountLooksUsd") : bad === "usd" ? "err.costLooksUzs" : "err.costLooksUsd";
+  throw new ValidationError(key, { sum: formatNumber(value, 2) });
 }
 
 /** Количество продаж: целое 1–500, пусто — 1 */
@@ -164,6 +174,7 @@ export async function setDealCostAction(dealId: string, costInput: string, costC
     if (!Number.isFinite(cost) || cost < 0 || String(costInput).trim() === "") throw new ValidationError("err.costNegative");
     const costCurrency = costCurrencyInput ?? deal.currency;
     if (!isCurrency(costCurrency)) throw new ValidationError("err.currency");
+    checkCurrency(cost, costCurrency, "cost");
     await prisma.$transaction([
       prisma.deal.update({ where: { id: dealId }, data: { cost, costCurrency, costConfirmed: true } }),
       prisma.leadHistory.create({

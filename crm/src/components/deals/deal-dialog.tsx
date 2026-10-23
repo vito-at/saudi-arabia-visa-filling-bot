@@ -13,7 +13,7 @@ import { useIsAdmin, useRates } from "@/components/layout/role-context";
 import type { ServiceType } from "@prisma/client";
 import { matchVisaCountry, SERVICE_TYPES, VISA_COUNTRIES } from "@/lib/constants";
 import { serviceLabel } from "@/i18n/labels";
-import { composeProduct, joinDetails, managerEntersCost, splitProduct, type LeadPrefill } from "@/lib/deals";
+import { composeProduct, currencyMismatch, joinDetails, managerEntersCost, splitProduct, type LeadPrefill } from "@/lib/deals";
 
 export interface DealDialogProps {
   open: boolean;
@@ -80,6 +80,11 @@ export function DealDialog({ open, onOpenChange, leadId, wonStatusId, rate, deal
   // прибыль в другой валюте: выручка по минимуму, себестоимость по максимуму
   const profitOther = canConvert ? convertRevenue(amountNum, form.currency, other, rates) - convertCost(costNum, costCurrency, other, rates) : 0;
   const costRateUsed = costCurrency === "USD" ? Math.max(rates.sale, rates.cost) : Math.min(rates.sale, rates.cost);
+  // сумма, не похожая на выбранную валюту (сумы с «$» и наоборот), — сервер такую сделку не сохранит
+  const amountCheck = currencyMismatch(amountNum, form.currency);
+  const costCheck = currencyMismatch(costNum, costCurrency);
+  // сумма в другой валюте — чтобы сразу было видно, если валюта перепутана
+  const amountOther = amountNum > 0 && canConvert ? convertRevenue(amountNum, form.currency, other, rates) : null;
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -151,8 +156,9 @@ export function DealDialog({ open, onOpenChange, leadId, wonStatusId, rate, deal
               <Input name="quantity" type="number" min={1} max={500} value={quantityValue} onChange={(e) => setQuantity(e.target.value)} />
             </Field>
           )}
-          <Field label={t("deal.amount")}>
-            <Input value={form.amount} onChange={set("amount")} inputMode="decimal" required />
+          <Field label={t("deal.amount")} hint={!amountCheck && amountOther !== null ? t("deal.approx", { sum: f.money(amountOther, other) }) : undefined}>
+            <Input value={form.amount} onChange={set("amount")} inputMode="decimal" required aria-invalid={!!amountCheck} />
+            {amountCheck && <p className="text-xs font-medium text-red-600">{t(amountCheck === "usd" ? "deal.currencyCheckUsd" : "deal.currencyCheckUzs")}</p>}
           </Field>
           <Field label={t("deal.currency")}>
             <NativeSelect
@@ -169,7 +175,8 @@ export function DealDialog({ open, onOpenChange, leadId, wonStatusId, rate, deal
           {showCost && (
             <>
               <Field label={t("deal.cost")} hint={t("deal.costHint")}>
-                <Input value={form.cost} onChange={set("cost")} inputMode="decimal" required={flightCost} />
+                <Input value={form.cost} onChange={set("cost")} inputMode="decimal" required={flightCost} aria-invalid={!!costCheck} />
+                {costCheck && <p className="text-xs font-medium text-red-600">{t(costCheck === "usd" ? "deal.currencyCheckUsd" : "deal.currencyCheckUzs")}</p>}
               </Field>
               <Field label={t("deal.costCurrency")}>
                 <NativeSelect

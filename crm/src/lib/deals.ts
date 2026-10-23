@@ -1,4 +1,4 @@
-import type { ServiceType } from "@prisma/client";
+import type { Currency, ServiceType } from "@prisma/client";
 
 /**
  * Сделка закрывается сразу, без ожидания себестоимости от администратора, только для визовой поддержки —
@@ -11,6 +11,22 @@ export function dealClosesWithoutCost(serviceType: ServiceType | null): boolean 
 /** Себестоимость авиабилетов менеджер указывает сам при закрытии сделки — она известна сразу (цена билета у перевозчика) */
 export function managerEntersCost(service: ServiceType | null | undefined): boolean {
   return service === "FLIGHTS";
+}
+
+/**
+ * Проверка валюты суммы. В окне сделки по умолчанию выбран «$», и сумму в сумах легко сохранить как доллары:
+ * 2 500 000 сум превращаются в 2 500 000 $ — продажи и зарплата менеджера вырастают в тысячи раз.
+ * Сделок от 100 000 $ у агентства не бывает, а сделок дешевле 10 000 сум (меньше доллара) — тоже.
+ */
+export const USD_DEAL_MAX = 100_000;
+export const UZS_DEAL_MIN = 10_000;
+
+/** "usd" — сумма слишком большая для долларов (похоже, это сумы), "uzs" — слишком маленькая для сумов (похоже, доллары) */
+export function currencyMismatch(amount: number, currency: Currency): "usd" | "uzs" | null {
+  if (!Number.isFinite(amount) || amount <= 0) return null;
+  if (currency === "USD" && amount >= USD_DEAL_MAX) return "usd";
+  if (currency === "UZS" && amount < UZS_DEAL_MIN) return "uzs";
+  return null;
 }
 
 /** Название продукта сделки: тип услуги из списка и, если указаны, подробности — «Тур: Дубай, 7 ночей» */
