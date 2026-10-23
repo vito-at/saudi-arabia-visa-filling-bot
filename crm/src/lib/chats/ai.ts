@@ -142,8 +142,9 @@ export async function replyInConversation(conversationId: string, now = new Date
   const s = await getAiSettings();
   const settings = await getSettings();
   const schedule = scheduleOf(settings);
-  const conv = await prisma.conversation.findUnique({ where: { id: conversationId }, include: { lead: { select: { id: true, phone: true, managerId: true } } } });
+  const conv = await prisma.conversation.findUnique({ where: { id: conversationId }, include: { lead: { select: { id: true, phone: true, managerId: true } }, account: { select: { aiEnabled: true } } } });
   if (!conv || !aiCanReply(s, conv, isWorkTime(now, schedule))) return false;
+  if (conv.accountId && !conv.account?.aiEnabled) return false;
   // клиент ещё печатает — ответит следующий проход
   if (conv.lastInboundAt && now.getTime() - conv.lastInboundAt.getTime() < AI_DEBOUNCE_MS - 500) return false;
   // на это сообщение клиента модель уже отвечала (или решила промолчать) — повторно не спрашиваем
@@ -220,8 +221,12 @@ export async function processAiReplies(now = new Date()): Promise<number> {
       lastInboundAt: { gt: new Date(now.getTime() - 6 * 3_600_000), lte: new Date(now.getTime() - AI_DEBOUNCE_MS + 500) },
       // последнее сообщение — от клиента
       lastMessageAt: { lte: prisma.conversation.fields.lastInboundAt },
-      // и модель на него ещё не отвечала
-      OR: [{ aiAnsweredAt: null }, { aiAnsweredAt: { lt: prisma.conversation.fields.lastInboundAt } }],
+      AND: [
+        // и модель на него ещё не отвечала
+        { OR: [{ aiAnsweredAt: null }, { aiAnsweredAt: { lt: prisma.conversation.fields.lastInboundAt } }] },
+        // в личном Telegram сотрудника — только если он сам включил ассистента
+        { OR: [{ accountId: null }, { account: { aiEnabled: true } }] },
+      ],
     },
     orderBy: { lastInboundAt: "asc" },
     select: { id: true },

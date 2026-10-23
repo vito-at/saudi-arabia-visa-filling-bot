@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { AlertTriangle, Bot, FileText, FolderInput, MapPin, MessageSquareText, Paperclip, Send, X } from "lucide-react";
+import { AlertTriangle, Bot, CheckCheck, Eye, FileText, FolderInput, MapPin, MessageSquareText, Paperclip, Send, X } from "lucide-react";
 import { SaveDocDialog } from "./save-doc-dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
@@ -66,6 +66,15 @@ function Attachment({ a }: { a: ChatAttachmentView }) {
   );
 }
 
+/** «Хвостик» пузыря у последнего сообщения группы — как в Telegram */
+function BubbleTail({ out }: { out: boolean }) {
+  return (
+    <svg viewBox="0 0 11 20" width="11" height="20" aria-hidden className={cn("absolute bottom-0", out ? "-right-[9px]" : "-left-[9px] -scale-x-100")}>
+      <path d="M0 0v20h11C6 20 2 16 0 9z" fill={out ? "var(--tg-out)" : "var(--tg-in)"} />
+    </svg>
+  );
+}
+
 /** Вложения, которые можно сохранить в CRM как документ клиента */
 const SAVABLE = new Set<ChatAttachmentView["type"]>(["image", "file", "video", "audio"]);
 
@@ -83,7 +92,7 @@ export function ChatMessages({
   /** есть лид — вложения клиента можно сохранить в его заявки (правая кнопка мыши) */
   canSaveDocs?: boolean;
 }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [menu, setMenu] = useState<{ x: number; y: number; messageId: string; index: number; name: string | null } | null>(null);
   const [saving, setSaving] = useState<{ messageId: string; index: number; name: string | null } | null>(null);
   useEffect(() => {
@@ -109,20 +118,58 @@ export function ChatMessages({
     if (unread > 0) void markChatReadAction(conversationId);
   }, [conversationId, unread, last]);
 
-  let prevDay = "";
+  // подпись дня, как в Telegram: «Сегодня», «Вчера», «23 октября» (год — только у прошлых лет)
+  const dayLabel = (iso: string) => {
+    const d = new Date(iso);
+    const key = (x: Date) => formatDate(x);
+    const now = new Date();
+    if (key(d) === key(now)) return t("chats.today");
+    if (key(d) === key(new Date(now.getTime() - 86_400_000))) return t("chats.yesterday");
+    const sameYear = d.getFullYear() === now.getFullYear();
+    return new Intl.DateTimeFormat(locale === "en" ? "en-GB" : locale === "uz" ? "uz-Latn" : "ru-RU", { day: "numeric", month: "long", ...(sameYear ? {} : { year: "numeric" }), timeZone: "Asia/Tashkent" }).format(d);
+  };
+
   return (
-    <div ref={box} className={cn("flex-1 space-y-1.5 overflow-y-auto px-3 py-3 sm:px-4", className)}>
-      {!messages.length && <div className="py-10 text-center text-sm text-muted-foreground">{t("chats.noMessages")}</div>}
-      {messages.map((m) => {
+    <div ref={box} className={cn("tg-chat-bg flex-1 overflow-y-auto px-2 py-3 sm:px-6", className)}>
+      {!messages.length && (
+        <div className="py-10 text-center">
+          <span className="rounded-full px-3 py-1 text-xs text-white" style={{ background: "var(--tg-day)" }}>
+            {t("chats.noMessages")}
+          </span>
+        </div>
+      )}
+      <div className="mx-auto max-w-3xl">
+      {messages.map((m, idx) => {
         const day = formatDate(m.at);
-        const showDay = day !== prevDay;
-        prevDay = day;
+        const prev = messages[idx - 1];
+        const next = messages[idx + 1];
+        const showDay = !prev || formatDate(prev.at) !== day;
         const out = m.direction === "OUT";
+        // сообщения одной стороны подряд — группа, как в Telegram: «хвостик» у последнего, промежуток меньше
+        const lastInGroup = !next || next.direction !== m.direction || formatDate(next.at) !== day;
+        const firstInGroup = showDay || !prev || prev.direction !== m.direction;
+        // кто из сотрудников ответил — в начале группы (у клиента имя не нужно: собеседник один)
+        const author = out && firstInGroup ? (m.isAi ? `🤖 ${t("ai.badge")}` : m.sender) : null;
+        const onlyMedia = !m.text && m.attachments.length > 0 && m.attachments.every((a) => a.type === "image" || a.type === "sticker" || a.type === "video");
         return (
           <div key={m.id}>
-            {showDay && <div className="my-3 text-center text-[11px] text-muted-foreground">{day}</div>}
-            <div className={cn("flex", out ? "justify-end" : "justify-start")}>
-              <div className={cn("max-w-[85%] rounded-2xl px-3 py-2 text-sm shadow-sm sm:max-w-[70%]", out ? "rounded-br-sm bg-primary text-primary-foreground" : "rounded-bl-sm border bg-card")}>
+            {showDay && (
+              <div className="sticky top-1 z-10 my-2 flex justify-center">
+                <span className="rounded-full px-2.5 py-0.5 text-[13px] font-medium text-white" style={{ background: "var(--tg-day)" }}>
+                  {dayLabel(m.at)}
+                </span>
+              </div>
+            )}
+            <div className={cn("flex", out ? "justify-end" : "justify-start", lastInGroup ? "mb-2" : "mb-0.5")}>
+              <div
+                className={cn(
+                  "relative max-w-[85%] text-[15px] leading-snug shadow-[0_1px_2px_rgb(0_0_0/0.15)] sm:max-w-[65%]",
+                  onlyMedia ? "overflow-hidden rounded-2xl p-0.5" : "rounded-2xl px-2.5 pt-1.5 pb-1",
+                  lastInGroup && (out ? "rounded-br-[6px]" : "rounded-bl-[6px]"),
+                )}
+                style={{ background: out ? "var(--tg-out)" : "var(--tg-in)", color: "var(--tg-text)" }}
+              >
+                {author && <div className="mb-0.5 text-[13px] font-semibold" style={{ color: "var(--tg-accent)" }}>{author}</div>}
                 {m.attachments.map((a, i) => {
                   const savable = canSaveDocs && !out && SAVABLE.has(a.type) && !!a.src;
                   return (
@@ -154,16 +201,27 @@ export function ChatMessages({
                     </div>
                   );
                 })}
-                {m.text && <div className="whitespace-pre-wrap break-words">{m.text}</div>}
-                <div className={cn("mt-0.5 text-right text-[10px]", out ? "text-primary-foreground/70" : "text-muted-foreground")}>
-                  {out && m.isAi ? `🤖 ${t("ai.badge")} · ` : out && m.sender ? `${m.sender} · ` : ""}
+                {m.text && (
+                  <div className="whitespace-pre-wrap break-words">
+                    {m.text}
+                    {/* место под время, чтобы оно не наезжало на текст — как в Telegram */}
+                    <span className="inline-block w-14" aria-hidden />
+                  </div>
+                )}
+                <div
+                  className={cn("flex items-center justify-end gap-0.5 text-[11px] leading-none", m.text ? "-mt-3.5 float-right" : onlyMedia ? "absolute right-2 bottom-2 rounded-full bg-black/40 px-1.5 py-0.5 text-white" : "mt-0.5")}
+                  style={onlyMedia ? undefined : { color: out ? "var(--tg-out-meta)" : "var(--tg-meta)" }}
+                >
                   {formatTime(m.at)}
+                  {out && <CheckCheck className="size-3.5" aria-label={t("chats.sent")} />}
                 </div>
+                {lastInGroup && <BubbleTail out={out} />}
               </div>
             </div>
           </div>
         );
       })}
+      </div>
       {menu && (
         <div className="fixed z-50 min-w-48 rounded-md border bg-card p-1 text-sm shadow-lg" style={{ left: menu.x, top: menu.y }} role="menu">
           <button
@@ -194,11 +252,14 @@ export interface ComposerTemplate {
 export function ChatComposer({
   conversationId,
   blockedReason,
+  readOnly,
   templates = [],
   clientName,
 }: {
   conversationId: string;
   blockedReason?: string | null;
+  /** переписка сотрудника, открытая администратором для контроля: ответить нельзя */
+  readOnly?: string | null;
   templates?: ComposerTemplate[];
   clientName?: string | null;
 }) {
@@ -242,10 +303,20 @@ export function ChatComposer({
     area.current?.focus();
   }
 
+  if (readOnly)
+    return (
+      <div className="tg-chat-bg px-2 pb-3 pt-1 sm:px-6">
+        <div className="mx-auto flex max-w-3xl items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm text-muted-foreground shadow-sm" style={{ background: "var(--tg-composer)" }}>
+          <Eye className="size-4 shrink-0" /> {readOnly}
+        </div>
+      </div>
+    );
+
   return (
-    <div className="relative border-t bg-card p-2 sm:p-3">
+    <div className="tg-chat-bg px-2 pb-3 pt-1 sm:px-6">
+      <div className="relative mx-auto max-w-3xl">
       {blockedReason && (
-        <p className="mb-2 flex items-start gap-1.5 rounded-md bg-amber-50 px-2.5 py-1.5 text-xs text-amber-900">
+        <p className="mb-2 flex items-start gap-1.5 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-900 shadow-sm">
           <AlertTriangle className="mt-0.5 size-3.5 shrink-0" /> {blockedReason}
         </p>
       )}
@@ -261,7 +332,7 @@ export function ChatComposer({
         </div>
       )}
       {file && (
-        <div className="mb-2 flex items-center gap-2 rounded-md bg-muted px-2.5 py-1.5 text-xs">
+        <div className="mb-2 flex items-center gap-2 rounded-xl px-3 py-2 text-xs shadow-sm" style={{ background: "var(--tg-composer)" }}>
           <Paperclip className="size-3.5 shrink-0" />
           <span className="min-w-0 flex-1 truncate">{file.name}</span>
           <span className="shrink-0 text-muted-foreground">{file.size < 1024 * 1024 ? `${Math.max(1, Math.round(file.size / 1024))} KB` : `${(file.size / 1024 / 1024).toFixed(1)} MB`}</span>
@@ -270,7 +341,8 @@ export function ChatComposer({
           </button>
         </div>
       )}
-      <div className="flex items-end gap-1.5 sm:gap-2">
+      <div className="flex items-end gap-2">
+        <div className="flex min-w-0 flex-1 items-end rounded-2xl pl-1 pr-1 shadow-[0_1px_2px_rgb(0_0_0/0.15)]" style={{ background: "var(--tg-composer)" }}>
         <input
           ref={fileInput}
           type="file"
@@ -281,10 +353,7 @@ export function ChatComposer({
             e.target.value = "";
           }}
         />
-        <Button type="button" variant="ghost" size="icon" onClick={() => fileInput.current?.click()} disabled={pending} title={t("tpl.attach")} aria-label={t("tpl.attach")}>
-          <Paperclip />
-        </Button>
-        <Button type="button" variant="ghost" size="icon" onClick={() => setShowTpl(!showTpl)} disabled={pending} title={t("tpl.pick")} aria-label={t("tpl.pick")} className={cn(showTpl && "bg-accent")}>
+        <Button type="button" variant="ghost" size="icon" onClick={() => setShowTpl(!showTpl)} disabled={pending} title={t("tpl.pick")} aria-label={t("tpl.pick")} className={cn("shrink-0 rounded-full text-muted-foreground hover:bg-transparent hover:text-[var(--tg-accent)]", showTpl && "text-[var(--tg-accent)]")}>
           <MessageSquareText />
         </Button>
         <Textarea
@@ -301,11 +370,24 @@ export function ChatComposer({
           rows={1}
           placeholder={file ? t("tpl.captionPh") : t("chats.placeholder")}
           aria-label={t("chats.placeholder")}
-          className="max-h-40 min-h-10 flex-1 resize-none"
+          className="max-h-40 min-h-11 flex-1 resize-none border-0 bg-transparent px-1 py-2.5 text-[15px] shadow-none focus-visible:ring-0"
         />
-        <Button onClick={send} disabled={pending || (!text.trim() && !file)} size="icon" aria-label={t("chats.send")} title={pending ? t("tpl.sending") : t("chats.send")}>
-          <Send />
+        <Button type="button" variant="ghost" size="icon" onClick={() => fileInput.current?.click()} disabled={pending} title={t("tpl.attach")} aria-label={t("tpl.attach")} className="shrink-0 rounded-full text-muted-foreground hover:bg-transparent hover:text-[var(--tg-accent)]">
+          <Paperclip className="-rotate-45" />
         </Button>
+        </div>
+        <button
+          type="button"
+          onClick={send}
+          disabled={pending || (!text.trim() && !file)}
+          aria-label={t("chats.send")}
+          title={pending ? t("tpl.sending") : t("chats.send")}
+          className="flex size-11 shrink-0 items-center justify-center rounded-full text-white shadow-[0_1px_2px_rgb(0_0_0/0.2)] transition-opacity disabled:opacity-60"
+          style={{ background: "var(--tg-accent)" }}
+        >
+          <Send className="size-5 -translate-x-px translate-y-px" />
+        </button>
+      </div>
       </div>
     </div>
   );

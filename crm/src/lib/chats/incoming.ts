@@ -4,7 +4,8 @@ import { getIntegration, pageClient, readSecrets } from "@/lib/meta/integration"
 import type { FetchFn as GraphFetch } from "@/lib/meta/graph";
 import { parseIgWebhook, type IgWebhookPayload } from "./instagram";
 import { recordChatMessage } from "./store";
-import { getTelegram, tgAttachments, tgName, tgText, type TgMessage, type TgUpdate } from "./telegram";
+import { getTelegram, telegramBot, tgAttachments, tgName, tgText, type TgMessage, type TgUpdate } from "./telegram";
+import { accountByConnection, applyBusinessConnection, handleLinkStart, type AccountWithOwner } from "./accounts";
 
 /** Instagram Direct: входящие и эхо (ответы из приложения Instagram). Возвращает число записанных сообщений. */
 export async function handleInstagramWebhook(payload: IgWebhookPayload, opts: { fetchFn?: GraphFetch } = {}): Promise<number> {
@@ -35,12 +36,13 @@ export async function handleInstagramWebhook(payload: IgWebhookPayload, opts: { 
   return saved;
 }
 
-async function recordTelegram(msg: TgMessage, business: boolean) {
+async function recordTelegram(msg: TgMessage, business: boolean, account: AccountWithOwner | null = null) {
   // только личные чаты: группы и каналы — не клиенты
   if (msg.chat.type !== "private") return null;
   const outgoing = business && !!msg.from && msg.from.id !== msg.chat.id;
   return recordChatMessage({
     channel: "TELEGRAM",
+    account,
     externalId: String(msg.chat.id),
     businessConnectionId: business ? (msg.business_connection_id ?? null) : null,
     direction: outgoing ? "OUT" : "IN",
@@ -58,15 +60,26 @@ export async function handleTelegramUpdate(u: TgUpdate): Promise<boolean> {
   if (!integration.enabled) return false;
   await prisma.telegramIntegration.update({ where: { id: 1 }, data: { lastEventAt: new Date() } });
   if (u.business_connection) {
-    const c = u.business_connection;
-    await prisma.telegramIntegration.update({
-      where: { id: 1 },
-      data: c.is_enabled ? { businessConnectionId: c.id, businessUser: tgName(c.user) } : { businessConnectionId: null, businessUser: null },
-    });
-    return true;
+    // подключение Telegram Business принимается только от сотрудника, привязавшего свой Telegram (см. accounts.ts)
+    await applyBusinessConnection(u.business_connection);
+    return false;
   }
-  if (u.business_message) return !!(await recordTelegram(u.business_message, true));
+  if (u.business_message) {
+    const connectionId = u.business_message.business_connection_id;
+    const account = connectionId ? await accountByConnection(connectionId) : null;
+    // подключение старой версии CRM (один общий аккаунт, ещё не привязанный к сотруднику) работает как раньше
+    const legacy = !account && !!connectionId && connectionId === integration.businessConnectionId;
+    // чужой аккаунт подключил нашего бота — его переписки в CRM не попадают
+    if (!account && !legacy) return false;
+    return !!(await recordTelegram(u.business_message, true, account));
+  }
   if (u.message) {
+    // /start link_<код> — сотрудник привязывает свой Telegram; это не клиент
+    const reply = await handleLinkStart(u.message);
+    if (reply !== null) {
+      await telegramBot(integration)?.call("sendMessage", { chat_id: u.message.chat.id, text: reply }).catch(() => undefined);
+      return false;
+    }
     // /start — служебная команда, клиенту отвечать нечего, но переписку создаём
     return !!(await recordTelegram(u.message, false));
   }

@@ -133,8 +133,11 @@ function SidebarContent({ user, counters, logout, rate }: SidebarProps) {
       </nav>
       <div className="shrink-0 space-y-3 border-t border-sidebar-border p-3">
         <RateWidget rate={rate.value} updatedAt={rate.updatedAt} />
-        <ThemeToggle />
-        <LanguageSwitcher />
+        {/* тема и язык — одной строкой, чтобы не занимать место под разделами */}
+        <div className="flex items-center gap-2">
+          <ThemeToggle compact />
+          <LanguageSwitcher compact className="flex-1" />
+        </div>
         <div className="flex items-center gap-3 px-1">
           <div className="flex size-8 items-center justify-center rounded-full bg-brand text-xs font-semibold text-white">{user.name.slice(0, 1).toUpperCase()}</div>
           <div className="min-w-0 flex-1">

@@ -8,7 +8,7 @@ import { LOCALE_COOKIE, LOCALE_NAMES, LOCALE_SHORT, LOCALES, type Locale } from 
 import { useI18n } from "@/i18n/client";
 
 /** Переключатель языка интерфейса: RU / UZ / EN (cookie на год) */
-export function LanguageSwitcher({ className }: { className?: string }) {
+export function LanguageSwitcher({ className, compact = false }: { className?: string; compact?: boolean }) {
   const { locale, t } = useI18n();
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -19,7 +19,7 @@ export function LanguageSwitcher({ className }: { className?: string }) {
   }
   return (
     <div className={cn("flex items-center gap-1 rounded-lg bg-sidebar-hover p-1 text-xs", pending && "opacity-60", className)} role="radiogroup" aria-label={t("nav.language")}>
-      <Languages className="mx-1 size-3.5 shrink-0 text-sidebar-muted" />
+      {!compact && <Languages className="mx-1 size-3.5 shrink-0 text-sidebar-muted" />}
       {LOCALES.map((l) => (
         <button
           key={l}
@@ -28,7 +28,8 @@ export function LanguageSwitcher({ className }: { className?: string }) {
           title={LOCALE_NAMES[l]}
           onClick={() => choose(l)}
           className={cn(
-            "flex-1 rounded-md px-2 py-1.5 transition-colors cursor-pointer",
+            "flex-1 rounded-md px-2 transition-colors cursor-pointer",
+            compact ? "py-1" : "py-1.5",
             l === locale ? "bg-card font-medium text-foreground shadow-xs" : "text-sidebar-muted hover:text-sidebar-foreground",
           )}
         >

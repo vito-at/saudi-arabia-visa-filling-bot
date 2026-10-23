@@ -99,7 +99,7 @@ export interface TgUpdate {
   update_id: number;
   message?: TgMessage;
   business_message?: TgMessage;
-  business_connection?: { id: string; user: TgUser; is_enabled: boolean; can_reply?: boolean };
+  business_connection?: { id: string; user: TgUser; is_enabled: boolean; can_reply?: boolean; rights?: { can_reply?: boolean } };
 }
 
 export interface ParsedAttachment {

@@ -22,13 +22,25 @@ export async function sendToInstagram(conv: Conversation, text: string, fetchFn?
   return r.message_id ?? "";
 }
 
+/**
+ * От чьего имени уходит ответ в Telegram: переписка в личном Telegram сотрудника — через его текущее подключение
+ * Telegram Business (если он разрешил боту отвечать), иначе — как раньше.
+ */
+async function businessConnectionFor(conv: Conversation): Promise<string | null> {
+  if (!conv.accountId) return conv.businessConnectionId;
+  const account = await prisma.telegramAccount.findUnique({ where: { id: conv.accountId } });
+  if (!account?.connectionId || !account.connected || !account.canReply) throw new ValidationError("err.tgAccountCannotReply");
+  return account.connectionId;
+}
+
 export async function sendToTelegram(conv: Conversation, text: string, fetchFn?: FetchFn): Promise<string> {
   const bot = telegramBot(await getTelegram(), fetchFn);
   if (!bot) throw new ValidationError("err.chatTgOff");
+  const connectionId = await businessConnectionFor(conv);
   const r = await bot.call<{ message_id: number }>("sendMessage", {
     chat_id: conv.externalId,
     text,
-    ...(conv.businessConnectionId ? { business_connection_id: conv.businessConnectionId } : {}),
+    ...(connectionId ? { business_connection_id: connectionId } : {}),
   });
   return String(r.message_id);
 }
@@ -110,7 +122,7 @@ export async function sendChatFile(
     const [method, field] = TG_METHOD[kind];
     const r = await bot.upload<{ message_id: number }>(
       method,
-      { chat_id: conv.externalId, caption: text || undefined, business_connection_id: conv.businessConnectionId ?? undefined },
+      { chat_id: conv.externalId, caption: text || undefined, business_connection_id: (await businessConnectionFor(conv)) ?? undefined },
       { field, name, mime: file.mime, data: file.data },
     );
     externalId = String(r.message_id);
