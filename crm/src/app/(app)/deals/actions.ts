@@ -9,7 +9,9 @@ import { formatMoney, formatNumber, parseInputDate } from "@/lib/format";
 import { requireUser, AccessError } from "@/lib/session";
 import { changeStatus, ValidationError } from "@/lib/leads/service";
 import { SERVICE_TYPES } from "@/lib/constants";
-import { currencyMismatch, dealClosesWithoutCost, managerEntersCost, visaLeadPatch } from "@/lib/deals";
+import { autoVisaCostUsd, currencyMismatch, dealClosesWithoutCost, managerEntersCost, visaLeadPatch } from "@/lib/deals";
+import { getSettings } from "@/lib/refs";
+import { toNum } from "@/lib/money";
 import { notifyCostPending } from "@/lib/notify";
 
 export interface DealInput {
@@ -88,17 +90,22 @@ export async function createDealAction(leadId: string, input: DealInput, wonStat
     // авиабилеты: себестоимость указывается сразу при закрытии сделки
     const withCost = managerEntersCost(service);
     if (withCost && !String(input.cost ?? "").trim()) throw new ValidationError("err.flightCost");
-    const costConfirmed = withCost || dealClosesWithoutCost(serviceType) || service === "VISA";
+    // тип услуги самой сделки (продукт), а не лида: тур, проданный визовому клиенту, ждёт себестоимость, как любой тур
+    const dealService = service ?? serviceType;
+    const costConfirmed = withCost || dealClosesWithoutCost(dealService);
     // при закрытии указывается только сумма продажи; себестоимость потом вносит администратор.
     // Количество продаж меняет только администратор; у менеджера — число заявлений для визы, иначе 1
-    const quantity = user.role === "ADMIN" ? input.quantity : serviceType === "VISA" && input.visaApplications ? input.visaApplications : 1;
-    const d = parseDeal(withCost ? { ...input, quantity } : { ...input, cost: "0", costCurrency: input.currency, quantity });
+    const quantity = user.role === "ADMIN" ? input.quantity : dealService === "VISA" && input.visaApplications ? input.visaApplications : 1;
+    let d = parseDeal(withCost ? { ...input, quantity } : { ...input, cost: "0", costCurrency: input.currency, quantity });
+    // виза в Таиланд: себестоимость известна заранее — цена визы из настроек × число заявлений
+    const visaCost = dealService === "VISA" ? autoVisaCostUsd(input.destination ?? lead.destination, d.quantity, toNum((await getSettings()).thaiVisaCostUsd)) : null;
+    if (visaCost !== null) d = { ...d, cost: visaCost, costCurrency: "USD" };
     await prisma.$transaction(async (tx) => {
       const deal = await tx.deal.create({
         data: {
           ...d,
           // тип услуги сделки — от него зависит комиссия (авиабилеты — процент от прибыли на смену)
-          serviceType: service ?? serviceType,
+          serviceType: dealService,
           costConfirmed,
           leadId,
           clientId: lead.clientId,
@@ -109,7 +116,7 @@ export async function createDealAction(leadId: string, input: DealInput, wonStat
       });
       const leadPatch = {
         ...(!lead.serviceType && service ? { serviceType: service } : {}),
-        ...(serviceType === "VISA" ? visaLeadPatch(lead, input) : {}),
+        ...(dealService === "VISA" ? visaLeadPatch(lead, input) : {}),
       };
       if (Object.keys(leadPatch).length) await tx.lead.update({ where: { id: leadId }, data: leadPatch });
       await tx.leadHistory.create({
@@ -117,7 +124,7 @@ export async function createDealAction(leadId: string, input: DealInput, wonStat
           leadId,
           userId: user.id,
           field: "deal",
-          newValue: withCost
+          newValue: withCost || visaCost !== null
             ? dealText(d)
             : costConfirmed
             ? `${d.product}: ${formatMoney(d.amount, d.currency)}, расходы на визы — в расходах компании`
@@ -149,8 +156,10 @@ export async function updateDealAction(dealId: string, input: DealInput) {
     // выручку и себестоимость после создания сделки меняет только администратор
     if (user.role !== "ADMIN") throw new AccessError("err.onlyAdminDealEdit");
     const d = parseDeal(input);
+    // исправили продукт (например, «Тур» → «Авиабилеты») — меняется и тип услуги сделки: по нему считается зарплата
+    const service = input.service && SERVICE_TYPES.includes(input.service) ? input.service : undefined;
     await prisma.$transaction([
-      prisma.deal.update({ where: { id: dealId }, data: { ...d, costConfirmed: true } }),
+      prisma.deal.update({ where: { id: dealId }, data: { ...d, ...(service ? { serviceType: service } : {}), costConfirmed: true } }),
       prisma.leadHistory.create({
         data: {
           leadId: deal.leadId,

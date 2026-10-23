@@ -110,6 +110,11 @@ describe("вспомогательные функции", () => {
     expect(parseAnswerDate("15.10.2026")?.toISOString()).toBe("2026-10-14T19:00:00.000Z");
     expect(parseAnswerDate("5/1/2027")?.toISOString()).toBe("2027-01-04T19:00:00.000Z");
     expect(parseAnswerDate("в октябре")).toBeNull();
+    // несуществующие даты: раньше давали Invalid Date, база отклоняла лид, и он терялся
+    expect(parseAnswerDate("12/25/2026")).toBeNull();
+    expect(parseAnswerDate("31.02.2026")).toBeNull();
+    expect(parseAnswerDate("2026-13-01")).toBeNull();
+    expect(parseAnswerDate("29.02.2028")?.toISOString()).toBe("2028-02-28T19:00:00.000Z");
   });
   it("guessService", () => {
     expect(guessService("Авиабилеты по лучшим ценам")).toBe("FLIGHTS");

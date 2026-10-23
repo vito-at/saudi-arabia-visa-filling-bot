@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db";
  * его сделки, ждущие себестоимость, закрываются так же. Возвращает число закрытых сделок.
  */
 export async function confirmVisaDeals(leadId: string): Promise<number> {
-  const { count } = await prisma.deal.updateMany({ where: { leadId, costConfirmed: false }, data: { costConfirmed: true } });
+  // только визовые сделки (или старые без типа): тур или «Другое» визового клиента по-прежнему ждут себестоимость
+  const { count } = await prisma.deal.updateMany({ where: { leadId, costConfirmed: false, OR: [{ serviceType: "VISA" }, { serviceType: null }] }, data: { costConfirmed: true } });
   return count;
 }

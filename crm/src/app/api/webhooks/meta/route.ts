@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import { NextResponse, after, type NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { decrypt } from "@/lib/crypto";
@@ -6,6 +7,7 @@ import { getIntegration } from "@/lib/meta/integration";
 import { importLeadById } from "@/lib/meta/sync";
 import { handleInstagramWebhook } from "@/lib/chats/incoming";
 import { replyAfterPause } from "@/lib/chats/ai";
+import { retryDelivery } from "@/lib/chats/retry";
 import type { IgWebhookPayload } from "@/lib/chats/instagram";
 
 export const dynamic = "force-dynamic";
@@ -42,10 +44,15 @@ export async function POST(req: NextRequest) {
   }
   // Instagram Direct: сообщения клиентов → переписки CRM
   if (payload.object === "instagram") {
-    const saved = await handleInstagramWebhook(payload as IgWebhookPayload).catch((e) => {
+    let saved: number;
+    try {
+      saved = await handleInstagramWebhook(payload as IgWebhookPayload);
+    } catch (e) {
+      // сбой посреди записи — просим Meta повторить доставку (несколько раз, не бесконечно); дубли отсекаются по id сообщения
       console.error("Instagram webhook:", e);
-      return 0;
-    });
+      if (retryDelivery(`ig:${crypto.createHash("sha256").update(raw).digest("hex")}`)) return new NextResponse("Retry", { status: 500 });
+      saved = 0;
+    }
     if (saved) after(replyAfterPause);
     return NextResponse.json({ ok: true, saved });
   }
