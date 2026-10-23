@@ -19,7 +19,7 @@ describe("прибыль по продуктам", () => {
     12_500,
   );
 
-  it("суммирует выручку, себестоимость и прибыль по типу услуги лида, сортирует по прибыли", () => {
+  it("суммирует выручку, себестоимость и прибыль по продукту, сортирует по прибыли", () => {
     const rows = profitByService(leads);
     expect(rows.map((r) => r.service)).toEqual(["TOUR", "VISA", null, "FLIGHTS"]);
     expect(rows[0]).toMatchObject({ revenue: 1500, cost: 1200, profit: 300, deals: 2, leads: 1 });
@@ -32,6 +32,18 @@ describe("прибыль по продуктам", () => {
     const total = 300 + 200 + 40 - 20;
     expect(rows[0].share).toBeCloseTo(300 / total);
     expect(rows.find((r) => r.service === "FLIGHTS")!.share).toBe(0);
+  });
+
+  it("продукт — тип услуги сделки: билет визовому клиенту считается авиабилетом", () => {
+    const rows = profitByService(groupDealsByLead([{ ...deal("d6", "l5", "VISA", 400, 300), serviceType: "FLIGHTS" as const }, deal("d7", "l5", "VISA", 100, 40)], "USD", 12_500));
+    expect(rows.find((r) => r.service === "FLIGHTS")).toMatchObject({ revenue: 400, profit: 100, deals: 1, leads: 1 });
+    expect(rows.find((r) => r.service === "VISA")).toMatchObject({ revenue: 100, profit: 60, deals: 1, leads: 1 });
+  });
+
+  it("менеджер — тот, кто продал, а не текущий ответственный лида", () => {
+    const [row] = groupDealsByLead([{ ...deal("d8", "l6", "TOUR", 100, 50), manager: { name: "Анна" }, lead: { ...lead("l6", "TOUR"), manager: { name: "Бобур" } } }], "USD", 12_500);
+    expect(row.manager).toBe("Анна");
+    expect(row.deals[0].manager).toBe("Анна");
   });
 
   it("без сделок — пустой список", () => {

@@ -7,7 +7,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Field, Input, NativeSelect } from "@/components/ui/input";
 import { formatNumber, toInputDate } from "@/lib/format";
 import { useI18n } from "@/i18n/client";
-import { convertCost, convertRevenue, dealProfitInSale } from "@/lib/money";
+import { convertCost, convertRevenue, dealProfitInSale, parseAmount } from "@/lib/money";
 import { createDealAction, updateDealAction, type DealInput } from "@/app/(app)/deals/actions";
 import { useIsAdmin, useRates } from "@/components/layout/role-context";
 import type { ServiceType } from "@prisma/client";
@@ -31,7 +31,7 @@ export interface DealDialogProps {
 
 const OTHER_COUNTRY = "__other";
 
-const parse = (s: string) => Number(String(s).replace(/\s/g, "").replace(",", ".")) || 0;
+const parse = (s: string) => parseAmount(s) || 0;
 
 export function DealDialog({ open, onOpenChange, leadId, wonStatusId, rate, deal, lead, onSaved }: DealDialogProps) {
   const [form, setForm] = useState<DealInput>(

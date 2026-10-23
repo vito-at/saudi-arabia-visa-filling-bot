@@ -5,6 +5,7 @@ import { Copy, DollarSign } from "lucide-react";
 import { toast } from "sonner";
 import { formatDate, formatNumber } from "@/lib/format";
 import { useI18n } from "@/i18n/client";
+import { parseAmount } from "@/lib/money";
 
 /**
  * Курс доллара для всех сотрудников: менеджер считает цену в сумах для клиента.
@@ -14,7 +15,7 @@ export function RateWidget({ rate, updatedAt }: { rate: number; updatedAt: strin
   const { t, f } = useI18n();
   const [usd, setUsd] = useState("");
   if (!rate) return null;
-  const amount = Number(usd.replace(/\s/g, "").replace(",", "."));
+  const amount = parseAmount(usd);
   const sum = Number.isFinite(amount) && amount > 0 ? Math.round(amount * rate) : null;
   return (
     <div className="rounded-lg border border-sidebar-border px-3 py-2.5" title={t("nav.rateHint", { date: updatedAt ? formatDate(updatedAt) : "—" })}>

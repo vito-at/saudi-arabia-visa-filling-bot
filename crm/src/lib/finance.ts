@@ -20,12 +20,17 @@ export interface FinanceDeal {
   revenue: number; // в валюте отчёта
   profit: number; // в валюте отчёта
   costConfirmed: boolean;
+  /** продукт сделки (её тип услуги, а если не указан — тип услуги лида); по нему же считается зарплата */
+  serviceType: ServiceType | null;
+  /** кто продал (менеджер сделки), а не текущий ответственный лида */
+  manager: string | null;
 }
 
 export interface FinanceLead {
   id: string;
   name: string;
   phone: string | null;
+  /** кто продал: менеджер сделок лида за период (если несколько — через запятую) */
   manager: string | null;
   source: LeadSource;
   /** тип услуги лида — продукт, по которому считается разбивка прибыли */
@@ -64,6 +69,10 @@ export function groupDealsByLead(
     costCurrency?: Currency;
     paidAt: Date;
     costConfirmed?: boolean;
+    /** тип услуги самой сделки; нет — берётся тип услуги лида */
+    serviceType?: ServiceType | null;
+    /** менеджер сделки (кто продал); не передан — текущий ответственный лида */
+    manager?: { name: string } | null;
     lead: {
       id: string;
       name: string;
@@ -84,13 +93,14 @@ export function groupDealsByLead(
     const r = resolveRates(rates, costRate, d.paidAt);
     const revenue = convertRevenue(d.amount, d.currency, to, r);
     const cost = convertCost(d.cost, d.costCurrency ?? d.currency, to, r);
+    const seller = (d.manager !== undefined ? d.manager?.name : d.lead.manager?.name) ?? null;
     const row =
       map.get(d.lead.id) ??
       ({
         id: d.lead.id,
         name: d.lead.name,
         phone: d.lead.phone,
-        manager: d.lead.manager?.name ?? null,
+        manager: null,
         source: d.lead.source,
         serviceType: d.lead.serviceType ?? null,
         campaign: d.lead.campaignName,
@@ -114,7 +124,10 @@ export function groupDealsByLead(
       revenue,
       profit: round2(revenue - cost),
       costConfirmed: d.costConfirmed !== false,
+      serviceType: d.serviceType ?? d.lead.serviceType ?? null,
+      manager: seller,
     });
+    if (seller && !(row.manager ?? "").split(", ").includes(seller)) row.manager = row.manager ? `${row.manager}, ${seller}` : seller;
     if (d.costConfirmed === false) row.costPending = true;
     row.revenue = round2(row.revenue + revenue);
     row.cost = round2(row.cost + cost);
@@ -158,17 +171,24 @@ export interface ServiceProfit {
 
 const SERVICE_ORDER: (ServiceType | null)[] = ["FLIGHTS", "TOUR", "VISA", "OTHER", null];
 
-/** Прибыль по продуктам (тип услуги лида): сколько заработали на авиабилетах, турах, визах и т. д. — по убыванию прибыли */
+/**
+ * Прибыль по продуктам: сколько заработали на авиабилетах, турах, визах и т. д. — по убыванию прибыли.
+ * Продукт — тип услуги сделки (как в зарплате): билет, проданный визовому клиенту, — это авиабилеты, а не виза.
+ */
 export function profitByService(leads: FinanceLead[]): ServiceProfit[] {
   const map = new Map<ServiceType | null, ServiceProfit>();
+  const leadsOf = new Map<ServiceType | null, Set<string>>();
   for (const l of leads) {
-    const row = map.get(l.serviceType) ?? { service: l.serviceType, revenue: 0, cost: 0, profit: 0, margin: null, share: null, deals: 0, leads: 0 };
-    row.revenue = round2(row.revenue + l.revenue);
-    row.cost = round2(row.cost + l.cost);
-    row.profit = round2(row.revenue - row.cost);
-    row.deals += l.deals.length;
-    row.leads += 1;
-    map.set(l.serviceType, row);
+    for (const d of l.deals) {
+      const row = map.get(d.serviceType) ?? { service: d.serviceType, revenue: 0, cost: 0, profit: 0, margin: null, share: null, deals: 0, leads: 0 };
+      row.revenue = round2(row.revenue + d.revenue);
+      row.cost = round2(row.cost + d.revenue - d.profit);
+      row.profit = round2(row.revenue - row.cost);
+      row.deals += 1;
+      leadsOf.set(d.serviceType, (leadsOf.get(d.serviceType) ?? new Set()).add(l.id));
+      row.leads = leadsOf.get(d.serviceType)!.size;
+      map.set(d.serviceType, row);
+    }
   }
   const total = [...map.values()].reduce((s, r) => s + r.profit, 0);
   return [...map.values()]
@@ -194,6 +214,8 @@ export async function loadFinanceLeads(f: ReportFilters): Promise<FinanceLead[]>
       costCurrency: true,
       paidAt: true,
       costConfirmed: true,
+      serviceType: true,
+      manager: { select: { name: true } },
       lead: {
         select: {
           id: true,

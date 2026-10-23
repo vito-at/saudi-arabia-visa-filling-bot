@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calcMargin, calcProfit, convert, sumDeals } from "@/lib/money";
+import { calcMargin, calcProfit, convert, parseAmount, sumDeals } from "@/lib/money";
 
 describe("прибыль и валюты", () => {
   it("прибыль = продажа − себестоимость", () => {
@@ -30,5 +30,20 @@ describe("прибыль и валюты", () => {
     expect(sumDeals(deals, "UZS", 12_600, 12_750)).toEqual({ revenue: 12_600_000, cost: 10_200_000, profit: 2_400_000, count: 1, avgCheck: 12_600_000 });
     // сделка в долларах в долларовом отчёте не пересчитывается
     expect(sumDeals(deals, "USD", 12_600, 12_750)).toMatchObject({ revenue: 1000, cost: 800, profit: 200 });
+  });
+});
+
+describe("разбор суммы из поля ввода", () => {
+  it("обычные записи", () => {
+    expect(parseAmount("1 200")).toBe(1200);
+    expect(parseAmount("1200,50")).toBe(1200.5);
+    expect(parseAmount("1,5")).toBe(1.5);
+    expect(parseAmount("12 650.25")).toBe(12650.25);
+    expect(parseAmount("")).toBe(0);
+  });
+  it("«1,200» и «1.200» неоднозначны — не превращаются молча в 1,2", () => {
+    expect(parseAmount("1,200")).toBeNaN();
+    expect(parseAmount("1.200")).toBeNaN();
+    expect(parseAmount("2,500,000")).toBeNaN();
   });
 });

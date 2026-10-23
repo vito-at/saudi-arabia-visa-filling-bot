@@ -6,6 +6,10 @@ export const getLossReasons = cache(() => prisma.lossReason.findMany({ where: { 
 export const getManagers = cache(() =>
   prisma.user.findMany({ where: { isActive: true }, orderBy: [{ role: "asc" }, { name: "asc" }], select: { id: true, name: true, role: true } }),
 );
+/** Все сотрудники, включая отключённых: имена для отчётов за прошлые периоды (уволенный менеджер тоже продавал) */
+export const getAllStaff = cache(() =>
+  prisma.user.findMany({ orderBy: [{ role: "asc" }, { name: "asc" }], select: { id: true, name: true, role: true, isActive: true } }),
+);
 /** Активные вопросы анкеты клиента */
 export const getChatTemplates = cache(() => prisma.chatTemplate.findMany({ orderBy: { order: "asc" }, select: { id: true, title: true, text: true } }));
 export const getQuestions = cache(() => prisma.leadQuestion.findMany({ where: { isActive: true }, orderBy: { order: "asc" } }));

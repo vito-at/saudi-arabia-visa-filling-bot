@@ -12,6 +12,7 @@ import { deleteOfferAction, offersMessageAction, saveOfferAction, sendOffersToCh
 import { offerPrice, type OfferView } from "@/lib/offers";
 import { formatDate } from "@/lib/format";
 import { useI18n } from "@/i18n/client";
+import { parseAmount } from "@/lib/money";
 
 export interface OfferChat {
   id: string;
@@ -63,7 +64,7 @@ function OfferDialog({ leadId, offer, onClose }: { leadId: string; offer: OfferV
   const [v, setV] = useState<OfferInput>(offer ? toInput(offer) : EMPTY);
   const [pending, start] = useTransition();
   const set = (k: keyof OfferInput) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setV({ ...v, [k]: e.target.value });
-  const num = (s: string) => Number(s.replace(/\s/g, "").replace(",", ".")) || 0;
+  const num = (s: string) => parseAmount(s) || 0;
   const client = offerPrice({ priceOperator: num(v.priceOperator), markup: num(v.markup) });
 
   function save(e: React.FormEvent) {

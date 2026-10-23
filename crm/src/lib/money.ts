@@ -9,6 +9,18 @@ export function toNum(v: Num): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+/**
+ * Сумма из поля ввода: «1 200», «1200,50», «1200.5» → число; пустая строка — 0 (как раньше).
+ * «1,200» и «1.200» (запятая или точка, за которой ровно три цифры) неоднозначны: это 1 200 или 1,2?
+ * Раньше такая запись молча превращалась в 1,2 — теперь NaN, и поле просит уточнить сумму.
+ */
+export function parseAmount(v: string | number | null | undefined): number {
+  if (typeof v === "number") return v;
+  const s = String(v ?? "").replace(/[\s\u00a0]/g, "");
+  if (/^\d{1,3}([.,]\d{3})+$/.test(s)) return NaN;
+  return Number(s.replace(",", "."));
+}
+
 /** Округление денег до 2 знаков без ошибок двоичной арифметики */
 export function round2(n: number): number {
   return Math.round((n + Number.EPSILON) * 100) / 100;

@@ -6,7 +6,7 @@ import { FunnelBars, HBars, LossPie } from "@/components/reports/charts";
 import { ReportFilters } from "@/components/reports/report-filters";
 import { ReportTable } from "@/components/reports/report-table";
 import { formatDate, formatNumber, formatPercent } from "@/lib/format";
-import { getManagers, getSettings } from "@/lib/refs";
+import { getAllStaff, getSettings } from "@/lib/refs";
 import { readFilters } from "@/lib/reports/data";
 import { AD_LEVELS, adsTable, clientsTable, funnelTable, lossesTables, managersTable, tasksTable, REPORT_TABS, servicesTables, type ReportTab } from "@/lib/reports/tables";
 import type { AdLevel } from "@/lib/reports/calc";
@@ -32,7 +32,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
   const f = await readFilters(params, user);
   const { t } = f;
   const sum = formatters(f.locale).sum;
-  const managers = isAdmin ? (await getManagers()).map((m) => ({ id: m.id, name: m.name })) : null;
+  const managers = isAdmin ? (await getAllStaff()).map((m) => ({ id: m.id, name: m.isActive ? m.name : `${m.name} (${f.t("plans.inactive")})` })) : null;
   const level = (sp(params, "level") as AdLevel) in AD_LEVELS ? (sp(params, "level") as AdLevel) : "campaign";
 
   const keep = new URLSearchParams();

@@ -11,7 +11,8 @@ import { changeStatus, ValidationError } from "@/lib/leads/service";
 import { SERVICE_TYPES } from "@/lib/constants";
 import { autoVisaCostUsd, currencyMismatch, dealClosesWithoutCost, managerEntersCost, visaLeadPatch } from "@/lib/deals";
 import { getSettings } from "@/lib/refs";
-import { toNum } from "@/lib/money";
+import { takeBlocked } from "@/lib/leads/distribution";
+import { toNum, parseAmount } from "@/lib/money";
 import { notifyCostPending } from "@/lib/notify";
 
 export interface DealInput {
@@ -40,8 +41,10 @@ function dealText(d: { product: string; amount: number; cost: number; currency: 
 }
 
 function parseDeal(input: DealInput) {
-  const amount = Number(String(input.amount).replace(/\s/g, "").replace(",", "."));
-  const cost = Number(String(input.cost || "0").replace(/\s/g, "").replace(",", "."));
+  const amount = parseAmount(input.amount);
+  const cost = parseAmount(input.cost || "0");
+  // «1,200» — это 1 200 или 1,2? Раньше молча сохранялось 1,2
+  for (const v of [input.amount, input.cost]) if (v !== undefined && v !== null && String(v).trim() !== "" && Number.isNaN(parseAmount(v))) throw new ValidationError("err.amountAmbiguous", { value: String(v).trim() });
   if (!Number.isFinite(amount) || amount <= 0) throw new ValidationError("err.amount");
   if (!Number.isFinite(cost) || cost < 0) throw new ValidationError("err.costNegative");
   if (!isCurrency(input.currency)) throw new ValidationError("err.currency");
@@ -89,6 +92,13 @@ export async function createDealAction(leadId: string, input: DealInput, wonStat
     const serviceType = lead.serviceType ?? service;
     // авиабилеты: себестоимость указывается сразу при закрытии сделки
     const withCost = managerEntersCost(service);
+    // «Продано» по новому нераспределённому лиду: менеджер сначала должен иметь право его взять (в работе, в пределах лимита).
+    // Проверяем до записи сделки — иначе сделка сохранялась, смена статуса падала, и повторное нажатие давало дубль
+    if (wonStatusId && user.role === "MANAGER" && !lead.managerId) {
+      const status = await prisma.leadStatus.findUnique({ where: { id: lead.statusId }, select: { kind: true } });
+      const blocked = status?.kind === "NEW" ? await takeBlocked(prisma, user.id) : null;
+      if (blocked) throw new ValidationError(blocked);
+    }
     if (withCost && !String(input.cost ?? "").trim()) throw new ValidationError("err.flightCost");
     // тип услуги самой сделки (продукт), а не лида: тур, проданный визовому клиенту, ждёт себестоимость, как любой тур
     const dealService = service ?? serviceType;
@@ -179,7 +189,8 @@ export async function setDealCostAction(dealId: string, costInput: string, costC
   return runAction(async () => {
     const { user, deal } = await getDealForUser(dealId);
     if (user.role !== "ADMIN") throw new AccessError("err.onlyAdminDealEdit");
-    const cost = Number(String(costInput).replace(/\s/g, "").replace(",", "."));
+    const cost = parseAmount(costInput);
+    if (String(costInput).trim() !== "" && Number.isNaN(cost)) throw new ValidationError("err.amountAmbiguous", { value: String(costInput).trim() });
     if (!Number.isFinite(cost) || cost < 0 || String(costInput).trim() === "") throw new ValidationError("err.costNegative");
     const costCurrency = costCurrencyInput ?? deal.currency;
     if (!isCurrency(costCurrency)) throw new ValidationError("err.currency");

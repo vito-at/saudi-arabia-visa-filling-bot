@@ -14,6 +14,7 @@ import { useI18n } from "@/i18n/client";
 export interface PlanRowView {
   userId: string;
   name: string;
+  isActive?: boolean;
   plan: { leads: number | null; sales: number | null; profit: number | null };
   fact: { leads: number; sales: number; profitUsd: number; profitSalary: number; revenueUsd: number; revenueSalary: number; flightProfitSalary: number; flightCommission: number; pendingCost?: number };
   done: { leads: number | null; sales: number | null; profit: number | null };
@@ -29,7 +30,7 @@ export interface PlanRowView {
   countedFrom: string | null;
   paid: number;
   left: number;
-  payouts: { id: string; amount: number; paidAt: string; note: string | null }[];
+  payouts: { id: string; amount: number; currency?: "UZS" | "USD"; paidAt: string; note: string | null }[];
 }
 
 /** Выплаты зарплаты за месяц: список и новая выплата (по умолчанию — весь остаток) */
@@ -77,7 +78,7 @@ function PayDialog({ row, month, onClose }: { row: PlanRowView; month: string; o
               {row.payouts.map((p) => (
                 <li key={p.id} className="flex items-center gap-3 px-3 py-2">
                   <span className="w-24 text-muted-foreground">{formatDate(p.paidAt)}</span>
-                  <span className="font-medium tabular-nums">{f.money(p.amount, row.currency)}</span>
+                  <span className="font-medium tabular-nums">{f.money(p.amount, p.currency ?? row.currency)}</span>
                   <span className="min-w-0 flex-1 truncate text-muted-foreground">{p.note}</span>
                   <Button size="icon-sm" variant="ghost" title={t("common.delete")} disabled={pending} onClick={() => remove(p.id)}>
                     <Trash2 />
@@ -245,7 +246,10 @@ export function PlansTable({ rows, month, editable }: { rows: PlanRowView[]; mon
           <tbody className="divide-y">
             {rows.map((r) => (
               <tr key={r.userId}>
-                <td className="px-4 py-3 font-medium">{r.name}</td>
+                <td className="px-4 py-3 font-medium">
+                  {r.name}
+                  {r.isActive === false && <div className="text-[11px] font-normal text-muted-foreground">{t("plans.inactive")}</div>}
+                </td>
                 <td className="px-3 py-3">
                   <Progress fact={r.fact.leads} plan={r.plan.leads} done={r.done.leads} />
                 </td>

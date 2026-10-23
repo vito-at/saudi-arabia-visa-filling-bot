@@ -11,6 +11,7 @@ import { parseInputDate } from "@/lib/format";
 import { offersText, toOfferView } from "@/lib/offers";
 import { sendChatMessage } from "@/lib/chats/send";
 import { getI18n } from "@/i18n/server";
+import { parseAmount } from "@/lib/money";
 
 export interface OfferInput {
   hotel: string;
@@ -41,7 +42,7 @@ const money = (v: string, required: boolean) => {
     if (required) throw new ValidationError("err.offerPrice");
     return 0;
   }
-  const n = Number(v.replace(/\s/g, "").replace(",", "."));
+  const n = parseAmount(v);
   if (!Number.isFinite(n) || n < 0) throw new ValidationError("err.offerPrice");
   return n;
 };
