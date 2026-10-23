@@ -74,7 +74,9 @@ export function serviceScope(user: CurrentUser): Prisma.LeadServiceWhereInput {
 export function documentScope(user: CurrentUser): Prisma.LeadDocumentWhereInput {
   if (user.role === "ADMIN") return {};
   if (user.role === "VISA") return { service: handedVisa };
-  return { lead: leadScope(user) };
+  // паспорта и другие документы — только по своим лидам: нераспределённый лид (например, оплаченная заявка с сайта)
+  // видят все менеджеры, но документы его туристов им не нужны
+  return { lead: { managerId: user.id } };
 }
 
 /** Документы клиенту: до 20 МБ */

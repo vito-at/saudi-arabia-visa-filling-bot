@@ -3,8 +3,8 @@ import { prisma } from "@/lib/db";
 import { normalizePhone } from "@/lib/phone";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { SERVICE_LABELS, SOURCE_LABELS } from "@/lib/constants";
-import { canReceive, distributeSoon, takeBlocked } from "./distribution";
-import { notifyLeadAssigned } from "@/lib/notify";
+import { canReceive, distributeSoon, isAutoDistribution, takeBlocked } from "./distribution";
+import { notifyLeadAssigned, notifyPoolLead } from "@/lib/notify";
 import { queueConversions } from "@/lib/meta/capi";
 import type { TKey, TVars } from "@/i18n/core";
 
@@ -162,7 +162,11 @@ export async function createLead(input: NewLeadInput, actorId: string | null) {
     });
     // уведомление менеджеру, получившему лид (вне транзакции: его сбой не мешает созданию лида)
     await notifyLeadAssigned(created, actorId);
-    if (!created.managerId) await distributeSoon();
+    if (!created.managerId) {
+      await distributeSoon();
+      // ручное распределение: лид ждёт в общем списке — сообщаем всем, кто может его взять (раньше не узнавал никто)
+      if (!created.hiddenFromManagers && !(await isAutoDistribution())) await notifyPoolLead(created);
+    }
     return created;
   } catch (e) {
     // гонка вебхука и опроса: второй вставляющий получает нарушение уникальности leadgenId
@@ -286,7 +290,8 @@ export async function changeStatus(leadId: string, change: StatusChange, actor: 
 /** Назначение ответственного (одного или нескольких лидов). */
 export async function assignManager(leadIds: string[], managerId: string | null, actorId: string) {
   if (!leadIds.length) return 0;
-  const manager = managerId ? await prisma.user.findFirst({ where: { id: managerId, isActive: true } }) : null;
+  // ответственным может быть только активный менеджер или администратор (визовик не видит раздел «Лиды»)
+  const manager = managerId ? await prisma.user.findFirst({ where: { id: managerId, isActive: true, role: { in: ["MANAGER", "ADMIN"] } } }) : null;
   if (managerId && !manager) throw new ValidationError("err.managerNotFound");
   return prisma.$transaction(async (tx) => {
     const leads = await tx.lead.findMany({ where: { id: { in: leadIds } }, include: { manager: { select: { name: true } } } });
@@ -296,6 +301,10 @@ export async function assignManager(leadIds: string[], managerId: string | null,
       where: { id: { in: changed.map((l) => l.id) } },
       data: { managerId, assignedAt: managerId ? new Date() : null },
     });
+    // открытые задачи (в том числе «Перезвонить») прежнего ответственного переходят новому — иначе звонок теряется
+    if (managerId)
+      for (const l of changed)
+        if (l.managerId) await tx.task.updateMany({ where: { leadId: l.id, doneAt: null, assigneeId: l.managerId }, data: { assigneeId: managerId } });
     await tx.leadHistory.createMany({
       data: changed.map((l) => ({
         leadId: l.id,

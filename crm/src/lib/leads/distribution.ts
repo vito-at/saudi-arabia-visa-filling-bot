@@ -7,10 +7,8 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { notifyLeadAssigned } from "@/lib/notify";
-import { toInputDate } from "@/lib/format";
 
 /** Ташкентская дата как ключ колонки @db.Date (Prisma хранит дату по UTC) */
-export const dayKey = (d: Date) => new Date(`${toInputDate(d)}T00:00:00Z`);
 
 type Tx = Prisma.TransactionClient | PrismaClient;
 
@@ -18,6 +16,11 @@ const DISTRIBUTION_LOCK = 7_340_002;
 
 /** Лиды в очереди: без ответственного, в статусе «Новый» (лиды «Не дозвонились» из общего списка сюда не входят) */
 export const queuedLeadWhere: Prisma.LeadWhereInput = { managerId: null, hiddenFromManagers: false, status: { kind: "NEW" } };
+
+/** Включено ли автораспределение лидов */
+export async function isAutoDistribution(): Promise<boolean> {
+  return !!(await isAuto(prisma));
+}
 
 async function isAuto(tx: Tx) {
   const s = await tx.appSettings.findUnique({ where: { id: 1 }, select: { distributionMode: true, leadLimit: true } });
@@ -31,32 +34,31 @@ async function newCounts(tx: Tx, ids: string[]) {
 }
 
 /**
- * Повторного клиента отдаём менеджеру, который вёл его раньше. При автораспределении — только если тот в работе
- * и у него есть место; иначе лид идёт в общую очередь.
+ * Повторного клиента отдаём менеджеру, который вёл его раньше. При автораспределении — только если у него есть место;
+ * иначе лид идёт в общую очередь. (Переключателя «В работе» больше нет: раздача — всем активным менеджерам.)
  */
 export async function canReceive(tx: Tx, managerId: string): Promise<boolean> {
   const auto = await isAuto(tx);
   if (!auto) return true;
-  const m = await tx.user.findFirst({ where: { id: managerId, role: "MANAGER", isActive: true, onShift: true }, select: { id: true } });
+  const m = await tx.user.findFirst({ where: { id: managerId, role: "MANAGER", isActive: true }, select: { id: true } });
   if (!m) return false;
   return ((await newCounts(tx, [m.id])).get(m.id) ?? 0) < auto.limit;
 }
 
 /**
- * Менеджер сам берёт лид из очереди («Взять», смена статуса, ответ в чате): при автораспределении — только в работе
- * и пока у него меньше лимита необработанных. Возвращает ключ ошибки или null.
+ * Менеджер сам берёт лид из очереди («Взять», смена статуса, ответ в чате): при автораспределении — пока у него
+ * меньше лимита необработанных. Возвращает ключ ошибки или null.
  */
-export async function takeBlocked(tx: Tx, managerId: string): Promise<"err.notOnShift" | "err.leadLimit" | null> {
+export async function takeBlocked(tx: Tx, managerId: string): Promise<"err.leadLimit" | null> {
   const auto = await isAuto(tx);
   if (!auto) return null;
-  const m = await tx.user.findUnique({ where: { id: managerId }, select: { onShift: true, role: true } });
+  const m = await tx.user.findUnique({ where: { id: managerId }, select: { role: true } });
   if (m?.role !== "MANAGER") return null;
-  if (!m.onShift) return "err.notOnShift";
   return ((await newCounts(tx, [managerId])).get(managerId) ?? 0) >= auto.limit ? "err.leadLimit" : null;
 }
 
 /**
- * Раздача очереди: самые старые лиды — менеджерам в работе, у которых меньше лимита, по кругу
+ * Раздача очереди: самые старые лиды — активным менеджерам, у которых меньше лимита, по кругу
  * (следующим получает тот, кому дольше всех не давали). Возвращает число выданных лидов.
  */
 export async function distributeQueue(): Promise<number> {
@@ -67,7 +69,7 @@ export async function distributeQueue(): Promise<number> {
     // без блокировки параллельные раздачи отдали бы один лид дважды или превысили лимит
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(${DISTRIBUTION_LOCK})`;
     const managers = await tx.user.findMany({
-      where: { role: "MANAGER", isActive: true, onShift: true },
+      where: { role: "MANAGER", isActive: true },
       select: { id: true, name: true, lastAssignedAt: true, createdAt: true },
     });
     if (!managers.length) return [];
@@ -106,41 +108,6 @@ export function distributeSoon() {
   return distributeQueue().catch((e) => console.error("Распределение лидов:", e));
 }
 
-/**
- * Переключатель «В работе». Ушёл с работы — необработанные лиды возвращаются в очередь и достаются тем, кто в работе;
- * пришёл — сразу получает самые старые лиды из очереди.
- */
-export async function setOnShift(userId: string, on: boolean) {
-  await prisma.$transaction(async (tx) => {
-    await tx.user.update({ where: { id: userId }, data: { onShift: on } });
-    // день работы — для деления процента с авиабилетов между теми, кто вышел
-    if (on) await tx.shiftDay.upsert({ where: { userId_day: { userId, day: dayKey(new Date()) } }, update: {}, create: { userId, day: dayKey(new Date()) } });
-    if (!on && (await isAuto(tx))) await releaseNewLeads(tx, [userId]);
-  });
-  await distributeQueue();
-}
-
-/** Конец дня: все менеджеры «не в работе», чтобы ночные лиды не уходили тем, кто забыл выключить переключатель */
-export async function endShifts() {
-  return prisma.$transaction(async (tx) => {
-    const on = await tx.user.findMany({ where: { role: "MANAGER", onShift: true }, select: { id: true } });
-    if (!on.length) return 0;
-    await tx.user.updateMany({ where: { id: { in: on.map((u) => u.id) } }, data: { onShift: false } });
-    if (await isAuto(tx)) await releaseNewLeads(tx, on.map((u) => u.id));
-    return on.length;
-  });
-}
-
-async function releaseNewLeads(tx: Prisma.TransactionClient, managerIds: string[]) {
-  await tx.$executeRaw`SELECT pg_advisory_xact_lock(${DISTRIBUTION_LOCK})`;
-  const leads = await tx.lead.findMany({
-    where: { managerId: { in: managerIds }, status: { kind: "NEW" } },
-    select: { id: true, manager: { select: { name: true } } },
-  });
-  if (!leads.length) return;
-  await tx.lead.updateMany({ where: { id: { in: leads.map((l) => l.id) } }, data: { managerId: null, assignedAt: null, hiddenFromManagers: false } });
-  await tx.leadHistory.createMany({ data: leads.map((l) => ({ leadId: l.id, userId: null, field: "manager", oldValue: l.manager?.name ?? null, newValue: "очередь (менеджер не в работе)" })) });
-}
 
 /** Чистая функция выбора — отдельно, чтобы покрыть тестом. */
 export function pickRoundRobin<T extends { id: string; lastAssignedAt: Date | null; createdAt: Date }>(managers: T[]): T {

@@ -243,16 +243,32 @@ export async function saveUserAction(input: { id?: string; login: string; name: 
         where: { id: input.id },
         data: { login, name, role: input.role, isActive: input.isActive, ...(input.password ? { passwordHash: await bcrypt.hash(input.password, 10) } : {}) },
       });
-      if (!input.isActive) {
-        // лиды заблокированного менеджера в работе становятся нераспределёнными
-        await prisma.lead.updateMany({ where: { managerId: input.id, status: { kind: { in: ["NEW"] } } }, data: { managerId: null } });
-      }
+      if (!input.isActive || input.role === "VISA") await releaseUserWork(input.id, admin.id);
     } else {
       if (!input.password) throw new ValidationError("err.passwordRequired");
       await prisma.user.create({ data: { login, name, role: input.role, isActive: input.isActive, passwordHash: await bcrypt.hash(input.password, 10) } });
     }
     revalidateAll();
   });
+}
+
+/**
+ * Сотрудника отключили (уволили) или сделали визовиком — его незакрытые лиды уходят в общий список (их видят все менеджеры),
+ * открытые задачи — администратору, который это сделал. Раньше снимались только «Новые», а «Перезвонить» и «Ожидает оплату»
+ * оставались на отключённом и не были видны никому.
+ */
+async function releaseUserWork(userId: string, adminId: string) {
+  await prisma.$transaction(async (tx) => {
+    const user = await tx.user.findUnique({ where: { id: userId }, select: { name: true } });
+    const leads = await tx.lead.findMany({ where: { managerId: userId, status: { kind: { notIn: ["WON", "LOST"] } } }, select: { id: true } });
+    if (leads.length) {
+      await tx.lead.updateMany({ where: { id: { in: leads.map((l) => l.id) } }, data: { managerId: null, assignedAt: null, hiddenFromManagers: false } });
+      await tx.leadHistory.createMany({ data: leads.map((l) => ({ leadId: l.id, userId: adminId, field: "manager", oldValue: user?.name ?? null, newValue: "общий список" })) });
+    }
+    await tx.task.updateMany({ where: { assigneeId: userId, doneAt: null }, data: { assigneeId: adminId } });
+    await tx.user.update({ where: { id: userId }, data: { onShift: false } });
+  });
+  await distributeSoon();
 }
 
 // ——— Анкета клиента ———

@@ -20,7 +20,7 @@ export async function createTripFollowUps(now = new Date()): Promise<number> {
       travelTo: { lt: today, gte: new Date(today.getTime() - MAX_AGE_DAYS * 86_400_000) },
       deals: { some: {} },
     },
-    select: { id: true, managerId: true, name: true },
+    select: { id: true, managerId: true, name: true, manager: { select: { isActive: true } } },
   });
   if (!leads.length) return 0;
   const admin = await prisma.user.findFirst({ where: { role: "ADMIN", isActive: true }, orderBy: { createdAt: "asc" }, select: { id: true } });
@@ -28,7 +28,8 @@ export async function createTripFollowUps(now = new Date()): Promise<number> {
   const due = new Date(Math.max(today.getTime() + 11 * 3_600_000, now.getTime()));
   let created = 0;
   for (const l of leads) {
-    const assigneeId = l.managerId ?? admin?.id;
+    // уволенному (отключённому) менеджеру задачу не ставим — её получает администратор
+    const assigneeId = (l.manager?.isActive ? l.managerId : null) ?? admin?.id;
     if (!assigneeId) continue;
     await prisma.$transaction([
       prisma.task.create({ data: { leadId: l.id, assigneeId, createdById: assigneeId, title: TRIP_TASK_TITLE, dueAt: due } }),
