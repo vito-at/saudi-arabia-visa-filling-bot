@@ -15,6 +15,8 @@ export interface GeneralView {
   unprocessedAlertMin: number;
   leadLimit: number;
   flightPoolPct: number;
+  /** себестоимость визы в Таиланд за заявление, $ */
+  thaiVisaCostUsd: number;
   /** рабочее время офиса «09:00», «18:00» и рабочие дни 1–7 */
   workStart: string;
   workEnd: string;
@@ -66,6 +68,9 @@ export function GeneralForm({ v }: { v: GeneralView }) {
             </Field>
             <Field label={t("general.flightPoolPct")} hint={t("general.flightPoolPctHint")} className="sm:col-span-2">
               <Input name="flightPoolPct" inputMode="decimal" defaultValue={v.flightPoolPct} className="w-32" />
+            </Field>
+            <Field label={t("general.thaiVisaCost")} hint={t("general.thaiVisaCostHint")} className="sm:col-span-2">
+              <Input name="thaiVisaCostUsd" inputMode="decimal" defaultValue={v.thaiVisaCostUsd} className="w-32" />
             </Field>
             <Field label={t("general.workHours")} hint={t("general.workHoursHint")} className="sm:col-span-2">
               <div className="flex flex-wrap items-center gap-2">

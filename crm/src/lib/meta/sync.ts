@@ -80,6 +80,12 @@ export async function syncLeads(trigger: SyncTrigger, opts: { fetchFn?: FetchFn;
       : Date.now() - Math.min(90, Math.max(1, integration.initialDays)) * 86_400_000;
     const since = Math.floor(sinceMs / 1000);
     const client = pageClient(secrets, opts.fetchFn);
+    // время, раньше которого остались незагруженные лиды: дальше него время синхронизации не сдвигаем,
+    // иначе через час (OVERLAP_SEC) такой лид выпал бы из окна загрузки и потерялся
+    let holdAt: Date | null = null;
+    const hold = (d: Date) => {
+      if (!holdAt || d < holdAt) holdAt = d;
+    };
 
     try {
       const forms = await client.all<MetaFormInfo>(`${secrets.pageId}/leadgen_forms`, { fields: "id,name,status,questions", limit: 100 });
@@ -97,17 +103,27 @@ export async function syncLeads(trigger: SyncTrigger, opts: { fetchFn?: FetchFn;
             filtering: JSON.stringify([{ field: "time_created", operator: "GREATER_THAN", value: since }]),
           })) {
             result.fetched++;
-            const isNew = await importMetaLead({ ...raw, form_id: raw.form_id ?? form.id }, { name: form.name, labels });
-            if (isNew) result.created++;
-            else result.duplicates++;
+            // ошибка одного лида не обрывает загрузку остальных лидов формы
+            try {
+              const isNew = await importMetaLead({ ...raw, form_id: raw.form_id ?? form.id }, { name: form.name, labels });
+              if (isNew) result.created++;
+              else result.duplicates++;
+            } catch (e) {
+              result.errors.push(`Лид ${raw.id} (форма «${form.name}»): ${e instanceof Error ? e.message : String(e)}`);
+              const created = new Date(String(raw.created_time ?? "").replace(/([+-]\d{2})(\d{2})$/, "$1:$2"));
+              hold(Number.isNaN(created.getTime()) ? new Date(sinceMs + OVERLAP_SEC * 1000) : created);
+            }
           }
         } catch (e) {
           if (e instanceof GraphError && e.isTokenError) throw e;
           result.errors.push(`Форма «${form.name}»: ${e instanceof Error ? e.message : String(e)}`);
+          // форму не дочитали — в следующий раз берём её лиды с прежнего времени
+          hold(new Date(sinceMs + OVERLAP_SEC * 1000));
         }
       }
       result.ok = result.errors.length === 0;
-      await prisma.metaIntegration.update({ where: { id: 1 }, data: { lastSyncAt: startedAt } });
+      const kept = holdAt as Date | null;
+      await prisma.metaIntegration.update({ where: { id: 1 }, data: { lastSyncAt: kept && kept < startedAt ? kept : startedAt } });
       await markTokenOk();
     } catch (e) {
       result.ok = false;

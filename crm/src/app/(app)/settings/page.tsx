@@ -169,6 +169,7 @@ async function GeneralTab() {
         unprocessedAlertMin: s.unprocessedAlertMin,
         leadLimit: s.leadLimit,
         flightPoolPct: toNum(s.flightPoolPct),
+        thaiVisaCostUsd: toNum(s.thaiVisaCostUsd),
         workStart: minToTime(s.workStartMin),
         workEnd: minToTime(s.workEndMin),
         workDays: s.workDays,

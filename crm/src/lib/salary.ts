@@ -4,13 +4,15 @@
  * сумма продаж и прибыль — по этим сделкам (по курсам дня оплаты).
  * Зарплата = оклад + сумма продаж (или прибыль — задаётся у менеджера) × (процент + надбавка, если план по прибыли выполнен).
  * По умолчанию: 1 500 000 сум + 5% от суммы продаж.
- * Авиабилеты — отдельно: процент от чистой прибыли (flightPoolPct, 30%) делится поровну между менеджерами «В работе»
+ * Авиабилеты — отдельно: процент от чистой прибыли (flightPoolPct, 30%) делится поровну между менеджерами, работавшими
  * в день продажи (двое — по 15%, одна — 30%), и каждая получает свою долю только с билетов, проданных ею самой.
+ * Работала в день — включала «В работе» (при автораспределении) или что-то делала в CRM: меняла лиды, писала
+ * комментарии или клиентам, закрывала сделки (см. activityDays) — так доля делится и при ручном распределении.
  * Остальные услуги — оклад + процент от продаж/прибыли, как выше; авиабилеты в эту базу не входят.
  * Учёт зарплаты в CRM начинается с «salaryStartAt» (настройки): учитываются только сделки, оплаченные с этого момента,
  * а месяцы целиком до него не считаются (расчёты за них вели вне CRM). Выплаты — частями, «Осталось» = к выплате − выплачено.
  */
-import type { CommissionBase, Currency } from "@prisma/client";
+import { Prisma, type CommissionBase, type Currency } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { parseInputDate } from "@/lib/format";
 import { round2, toNum } from "@/lib/money";
@@ -75,6 +77,8 @@ export interface PlanFact {
   flightProfitSalary: number;
   /** доля с прибыли авиабилетов (валюта зарплаты) — см. flightShares */
   flightCommission: number;
+  /** сделки, у которых администратор ещё не указал себестоимость: их прибыль не идёт в план и комиссию от прибыли */
+  pendingCost?: number;
 }
 
 export interface PayoutRow {
@@ -161,22 +165,23 @@ export async function loadManagerMonths(range: MonthRange, managerId: string | n
     prisma.lead.groupBy({ by: ["managerId"], where: { managerId: { in: ids }, createdAt: { gte: range.from, lt: range.to } }, _count: { _all: true } }),
     prisma.deal.findMany({
       where: { managerId: { in: ids }, paidAt: { gte: dealsFrom, lt: range.to } },
-      select: { managerId: true, amount: true, cost: true, currency: true, costCurrency: true, paidAt: true, quantity: true, serviceType: true },
+      select: { managerId: true, amount: true, cost: true, currency: true, costCurrency: true, paidAt: true, quantity: true, serviceType: true, costConfirmed: true },
     }),
     // кто был «В работе» в дни месяца — все менеджеры, а не только показанные (делим процент с авиабилетов)
     prisma.shiftDay.findMany({ where: { day: { gte: monthKey(range.ym), lt: monthKey(shiftMonth(range.ym, 1)) } } }),
     prisma.salaryPayout.findMany({ where: { userId: { in: ids }, month: monthKey(range.ym) }, orderBy: { paidAt: "asc" } }),
   ]);
   const workers = new Map<string, Set<string>>();
-  for (const s of shiftDays) {
-    const day = s.day.toISOString().slice(0, 10);
-    workers.set(day, (workers.get(day) ?? new Set()).add(s.userId));
-  }
+  const addWorker = (day: string, userId: string) => workers.set(day, (workers.get(day) ?? new Set()).add(userId));
+  for (const s of shiftDays) addWorker(s.day.toISOString().slice(0, 10), s.userId);
+  for (const a of await activityDays(range)) addWorker(a.day, a.userId);
   const poolPct = toNum(settings.flightPoolPct);
   return users.map((u) => {
     const own = deals.filter((d) => d.managerId === u.id).map((d) => ({ ...d, amount: toNum(d.amount), cost: toNum(d.cost) }));
     const flights = own.filter((d) => d.serviceType === "FLIGHTS");
     const other = own.filter((d) => d.serviceType !== "FLIGHTS");
+    // пока себестоимость не указана, прибыль сделки неизвестна (себестоимость 0 завысила бы план, надбавку и комиссию от прибыли)
+    const confirmed = own.filter((d) => d.costConfirmed);
     const st = u.salaryTerms[0];
     const terms: SalaryTerms = st
       ? { base: toNum(st.base), currency: st.currency, pct: toNum(st.pct), bonusPct: toNum(st.bonusPct), from: st.commissionFrom }
@@ -195,12 +200,13 @@ export async function loadManagerMonths(range: MonthRange, managerId: string | n
     const fact: PlanFact = {
       leads: leads.find((l) => l.managerId === u.id)?._count._all ?? 0,
       sales: own.reduce((s, d) => s + d.quantity, 0),
-      profitUsd: profitIn("USD"),
-      profitSalary: profitIn(terms.currency, other),
+      profitUsd: profitIn("USD", confirmed),
+      profitSalary: profitIn(terms.currency, other.filter((d) => d.costConfirmed)),
       revenueUsd: revenueIn("USD"),
       revenueSalary: revenueIn(terms.currency, other),
       flightProfitSalary: profitIn(terms.currency, flights),
       flightCommission,
+      pendingCost: own.length - confirmed.length,
     };
     const p = u.plans[0];
     const plan: PlanValues = { leads: p?.leads ?? null, sales: p?.sales ?? null, profit: p?.profit === null || p?.profit === undefined ? null : toNum(p.profit) };
@@ -222,6 +228,25 @@ export async function loadManagerMonths(range: MonthRange, managerId: string | n
       payouts: mine.map((p) => ({ id: p.id, amount: toNum(p.amount), paidAt: p.paidAt.toISOString(), note: p.note })),
     };
   });
+}
+
+/**
+ * Дни (по Ташкенту), в которые менеджер работал в CRM: менял лиды (история), писал комментарии, отвечал клиентам в чатах,
+ * закрывал сделки. Отметка «В работе» есть только при автораспределении, а делить 30% с авиабилетов нужно в любом режиме.
+ */
+export async function activityDays(range: { from: Date; to: Date }): Promise<{ userId: string; day: string }[]> {
+  const day = (col: Prisma.Sql) => Prisma.sql`to_char(${col} + interval '5 hours', 'YYYY-MM-DD')`;
+  return prisma.$queryRaw<{ userId: string; day: string }[]>`
+    SELECT DISTINCT a."userId", a.day FROM (
+      SELECT h."userId" AS "userId", ${day(Prisma.sql`h."createdAt"`)} AS day FROM "LeadHistory" h
+        WHERE h."userId" IS NOT NULL AND h."createdAt" >= ${range.from} AND h."createdAt" < ${range.to}
+      UNION SELECT c."authorId", ${day(Prisma.sql`c."createdAt"`)} FROM "Comment" c
+        WHERE c."createdAt" >= ${range.from} AND c."createdAt" < ${range.to}
+      UNION SELECT m."senderId", ${day(Prisma.sql`m."createdAt"`)} FROM "ChatMessage" m
+        WHERE m."senderId" IS NOT NULL AND m."createdAt" >= ${range.from} AND m."createdAt" < ${range.to}
+      UNION SELECT d."managerId", ${day(Prisma.sql`d."createdAt"`)} FROM "Deal" d
+        WHERE d."managerId" IS NOT NULL AND d."createdAt" >= ${range.from} AND d."createdAt" < ${range.to}
+    ) a JOIN "User" u ON u.id = a."userId" WHERE u.role = 'MANAGER'`;
 }
 
 export interface CurrencyIssue {

@@ -3,6 +3,7 @@ import { NextResponse, after, type NextRequest } from "next/server";
 import { getTelegram, type TgUpdate } from "@/lib/chats/telegram";
 import { handleTelegramUpdate } from "@/lib/chats/incoming";
 import { replyAfterPause } from "@/lib/chats/ai";
+import { retryDelivery } from "@/lib/chats/retry";
 
 export const dynamic = "force-dynamic";
 
@@ -24,8 +25,9 @@ export async function POST(req: NextRequest) {
     // ИИ-ассистент отвечает после ответа Telegram, когда клиент допишет
     if (await handleTelegramUpdate(update)) after(replyAfterPause);
   } catch (e) {
-    // Telegram повторяет доставку только при ошибке HTTP — пишем в журнал и отвечаем 200, чтобы не зациклить
+    // Telegram повторяет доставку только при ошибке HTTP: сбой посреди записи — просим повторить (несколько раз, не бесконечно)
     console.error("Telegram webhook:", e);
+    if (retryDelivery(`tg:${update.update_id}`)) return NextResponse.json({ ok: false }, { status: 500 });
   }
   return NextResponse.json({ ok: true });
 }

@@ -109,14 +109,23 @@ function humanize(v: string): string {
   return v.replace(/_/g, " ").replace(/\s+/g, " ").trim();
 }
 
-/** Разбор даты из ответа: 2026-10-15, 15.10.2026, 15/10/2026 */
+/**
+ * Разбор даты из ответа: 2026-10-15, 15.10.2026, 15/10/2026. Несуществующая дата («12/25/2026», «31.02.2026») — null:
+ * иначе база отклоняла лид целиком, и он терялся.
+ */
 export function parseAnswerDate(v: string): Date | null {
   const s = v.trim();
+  let ymd: number[] | null = null;
   let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (m) return new Date(`${m[1]}-${m[2]}-${m[3]}T00:00:00+05:00`);
-  m = s.match(/^(\d{1,2})[./](\d{1,2})[./](\d{4})$/);
-  if (m) return new Date(`${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}T00:00:00+05:00`);
-  return null;
+  if (m) ymd = [m[1], m[2], m[3]].map(Number);
+  else if ((m = s.match(/^(\d{1,2})[./](\d{1,2})[./](\d{4})$/))) ymd = [m[3], m[2], m[1]].map(Number);
+  if (!ymd) return null;
+  const [y, mo, d] = ymd;
+  if (mo < 1 || mo > 12 || d < 1 || d > 31) return null;
+  const date = new Date(`${y}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}T00:00:00+05:00`);
+  // 31.02 превратилась бы в 3 марта — такую дату не принимаем
+  if (Number.isNaN(date.getTime()) || new Date(date.getTime() + 5 * 3_600_000).getUTCDate() !== d) return null;
+  return date;
 }
 
 export function parseTravelers(v: string): number | null {

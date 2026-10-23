@@ -29,6 +29,19 @@ export function currencyMismatch(amount: number, currency: Currency): "usd" | "u
   return null;
 }
 
+/**
+ * Себестоимость визовой сделки, которая подставляется автоматически: пока только Таиланд —
+ * цена одной визы ($, «Настройки → Общие») × число заявлений. null — не подставлять (расходы на визы — в расходах компании).
+ */
+export function autoVisaCostUsd(country: string | null | undefined, applications: number, thaiCostUsd: number): number | null {
+  if (!(thaiCostUsd > 0) || !(applications > 0)) return null;
+  const v = country?.trim().toLowerCase();
+  if (!v) return null;
+  const thai = ["таиланд", "тайланд", "thailand", "tailand", "tayland"];
+  // страна — из списка («Таиланд») или из подробностей продукта («Таиланд, 2 заявл.»)
+  return thai.some((t) => v === t || v.startsWith(`${t},`) || v.startsWith(`${t} `)) ? Math.round(thaiCostUsd * applications * 100) / 100 : null;
+}
+
 /** Название продукта сделки: тип услуги из списка и, если указаны, подробности — «Тур: Дубай, 7 ночей» */
 export function composeProduct(label: string, details: string): string {
   const d = details.trim();

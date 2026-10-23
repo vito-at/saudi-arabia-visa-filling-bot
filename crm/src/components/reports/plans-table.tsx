@@ -15,7 +15,7 @@ export interface PlanRowView {
   userId: string;
   name: string;
   plan: { leads: number | null; sales: number | null; profit: number | null };
-  fact: { leads: number; sales: number; profitUsd: number; profitSalary: number; revenueUsd: number; revenueSalary: number; flightProfitSalary: number; flightCommission: number };
+  fact: { leads: number; sales: number; profitUsd: number; profitSalary: number; revenueUsd: number; revenueSalary: number; flightProfitSalary: number; flightCommission: number; pendingCost?: number };
   done: { leads: number | null; sales: number | null; profit: number | null };
   planMet: boolean;
   ratePct: number;
@@ -255,6 +255,7 @@ export function PlansTable({ rows, month, editable }: { rows: PlanRowView[]; mon
                 <td className="px-3 py-3 text-right whitespace-nowrap tabular-nums">{f.money(r.fact.revenueUsd, "USD")}</td>
                 <td className="px-3 py-3">
                   <Progress fact={r.fact.profitUsd} plan={r.plan.profit} done={r.done.profit} money />
+                  {!!r.fact.pendingCost && <div className="mt-1 text-[11px] text-amber-600">{t("plans.pendingCost", { n: r.fact.pendingCost })}</div>}
                 </td>
                 <td className="px-3 py-3 text-right tabular-nums">
                   {formatNumber(r.ratePct, 1)}%

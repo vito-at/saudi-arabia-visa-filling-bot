@@ -31,6 +31,8 @@ export async function saveGeneralAction(formData: FormData) {
     if (limit !== null && (!Number.isInteger(limit) || limit < 1 || limit > 50)) throw new ValidationError("err.leadLimitRange");
     const flightPct = formData.has("flightPoolPct") ? Number(str(formData.get("flightPoolPct")).replace(",", ".")) : null;
     if (flightPct !== null && (!Number.isFinite(flightPct) || flightPct < 0 || flightPct > 100)) throw new ValidationError("err.flightPoolPct");
+    const thaiVisa = formData.has("thaiVisaCostUsd") ? Number(str(formData.get("thaiVisaCostUsd")).replace(/\s/g, "").replace(",", ".") || "0") : null;
+    if (thaiVisa !== null && (!Number.isFinite(thaiVisa) || thaiVisa < 0 || thaiVisa > 10000)) throw new ValidationError("err.thaiVisaCost");
     // рабочее время офиса: по нему считается скорость реакции на лид (поля могут отсутствовать в старой форме)
     const work = formData.has("workStart")
       ? (() => {
@@ -41,7 +43,7 @@ export async function saveGeneralAction(formData: FormData) {
           return { workStartMin: start, workEndMin: end, workDays: days };
         })()
       : {};
-    await prisma.appSettings.update({ where: { id: 1 }, data: { distributionMode: mode, unprocessedAlertMin: alert, ...(limit !== null && { leadLimit: limit }), ...(flightPct !== null && { flightPoolPct: flightPct }), ...work } });
+    await prisma.appSettings.update({ where: { id: 1 }, data: { distributionMode: mode, unprocessedAlertMin: alert, ...(limit !== null && { leadLimit: limit }), ...(flightPct !== null && { flightPoolPct: flightPct }), ...(thaiVisa !== null && { thaiVisaCostUsd: thaiVisa }), ...work } });
     // включили автораспределение или подняли лимит — сразу раздаём очередь
     await distributeSoon();
     revalidateAll();
