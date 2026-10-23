@@ -9,7 +9,6 @@ import { cn } from "@/lib/utils";
 import { Logo } from "./logo";
 import { NotificationBell } from "./notification-bell";
 import { ThemeToggle } from "./theme-toggle";
-import { ShiftToggle } from "./shift-toggle";
 import { LanguageSwitcher } from "./language-switcher";
 import { useI18n } from "@/i18n/client";
 import type { TKey } from "@/i18n/core";
@@ -34,8 +33,6 @@ const NAV = [
 
 type SidebarProps = {
   user: { name: string; role: "ADMIN" | "MANAGER" | "VISA" };
-  /** «В работе» менеджера при автораспределении; null — переключатель не показывается */
-  onShift: boolean | null;
   counters: { leads: number; tasks: number; finance: number; chats: number; visa: number };
   /** курс $ для расчёта цен клиентам */
   rate: { value: number; updatedAt: string | null };
@@ -94,7 +91,7 @@ export function Sidebar(props: SidebarProps) {
   );
 }
 
-function SidebarContent({ user, counters, logout, rate, onShift }: SidebarProps) {
+function SidebarContent({ user, counters, logout, rate }: SidebarProps) {
   const pathname = usePathname();
   const { t } = useI18n();
   return (
@@ -135,7 +132,6 @@ function SidebarContent({ user, counters, logout, rate, onShift }: SidebarProps)
         })}
       </nav>
       <div className="shrink-0 space-y-3 border-t border-sidebar-border p-3">
-        {onShift !== null && <ShiftToggle on={onShift} />}
         <RateWidget rate={rate.value} updatedAt={rate.updatedAt} />
         <ThemeToggle />
         <LanguageSwitcher />

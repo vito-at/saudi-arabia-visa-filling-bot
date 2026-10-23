@@ -535,6 +535,8 @@ model Conversation {
   aiReplies            Int         @default(0)
   /// пока ассистент готовит ответ — второй обработчик эту переписку не берёт
   aiLockedUntil        DateTime?
+  /// последнее входящее, на которое ассистент уже ответил (или решил промолчать) — повторно не спрашиваем модель
+  aiAnsweredAt         DateTime?
 
   lead     Lead?         @relation(fields: [leadId], references: [id], onDelete: SetNull)
   messages ChatMessage[]

@@ -33,6 +33,17 @@ async function adminIds(): Promise<string[]> {
   return (await prisma.user.findMany({ where: { role: "ADMIN", isActive: true }, select: { id: true } })).map((u) => u.id);
 }
 
+/** Лид без ответственного (общий список): о нём и о сообщениях по нему узнают все активные менеджеры и администраторы */
+export async function poolRecipients(): Promise<string[]> {
+  return (await prisma.user.findMany({ where: { isActive: true, role: { in: ["MANAGER", "ADMIN"] } }, select: { id: true } })).map((u) => u.id);
+}
+
+/** Новый лид попал в общий список (ручное распределение) — уведомление всем, кто может его взять */
+export async function notifyPoolLead(lead: { id: string; name: string }) {
+  const users = await poolRecipients();
+  await notify(users.map((userId) => ({ userId, type: "pool" as const, key: `pool:${lead.id}`, link: `/leads/${lead.id}`, data: { name: lead.name } })));
+}
+
 /** Новый лид у менеджера (автораспределение, назначение администратором) */
 export async function notifyLeadAssigned(lead: { id: string; name: string; managerId: string | null }, actorId?: string | null) {
   if (!lead.managerId || lead.managerId === actorId) return;

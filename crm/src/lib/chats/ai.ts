@@ -146,11 +146,17 @@ export async function replyInConversation(conversationId: string, now = new Date
   if (!conv || !aiCanReply(s, conv, isWorkTime(now, schedule))) return false;
   // клиент ещё печатает — ответит следующий проход
   if (conv.lastInboundAt && now.getTime() - conv.lastInboundAt.getTime() < AI_DEBOUNCE_MS - 500) return false;
+  // на это сообщение клиента модель уже отвечала (или решила промолчать) — повторно не спрашиваем
+  if (conv.aiAnsweredAt && conv.lastInboundAt && conv.aiAnsweredAt >= conv.lastInboundAt) return false;
 
-  // захват переписки, чтобы два обработчика не ответили дважды
+  // захват переписки, чтобы два обработчика не ответили дважды. Время — текущее, а не начала прохода:
+  // проход идёт по многим перепискам, и к его середине блокировка от «старого» времени уже истекла бы.
+  // Срок больше самого долгого запроса к Claude (90 с × 3 попытки)
+  const lockAt = new Date();
+  const until = new Date(lockAt.getTime() + 5 * 60_000);
   const lock = await prisma.conversation.updateMany({
-    where: { id: conv.id, aiPaused: false, OR: [{ aiLockedUntil: null }, { aiLockedUntil: { lt: now } }] },
-    data: { aiLockedUntil: new Date(now.getTime() + 120_000) },
+    where: { id: conv.id, aiPaused: false, OR: [{ aiLockedUntil: null }, { aiLockedUntil: { lt: lockAt } }] },
+    data: { aiLockedUntil: until },
   });
   if (!lock.count) return false;
   try {
@@ -171,6 +177,8 @@ export async function replyInConversation(conversationId: string, now = new Date
       return false;
     }
     await prisma.aiBotSettings.update({ where: { id: 1 }, data: { lastError: null, lastUsedAt: now } });
+    // модель ответила (в том числе пустым ответом — «промолчать»): на это входящее больше не спрашиваем
+    if (conv.lastInboundAt) await prisma.conversation.update({ where: { id: conv.id }, data: { aiAnsweredAt: conv.lastInboundAt } });
 
     // отказ модели — диалог ведёт менеджер
     const handoff = !answer || answer.handoff || conv.aiReplies + 1 >= s.maxReplies;
@@ -179,6 +187,9 @@ export async function replyInConversation(conversationId: string, now = new Date
       // за время запроса менеджер мог ответить сам — тогда ассистент молчит
       const fresh = await prisma.conversation.findUnique({ where: { id: conv.id }, select: { aiPaused: true } });
       if (fresh?.aiPaused) return false;
+      // ответ после последнего сообщения клиента уже есть (менеджер или другой обработчик) — второй раз не пишем
+      const answered = conv.lastInboundAt ? await prisma.chatMessage.count({ where: { conversationId: conv.id, direction: "OUT", createdAt: { gte: conv.lastInboundAt } } }) : 0;
+      if (answered) return false;
       try {
         await sendChatMessage(conv.id, answer.reply.trim().slice(0, 2000), null, { isAi: true });
       } catch (e) {
@@ -193,7 +204,8 @@ export async function replyInConversation(conversationId: string, now = new Date
     }
     return !!answer?.reply.trim();
   } finally {
-    await prisma.conversation.update({ where: { id: conv.id }, data: { aiLockedUntil: null } });
+    // снимаем только свою блокировку
+    await prisma.conversation.updateMany({ where: { id: conv.id, aiLockedUntil: until }, data: { aiLockedUntil: null } });
   }
 }
 
@@ -208,6 +220,8 @@ export async function processAiReplies(now = new Date()): Promise<number> {
       lastInboundAt: { gt: new Date(now.getTime() - 6 * 3_600_000), lte: new Date(now.getTime() - AI_DEBOUNCE_MS + 500) },
       // последнее сообщение — от клиента
       lastMessageAt: { lte: prisma.conversation.fields.lastInboundAt },
+      // и модель на него ещё не отвечала
+      OR: [{ aiAnsweredAt: null }, { aiAnsweredAt: { lt: prisma.conversation.fields.lastInboundAt } }],
     },
     orderBy: { lastInboundAt: "asc" },
     select: { id: true },

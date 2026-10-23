@@ -5,7 +5,6 @@ import { Sidebar } from "@/components/layout/sidebar";
 import { CallbackReminders } from "@/components/callbacks/callback-reminders";
 import { RateNotice } from "@/components/layout/rate-notice";
 import { RoleProvider } from "@/components/layout/role-context";
-import { ShiftBanner } from "@/components/layout/shift-banner";
 import { formatDate, formatNumber, toInputDate } from "@/lib/format";
 import { isRateStale } from "@/lib/rates";
 import { getI18n } from "@/i18n/server";
@@ -31,10 +30,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     user.role === "MANAGER" ? Promise.resolve(0) : prisma.leadService.count({ where: { ...handedVisa, status: "NEW" } }),
   ]);
   // переключатель «В работе» — менеджерам при автораспределении
-  const onShift =
-    user.role === "MANAGER" && settings?.distributionMode === "ROUND_ROBIN"
-      ? ((await prisma.user.findUnique({ where: { id: user.id }, select: { onShift: true } }))?.onShift ?? false)
-      : null;
   const rateStale = settings?.usdRateSource === "IPAK_YULI" && isRateStale(settings.usdRateUpdatedAt) && !!settings.usdRateError;
 
   async function logout() {
@@ -49,13 +44,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <div className="min-h-screen">
       <Sidebar
         user={user}
-        onShift={onShift}
         counters={{ leads: newLeads, tasks, finance: pendingCosts, chats: unreadChats, visa: newVisa }}
         rate={{ value: Number(settings?.usdRateCost ?? 0), updatedAt: settings?.usdRateUpdatedAt?.toISOString() ?? null }}
         logout={logout}
       />
       <main className="lg:pl-60">
-        {onShift === false && <ShiftBanner text={t("nav.shiftBanner")} action={t("nav.shiftStart")} />}
         {tokenProblem && user.role !== "VISA" && (
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 lg:px-8">
             <AlertTriangle className="size-5 shrink-0" />

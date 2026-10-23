@@ -6,6 +6,8 @@ import { AccessError } from "./session";
 /** Фильтр видимости лидов: менеджер видит свои и нераспределённые (кроме созданных администратором). */
 export function leadScope(user: CurrentUser): Prisma.LeadWhereInput {
   if (user.role === "ADMIN") return {};
+  // визовый специалист работает только с визовыми заявками — лидов и переписок он не видит и не меняет
+  if (user.role === "VISA") return { id: { in: [] } };
   // нераспределённые лиды из Meta и от менеджеров видны всем; созданные администратором — только после назначения
   return { OR: [{ managerId: user.id }, { managerId: null, hiddenFromManagers: false }] };
 }

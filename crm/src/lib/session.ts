@@ -16,6 +16,9 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
     select: { id: true, name: true, login: true, role: true, isActive: true },
   });
   if (!user || !user.isActive) return null;
+  // роль сменили после входа (например, менеджер стал визовиком) — старый вход недействителен, нужно войти заново:
+  // иначе до 30 дней доступ по старой роли (или бесконечная переадресация при повышении визовика)
+  if (session.user.role && session.user.role !== user.role) return null;
   return { id: user.id, name: user.name, login: user.login, role: user.role };
 });
 
