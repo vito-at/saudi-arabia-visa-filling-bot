@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/session";
-import { conversationScope } from "@/lib/access";
+import { canWriteConversation, conversationScope } from "@/lib/access";
 import { takeLead, ValidationError } from "@/lib/leads/service";
 import { CHAT_FILE_MAX, sendChatFile } from "@/lib/chats/send";
 import { TelegramError } from "@/lib/chats/telegram";
@@ -32,9 +32,10 @@ export async function POST(req: NextRequest) {
   if (!(file instanceof File)) return fail("err.chatFileEmpty");
   const conv = await prisma.conversation.findFirst({
     where: { id: conversationId, ...conversationScope(user) },
-    include: { lead: { select: { id: true, managerId: true, status: { select: { kind: true } } } } },
+    include: { lead: { select: { id: true, managerId: true, status: { select: { kind: true } } } }, account: { select: { userId: true } } },
   });
   if (!conv) return fail("err.chatNotFound");
+  if (!canWriteConversation(user, conv)) return fail("err.chatReadOnly");
 
   try {
     await sendChatFile(conversationId, { name: file.name, mime: file.type, data: new Uint8Array(await file.arrayBuffer()) }, caption, user.id);

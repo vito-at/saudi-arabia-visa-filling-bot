@@ -9,7 +9,7 @@ import { formatDate, formatNumber, toInputDate } from "@/lib/format";
 import { isRateStale } from "@/lib/rates";
 import { getI18n } from "@/i18n/server";
 import { prisma } from "@/lib/db";
-import { conversationScope, leadScope } from "@/lib/access";
+import { inboxScope, leadScope } from "@/lib/access";
 import { requireUser } from "@/lib/session";
 import { handedVisa } from "@/lib/visa";
 
@@ -25,7 +25,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     // сделки, закрытые менеджерами без себестоимости, — счётчик у «Финансов» для администратора
     user.role === "ADMIN" ? prisma.deal.count({ where: { costConfirmed: false } }) : Promise.resolve(0),
     // переписки с непрочитанными сообщениями — счётчик у «Чатов»
-    prisma.conversation.count({ where: { ...conversationScope(user), unreadCount: { gt: 0 } } }),
+    prisma.conversation.count({ where: { ...inboxScope(user), unreadCount: { gt: 0 } } }),
     // новые визовые заявки — счётчик у «Виз» (визовому специалисту и администратору)
     user.role === "MANAGER" ? Promise.resolve(0) : prisma.leadService.count({ where: { ...handedVisa, status: "NEW" } }),
   ]);

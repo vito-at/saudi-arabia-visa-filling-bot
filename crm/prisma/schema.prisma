@@ -100,6 +100,7 @@ model User {
   salaryPaid    SalaryPayout[] @relation("PayoutManager")
   shiftDays     ShiftDay[]
   salaryPaidBy  SalaryPayout[] @relation("PayoutAuthor")
+  telegram      TelegramAccount?
   notifications Notification[]
   comments      Comment[]
   history       LeadHistory[]
@@ -520,6 +521,10 @@ model Conversation {
   externalId           String
   /// Telegram Business: чат личного аккаунта, подключённого к боту — ответ уходит от имени аккаунта
   businessConnectionId String?
+  /// личный Telegram сотрудника, через который идёт переписка: её видят только он (и администратор — переписки сотрудников)
+  accountId            String?
+  /// ключ уникальности: id аккаунта сотрудника или "" (Instagram, сам бот) — один клиент может писать нескольким сотрудникам
+  scope                String      @default("")
   title                String
   username             String?
   avatarUrl            String?
@@ -538,10 +543,12 @@ model Conversation {
   /// последнее входящее, на которое ассистент уже ответил (или решил промолчать) — повторно не спрашиваем модель
   aiAnsweredAt         DateTime?
 
-  lead     Lead?         @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  lead     Lead?            @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  account  TelegramAccount? @relation(fields: [accountId], references: [id], onDelete: SetNull)
   messages ChatMessage[]
 
-  @@unique([channel, externalId])
+  @@unique([channel, externalId, scope])
+  @@index([accountId])
   @@index([lastMessageAt])
   @@index([leadId])
 }
@@ -583,6 +590,36 @@ model TelegramIntegration {
   /// подключение Telegram Business (личный аккаунт агентства → бот)
   businessConnectionId String?
   businessUser         String?
+}
+
+/**
+ * Личный Telegram сотрудника, подключённый к боту CRM через Telegram Business. Привязка: сотрудник открывает ссылку
+ * t.me/<бот>?start=<код> из своего Telegram (так CRM узнаёт его Telegram id), затем подключает бота в настройках
+ * Telegram Business. Подключения от непривязанных аккаунтов отклоняются.
+ */
+model TelegramAccount {
+  id           String    @id @default(cuid())
+  userId       String    @unique
+  /// Telegram id владельца аккаунта — после /start с кодом
+  tgUserId     String?   @unique
+  tgName       String?
+  tgUsername   String?
+  /// одноразовый код привязки и время его выдачи (действует час)
+  linkCode     String?   @unique
+  linkCodeAt   DateTime?
+  /// подключение Telegram Business: id, включено ли, можно ли отвечать от имени аккаунта
+  connectionId String?   @unique
+  connected    Boolean   @default(false)
+  canReply     Boolean   @default(false)
+  connectedAt  DateTime?
+  /// новые собеседники становятся лидами этого сотрудника (личному аккаунту владельца можно выключить)
+  createLeads  Boolean   @default(true)
+  /// ИИ-ассистент отвечает в переписках этого аккаунта
+  aiEnabled    Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  conversations Conversation[]
 }
 
 enum QuestionType {

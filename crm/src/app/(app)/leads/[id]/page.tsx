@@ -17,7 +17,7 @@ import { igCanReply } from "@/lib/chats/instagram";
 import { toMessageView } from "@/lib/chats/view";
 import { NewTaskForm, TaskRow } from "@/components/tasks/task-list";
 import { prisma } from "@/lib/db";
-import { leadScope } from "@/lib/access";
+import { leadScope, conversationScope } from "@/lib/access";
 import { fieldLabel, historyValue, leadSourceLabel, reasonName, statusName } from "@/i18n/labels";
 import { getI18n } from "@/i18n/server";
 import { formatDateTime, toInputDate } from "@/lib/format";
@@ -61,6 +61,8 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
       conversions: { orderBy: { eventTime: "asc" } },
       offers: { orderBy: { order: "asc" } },
       conversations: {
+        // личный Telegram другого сотрудника (лид передали) — не показываем
+        where: conversationScope(user),
         orderBy: { lastMessageAt: "desc" },
         include: { messages: { orderBy: { createdAt: "desc" }, take: 50, include: { sender: { select: { name: true } } } } },
       },

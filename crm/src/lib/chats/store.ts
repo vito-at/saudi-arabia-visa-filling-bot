@@ -7,6 +7,7 @@ import { createLead } from "@/lib/leads/service";
 import { normalizePhone } from "@/lib/phone";
 import { notify, poolRecipients } from "@/lib/notify";
 import type { ParsedAttachment } from "./telegram";
+import type { AccountWithOwner } from "./accounts";
 
 export interface Profile {
   title: string;
@@ -18,6 +19,8 @@ export interface IncomingChatMessage {
   channel: ChatChannel;
   externalId: string;
   businessConnectionId?: string | null;
+  /** личный Telegram сотрудника, через который пришло сообщение: переписка — его (лид — тоже его) */
+  account?: AccountWithOwner | null;
   direction: ChatDirection;
   text: string | null;
   attachments?: ParsedAttachment[];
@@ -54,23 +57,27 @@ export function previewText(text: string | null, attachments: ParsedAttachment[]
  */
 export async function recordChatMessage(m: IncomingChatMessage) {
   const at = m.at ?? new Date();
-  let conv = await prisma.conversation.findUnique({ where: { channel_externalId: { channel: m.channel, externalId: m.externalId } } });
+  const scope = m.account?.id ?? "";
+  const key = { channel_externalId_scope: { channel: m.channel, externalId: m.externalId, scope } };
+  let conv = await prisma.conversation.findUnique({ where: key });
   if (m.externalMessageId && conv) {
     const dup = await prisma.chatMessage.findUnique({ where: { conversationId_externalId: { conversationId: conv.id, externalId: m.externalMessageId } } });
     if (dup) {
       // повторная доставка после сбоя: сообщение записано, но лид мог не создаться — доводим до конца
-      if (m.direction === "IN" && !conv.leadId) await ensureLead(conv.id, m.channel, conv.title, extractPhone(m.text));
+      if (m.direction === "IN" && !conv.leadId) await ensureLead(conv.id, m.channel, conv.title, extractPhone(m.text), m.account);
       return null;
     }
   }
   if (!conv) {
     const profile = await m.profile().catch(() => ({ title: m.channel === "INSTAGRAM" ? "Instagram" : "Telegram" }) as Profile);
     conv = await prisma.conversation.upsert({
-      where: { channel_externalId: { channel: m.channel, externalId: m.externalId } },
+      where: key,
       update: {},
       create: {
         channel: m.channel,
         externalId: m.externalId,
+        scope,
+        accountId: m.account?.id ?? null,
         businessConnectionId: m.businessConnectionId ?? null,
         title: profile.title,
         username: profile.username ?? null,
@@ -115,12 +122,19 @@ export async function recordChatMessage(m: IncomingChatMessage) {
   if (!msg) return null;
 
   if (inbound) {
-    await ensureLead(conv.id, m.channel, conv.title, extractPhone(m.text));
+    await ensureLead(conv.id, m.channel, conv.title, extractPhone(m.text), m.account);
     // первое непрочитанное сообщение (новая «пачка») — уведомление ответственному
     if (conv.unreadCount === 0) {
       const lead = await prisma.conversation.findUnique({ where: { id: conv.id }, select: { lead: { select: { id: true, manager: { select: { id: true, isActive: true } } } } } });
-      // лид без ответственного (или ответственный отключён) — сообщение видят все менеджеры и администраторы
-      const users = lead?.lead?.manager?.isActive ? [lead.lead.manager.id] : await poolRecipients();
+      // личный Telegram сотрудника — уведомление только ему; лид без ответственного (или ответственный отключён) —
+      // сообщение видят все менеджеры и администраторы
+      const users = m.account
+        ? m.account.user.isActive
+          ? [m.account.userId]
+          : []
+        : lead?.lead?.manager?.isActive
+          ? [lead.lead.manager.id]
+          : await poolRecipients();
       await notify(users.map((userId) => ({ userId, type: "chat" as const, key: `chat:${msg.id}`, link: `/chats?c=${conv.id}`, data: { name: conv.title, channel: m.channel } })));
     }
   }
@@ -143,12 +157,21 @@ function serialized<T>(key: string, fn: () => Promise<T>): Promise<T> {
   });
 }
 
-/** Лид для переписки: создаётся при первом сообщении клиента; телефон из текста дописывается в пустой лид */
-function ensureLead(conversationId: string, channel: ChatChannel, title: string, phone: string | null) {
+/**
+ * Лид для переписки: создаётся при первом сообщении клиента; телефон из текста дописывается в пустой лид.
+ * Переписка в личном Telegram сотрудника — лид сразу его (у администратора — скрыт от менеджеров);
+ * если у аккаунта выключено «создавать лиды» (личный аккаунт владельца), лид не создаётся.
+ */
+function ensureLead(conversationId: string, channel: ChatChannel, title: string, phone: string | null, account?: AccountWithOwner | null) {
   return serialized(conversationId, async () => {
     const conv = await prisma.conversation.findUniqueOrThrow({ where: { id: conversationId }, include: { lead: { select: { id: true, phone: true, clientId: true } } } });
     if (!conv.lead) {
-      const lead = await createLead({ source: SOURCE[channel], name: title, phone }, null);
+      if (account && !account.createLeads) return;
+      const owner = account?.user.isActive && account.user.role !== "VISA" ? account.user : null;
+      const lead = await createLead(
+        { source: SOURCE[channel], name: title, phone, ...(owner ? { managerId: owner.id, hiddenFromManagers: owner.role === "ADMIN" } : {}) },
+        null,
+      );
       if (!lead) return;
       // привязываем, только если лида у переписки всё ещё нет (второй процесс мог успеть раньше) — лишний лид удаляем
       const { count } = await prisma.conversation.updateMany({ where: { id: conversationId, leadId: null }, data: { leadId: lead.id } });

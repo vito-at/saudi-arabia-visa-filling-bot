@@ -11,7 +11,7 @@ function currentTheme(): Theme {
 }
 
 /** Переключатель «День / Ночь»; выбор хранится в cookie на год */
-export function ThemeToggle({ className }: { className?: string }) {
+export function ThemeToggle({ className, compact = false }: { className?: string; compact?: boolean }) {
   const { t } = useI18n();
   const [theme, setTheme] = useState<Theme>("light");
   useEffect(() => setTheme(currentTheme()), []);
@@ -21,6 +21,18 @@ export function ThemeToggle({ className }: { className?: string }) {
     document.cookie = `${THEME_COOKIE}=${next}; path=/; max-age=31536000; samesite=lax`;
     setTheme(next);
     window.dispatchEvent(new Event("themechange"));
+  }
+
+  // в меню — одна круглая кнопка: место нужнее разделам
+  if (compact) {
+    const next: Theme = theme === "dark" ? "light" : "dark";
+    const Icon = theme === "dark" ? Sun : Moon;
+    const label = next === "dark" ? t("nav.night") : t("nav.day");
+    return (
+      <button type="button" onClick={() => apply(next)} title={label} aria-label={label} className={cn("flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-lg bg-sidebar-hover text-sidebar-muted hover:text-sidebar-foreground", className)}>
+        <Icon className="size-4" />
+      </button>
+    );
   }
 
   return (
