@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db";
 import { runAction } from "@/lib/actions";
 import { requireAdmin } from "@/lib/session";
 import { ValidationError } from "@/lib/leads/service";
+import { parseAmount } from "@/lib/money";
 
 export interface ExpenseInput {
   id?: string;
@@ -20,7 +21,7 @@ function parseExpense(input: ExpenseInput) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date)) throw new ValidationError("err.expenseDate");
   const category = input.category.trim();
   if (!category) throw new ValidationError("err.expenseCategory");
-  const amount = Number(String(input.amount).replace(/\s/g, "").replace(",", "."));
+  const amount = parseAmount(input.amount);
   if (!Number.isFinite(amount) || amount <= 0) throw new ValidationError("err.expenseAmount");
   if (input.currency !== "UZS" && input.currency !== "USD") throw new ValidationError("err.currency");
   // колонка типа DATE: сохраняем календарный день как есть, без сдвига часового пояса

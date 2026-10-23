@@ -3,6 +3,7 @@
  * Продажа — лид с «Визовой поддержкой» и сделкой, оплаченной в периоде. Сделки берутся только за период.
  * Если количество заявлений не указано, лид считается за одно заявление.
  */
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { matchVisaCountry } from "@/lib/constants";
 import { round2, toNum } from "@/lib/money";
@@ -45,11 +46,15 @@ export function groupVisaSales(sales: VisaSale[]): { rows: VisaCountryRow[]; noC
 }
 
 export async function loadVisaSales(f: ReportFilters): Promise<VisaSale[]> {
-  const inPeriod = { paidAt: { gte: f.period.from, lt: f.period.to } };
-  const managerId = f.managerId && f.managerId !== "none" ? f.managerId : null;
+  // только сами визы (тур или билет визовому клиенту — другой продукт) и продажи выбранного менеджера (кто продал)
+  const visaDeals: Prisma.DealWhereInput = {
+    paidAt: { gte: f.period.from, lt: f.period.to },
+    OR: [{ serviceType: "VISA" }, { serviceType: null }],
+    ...(f.managerId ? { managerId: f.managerId === "none" ? null : f.managerId } : {}),
+  };
   const leads = await prisma.lead.findMany({
-    where: { serviceType: "VISA", deals: { some: inPeriod }, ...(f.managerId === "none" ? { managerId: null } : managerId ? { managerId } : {}) },
-    select: { destination: true, visaApplications: true, deals: { where: inPeriod, select: { amount: true, cost: true, currency: true, costCurrency: true, paidAt: true, managerId: true } } },
+    where: { serviceType: "VISA", deals: { some: visaDeals } },
+    select: { destination: true, visaApplications: true, deals: { where: visaDeals, select: { amount: true, cost: true, currency: true, costCurrency: true, paidAt: true, managerId: true } } },
   });
   const m = money(f);
   return leads.map((l) => {

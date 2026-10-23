@@ -7,7 +7,7 @@ import { runAction } from "@/lib/actions";
 import { requireAdmin } from "@/lib/session";
 import { ValidationError } from "@/lib/leads/service";
 import { SERVICE_LABELS, SERVICE_TYPES } from "@/lib/constants";
-import { toNum } from "@/lib/money";
+import { toNum, parseAmount } from "@/lib/money";
 import { confirmVisaDeals } from "@/lib/deal-costs";
 import { monthKey, monthRange } from "@/lib/salary";
 import { parseInputDate } from "@/lib/format";
@@ -33,7 +33,12 @@ export async function listCellDealsAction(input: { managerId: string; service: s
     const service = input.service === "none" ? null : SERVICE_TYPES.includes(input.service as ServiceType) ? (input.service as ServiceType) : undefined;
     if (service === undefined) throw new ValidationError("err.badCell");
     const rows = await prisma.deal.findMany({
-      where: { paidAt: { gte: from, lt: to }, managerId: input.managerId === "none" ? null : input.managerId, lead: { serviceType: service } },
+      // продукт — тип услуги сделки, у старых сделок без типа — тип услуги лида (как в отчёте)
+      where: {
+        paidAt: { gte: from, lt: to },
+        managerId: input.managerId === "none" ? null : input.managerId,
+        OR: [...(service ? [{ serviceType: service }] : []), { serviceType: null, lead: { serviceType: service } }],
+      },
       orderBy: { paidAt: "desc" },
       select: { id: true, product: true, paidAt: true, amount: true, currency: true, quantity: true, lead: { select: { id: true, name: true } } },
     });
@@ -70,6 +75,8 @@ export async function setLeadServiceAction(leadId: string, service: string) {
     if (!lead) throw new ValidationError("err.leadNotFound");
     await prisma.$transaction([
       prisma.lead.update({ where: { id: leadId }, data: { serviceType: service as ServiceType } }),
+      // старые сделки лида без своего типа услуги — тот же продукт: по нему считаются отчёты и зарплата
+      prisma.deal.updateMany({ where: { leadId, serviceType: null }, data: { serviceType: service as ServiceType } }),
       prisma.leadHistory.create({ data: { leadId, userId: user.id, field: "serviceType", oldValue: lead.serviceType ? SERVICE_LABELS[lead.serviceType] : null, newValue: SERVICE_LABELS[service as ServiceType] } }),
     ]);
     if (service === "VISA") await confirmVisaDeals(leadId);
@@ -79,7 +86,7 @@ export async function setLeadServiceAction(leadId: string, service: string) {
 
 const num = (v: string | number | null | undefined) => {
   if (v === null || v === undefined || String(v).trim() === "") return null;
-  const n = Number(String(v).replace(/\s/g, "").replace(",", "."));
+  const n = parseAmount(v);
   return Number.isFinite(n) && n >= 0 ? n : NaN;
 };
 

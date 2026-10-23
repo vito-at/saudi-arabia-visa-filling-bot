@@ -11,7 +11,7 @@ import { MoneyBars, MoneyPie } from "@/components/reports/charts";
 import { timeSeries } from "@/lib/reports/calc";
 import { Download } from "lucide-react";
 import { formatDate, formatNumber, formatPercent } from "@/lib/format";
-import { getManagers } from "@/lib/refs";
+import { getAllStaff } from "@/lib/refs";
 import { readFilters, type ReportFilters as Filters } from "@/lib/reports/data";
 import { expenseCategories, expensesByCategory, financeSummary, loadAdSpendTotal, loadExpenses, loadFinanceLeads, loadPendingDeals, profitByService, type ServiceProfit } from "@/lib/finance";
 import { sp, type SearchParams } from "@/lib/leads/query";
@@ -39,7 +39,7 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
   const fm = formatters(f.locale);
   const money = (n: number) => fm.money(n, f.currency);
 
-  const [leads, adSpend, expenses, categories, managers, pendingDeals] = await Promise.all([loadFinanceLeads(f), loadAdSpendTotal(f), loadExpenses(f), expenseCategories(), getManagers(), loadPendingDeals()]);
+  const [leads, adSpend, expenses, categories, managers, pendingDeals] = await Promise.all([loadFinanceLeads(f), loadAdSpendTotal(f), loadExpenses(f), expenseCategories(), getAllStaff(), loadPendingDeals()]);
   const pendingInPeriod = leads.reduce((s, l) => s + l.deals.filter((d) => !d.costConfirmed).length, 0);
   const summary = financeSummary(leads, adSpend, expenses.reduce((s, e) => s + e.converted, 0));
   const byCategory = expensesByCategory(expenses);
@@ -114,7 +114,7 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
       </div>
       <div className="mb-5 flex flex-wrap items-start justify-between gap-2">
         <Suspense>
-          <ReportFilters managers={tab === "profit" ? managers.map((m) => ({ id: m.id, name: m.name })) : null} />
+          <ReportFilters managers={tab === "profit" ? managers.map((m) => ({ id: m.id, name: m.isActive ? m.name : `${m.name} (${t("plans.inactive")})` })) : null} />
         </Suspense>
         <a href={`/api/finance/export?tab=${tab}${keep.size ? `&${keep.toString()}` : ""}`} className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md border bg-card px-3 text-sm hover:bg-accent">
           <Download className="size-4" /> Excel

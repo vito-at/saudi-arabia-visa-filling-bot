@@ -49,7 +49,11 @@ export async function getClientAggregates(o: ClientAggOptions): Promise<{ rows: 
     const digits = o.search.replace(/\D/g, "");
     where.push(digits.length >= 3 ? Prisma.sql`(c.name ILIKE ${q} OR c.phone LIKE ${`%${digits}%`})` : Prisma.sql`c.name ILIKE ${q}`);
   }
-  if (o.managerId) where.push(Prisma.sql`EXISTS (SELECT 1 FROM "Lead" l WHERE l."clientId" = c.id AND l."managerId" = ${o.managerId})`);
+  // клиент менеджера: его лид сейчас у менеджера или менеджер продавал этому клиенту (лид потом передали другому)
+  if (o.managerId)
+    where.push(
+      Prisma.sql`(EXISTS (SELECT 1 FROM "Lead" l WHERE l."clientId" = c.id AND l."managerId" = ${o.managerId}) OR EXISTS (SELECT 1 FROM "Deal" dm WHERE dm."clientId" = c.id AND dm."managerId" = ${o.managerId}))`,
+    );
   if (o.period) where.push(Prisma.sql`EXISTS (SELECT 1 FROM "Deal" d WHERE ${Prisma.join(dealCond, " AND ")})`);
 
   const order = {

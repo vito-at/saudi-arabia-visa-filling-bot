@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input, NativeSelect } from "@/components/ui/input";
 import { useRates } from "@/components/layout/role-context";
-import { dealProfitInSale } from "@/lib/money";
+import { dealProfitInSale, parseAmount } from "@/lib/money";
 import { formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/i18n/client";
@@ -74,7 +74,7 @@ function PendingRow({ deal }: { deal: PendingDeal }) {
   const [pending, start] = useTransition();
   const rates = useRates();
   const amount = deal.amount;
-  const parsed = Number(cost.replace(/\s/g, "").replace(",", "."));
+  const parsed = parseAmount(cost);
   const valid = cost.trim() !== "" && Number.isFinite(parsed) && parsed >= 0;
   // прибыль в валюте продажи; себестоимость в другой валюте — по текущему курсу, при котором она больше
   const profit = valid && (costCurrency === deal.currency || rates.sale > 0) ? dealProfitInSale({ amount, cost: parsed, currency: deal.currency, costCurrency }, rates) : null;

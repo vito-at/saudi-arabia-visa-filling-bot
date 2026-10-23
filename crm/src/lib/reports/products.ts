@@ -1,13 +1,14 @@
 /**
  * «Продажи по продуктам»: сколько и каких продуктов продал каждый менеджер за период.
- * Продукт — тип услуги лида (его же заполняет выбор продукта в окне сделки); сделка относится к менеджеру сделки.
+ * Продукт — тип услуги сделки (как в зарплате), а если он не указан (старые сделки) — тип услуги лида;
+ * сделка относится к менеджеру сделки.
  * Продажи считаются по количеству в сделке: виза на 6 человек — 6 продаж.
  */
 import type { ServiceType } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { round2, toNum } from "@/lib/money";
 import { serviceLabel } from "@/i18n/labels";
-import { getManagers } from "@/lib/refs";
+import { getAllStaff } from "@/lib/refs";
 import { dealProfit, dealRevenue, type Money, type RDeal } from "./calc";
 import { money, type ReportFilters } from "./data";
 import type { Column, Table } from "./tables";
@@ -51,11 +52,12 @@ export async function productsByManagerTable(f: ReportFilters): Promise<Table> {
   const [rows, users] = await Promise.all([
     prisma.deal.findMany({
       where: { paidAt: { gte: f.period.from, lt: f.period.to }, ...(f.managerId ? { managerId: f.managerId === "none" ? null : f.managerId } : {}) },
-      select: { amount: true, cost: true, currency: true, costCurrency: true, paidAt: true, managerId: true, quantity: true, lead: { select: { serviceType: true } } },
+      select: { amount: true, cost: true, currency: true, costCurrency: true, paidAt: true, managerId: true, quantity: true, serviceType: true, lead: { select: { serviceType: true } } },
     }),
-    getManagers(),
+    // и отключённые: их продажи за период остаются в отчёте
+    getAllStaff(),
   ]);
-  const deals: ProductDeal[] = rows.map((d) => ({ ...d, amount: toNum(d.amount), cost: toNum(d.cost), serviceType: d.lead.serviceType }));
+  const deals: ProductDeal[] = rows.map((d) => ({ ...d, amount: toNum(d.amount), cost: toNum(d.cost), serviceType: d.serviceType ?? d.lead.serviceType }));
   const data = productsByManager(deals, money(f));
   const names = new Map(users.map((u) => [u.id, u.name]));
   // колонку «Не указан» показываем, только если такие сделки есть

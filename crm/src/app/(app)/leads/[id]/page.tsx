@@ -87,7 +87,8 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
   const trip = tripFromAnswers(lead.formAnswers);
   const overdue = isOverdueNew(lead, settings.unprocessedAlertMin);
   const book = await loadRateBook(settings);
-  const clientTotals = sumDeals(lead.client.deals, "USD", book);
+  // итоги клиента: менеджеру — только по его продажам (как на странице клиента), без выручки и прибыли коллег
+  const clientTotals = sumDeals(user.role === "ADMIN" ? lead.client.deals : lead.client.deals.filter((d) => d.managerId === user.id), "USD", book);
   const otherLeads = lead.client.leads.filter((l) => l.id !== lead.id && (user.role === "ADMIN" || l.managerId === user.id || (!l.managerId && !l.hiddenFromManagers)));
   const wa = whatsappLink(lead.phone);
   const tg = telegramLink(lead.phone);

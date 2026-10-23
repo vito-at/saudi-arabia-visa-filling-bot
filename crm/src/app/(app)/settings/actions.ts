@@ -14,6 +14,7 @@ import { requireAdmin } from "@/lib/session";
 import { ValidationError } from "@/lib/leads/service";
 import { timeToMin } from "@/lib/work-hours";
 import { distributeSoon } from "@/lib/leads/distribution";
+import { parseAmount } from "@/lib/money";
 
 const str = (v: FormDataEntryValue | null) => (typeof v === "string" ? v.trim() : "");
 const revalidateAll = () => revalidatePath("/", "layout");
@@ -31,7 +32,7 @@ export async function saveGeneralAction(formData: FormData) {
     if (limit !== null && (!Number.isInteger(limit) || limit < 1 || limit > 50)) throw new ValidationError("err.leadLimitRange");
     const flightPct = formData.has("flightPoolPct") ? Number(str(formData.get("flightPoolPct")).replace(",", ".")) : null;
     if (flightPct !== null && (!Number.isFinite(flightPct) || flightPct < 0 || flightPct > 100)) throw new ValidationError("err.flightPoolPct");
-    const thaiVisa = formData.has("thaiVisaCostUsd") ? Number(str(formData.get("thaiVisaCostUsd")).replace(/\s/g, "").replace(",", ".") || "0") : null;
+    const thaiVisa = formData.has("thaiVisaCostUsd") ? parseAmount(str(formData.get("thaiVisaCostUsd"))) : null;
     if (thaiVisa !== null && (!Number.isFinite(thaiVisa) || thaiVisa < 0 || thaiVisa > 10000)) throw new ValidationError("err.thaiVisaCost");
     // рабочее время офиса: по нему считается скорость реакции на лид (поля могут отсутствовать в старой форме)
     const work = formData.has("workStart")
@@ -79,7 +80,7 @@ export async function saveRateAction(formData: FormData) {
 
 /** Курс продажи $ (выручка) и курс покупки $ (расходы); курс покупки не может быть ниже курса продажи */
 function parseRates(saleValue: string, costValue: string) {
-  const num = (v: string) => Number(String(v).replace(/\s/g, "").replace(",", "."));
+  const num = (v: string) => parseAmount(v);
   const sale = num(saleValue);
   const cost = num(costValue);
   for (const r of [sale, cost]) if (!Number.isFinite(r) || r < 1000 || r > 100000) throw new ValidationError("err.rateValue");

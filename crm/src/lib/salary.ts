@@ -15,7 +15,8 @@
 import { Prisma, type CommissionBase, type Currency } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { parseInputDate } from "@/lib/format";
-import { round2, toNum } from "@/lib/money";
+import { convertCost, round2, toNum } from "@/lib/money";
+import { ratesOn } from "@/lib/rate-book";
 import { getSettings } from "@/lib/refs";
 import { loadRateBook } from "@/lib/rate-history";
 import { dealProfit, dealRevenue } from "@/lib/reports/calc";
@@ -125,6 +126,8 @@ export function flightShares(deals: { sellerId: string; day: string; profit: num
 export interface ManagerMonth extends PayoutRow {
   userId: string;
   name: string;
+  /** false — менеджер отключён (уволен), показывается, пока у него есть продажи, лиды или выплаты за месяц */
+  isActive: boolean;
   terms: SalaryTerms;
   /** с какого месяца действуют условия («2026-10»); null — с самого начала */
   termsSince: string | null;
@@ -135,7 +138,7 @@ export interface ManagerMonth extends PayoutRow {
   paid: number;
   /** к выплате − выплачено (отрицательное — переплата) */
   left: number;
-  payouts: { id: string; amount: number; paidAt: string; note: string | null }[];
+  payouts: { id: string; amount: number; currency: Currency; paidAt: string; note: string | null }[];
 }
 
 /** Условия до этой даты считаем «с самого начала» (запись миграции) */
@@ -148,7 +151,18 @@ export async function loadManagerMonths(range: MonthRange, managerId: string | n
   const rate = toNum(settings.usdRate);
   const costRate = toNum(settings.usdRateCost);
   const users = await prisma.user.findMany({
-    where: { role: "MANAGER", ...(managerId ? { id: managerId } : { isActive: true }) },
+    // отключённый (уволенный) менеджер остаётся в месяцах, где у него есть продажи, лиды или выплаты: его зарплату нужно закрыть
+    where: managerId
+      ? { role: "MANAGER", id: managerId }
+      : {
+          role: "MANAGER",
+          OR: [
+            { isActive: true },
+            { deals: { some: { paidAt: { gte: range.from, lt: range.to } } } },
+            { leads: { some: { createdAt: { gte: range.from, lt: range.to } } } },
+            { salaryPaid: { some: { month: monthKey(range.ym) } } },
+          ],
+        },
     orderBy: { name: "asc" },
     include: {
       plans: { where: { month: monthKey(range.ym) } },
@@ -214,10 +228,13 @@ export async function loadManagerMonths(range: MonthRange, managerId: string | n
     // месяц до начала учёта: зарплату за него платили вне CRM
     if (!tracked) Object.assign(pay, { commission: 0, base: 0, total: 0 });
     const mine = payouts.filter((p) => p.userId === u.id);
-    const paid = round2(mine.reduce((s, p) => s + toNum(p.amount), 0));
+    // выплата могла быть в другой валюте (валюту условий сменили) — пересчёт по курсу дня выплаты
+    const inTerms = (p: (typeof mine)[number]) => convertCost(toNum(p.amount), p.currency, terms.currency, ratesOn(book, p.paidAt));
+    const paid = round2(mine.reduce((s, p) => s + inTerms(p), 0));
     return {
       userId: u.id,
       name: u.name,
+      isActive: u.isActive,
       terms,
       termsSince,
       ...pay,
@@ -225,7 +242,7 @@ export async function loadManagerMonths(range: MonthRange, managerId: string | n
       countedFrom: tracked && dealsFrom > range.from ? dealsFrom.toISOString() : null,
       paid,
       left: round2(pay.total - paid),
-      payouts: mine.map((p) => ({ id: p.id, amount: toNum(p.amount), paidAt: p.paidAt.toISOString(), note: p.note })),
+      payouts: mine.map((p) => ({ id: p.id, amount: toNum(p.amount), currency: p.currency, paidAt: p.paidAt.toISOString(), note: p.note })),
     };
   });
 }

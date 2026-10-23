@@ -10,10 +10,10 @@ export function leadScope(user: CurrentUser): Prisma.LeadWhereInput {
   return { OR: [{ managerId: user.id }, { managerId: null, hiddenFromManagers: false }] };
 }
 
-/** Клиенты менеджера — те, у кого есть его лиды. */
+/** Клиенты менеджера — те, у кого есть его лиды или его продажи (лид могли потом передать другому). */
 export function clientScope(user: CurrentUser): Prisma.ClientWhereInput {
   if (user.role === "ADMIN") return {};
-  return { leads: { some: { managerId: user.id } } };
+  return { OR: [{ leads: { some: { managerId: user.id } } }, { deals: { some: { managerId: user.id } } }] };
 }
 
 /** Фильтр для отчётов: менеджер видит только свои данные. */

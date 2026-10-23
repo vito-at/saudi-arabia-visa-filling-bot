@@ -6,7 +6,7 @@ import { getClientAggregates } from "@/lib/clients";
 import { reasonName, serviceLabel, statusName } from "@/i18n/labels";
 import type { TKey } from "@/i18n/core";
 import { formatDate } from "@/lib/format";
-import { getLossReasons, getManagers, getSettings, getStatuses } from "@/lib/refs";
+import { getAllStaff, getLossReasons, getManagers, getSettings, getStatuses } from "@/lib/refs";
 import { adKey, calcFunnel, calcLossMatrix, calcLossReasons, calcManagers, groupLeads, withSpend, type AdLevel, calcStageTimes } from "./calc";
 import { loadDeals, loadLeads, loadSpend, money, previousPeriod, type ReportFilters } from "./data";
 import { calcKpis, dealProfit, dealRevenue, delta, timeSeries, type Kpis } from "./calc";
@@ -224,9 +224,11 @@ export async function adsTable(f: ReportFilters, level: AdLevel): Promise<Table>
 
 export async function managersTable(f: ReportFilters) {
   const { t } = f;
-  const [leads, deals, users, settings] = await Promise.all([loadLeads(f.period, f.managerId), loadDeals(f.period, f.managerId), getManagers(), getSettings()]);
+  const [leads, deals, users, settings] = await Promise.all([loadLeads(f.period, f.managerId), loadDeals(f.period, f.managerId), getAllStaff(), getSettings()]);
+  // отключённые сотрудники — с пометкой; строка без лидов и продаж за период всё равно не показывается (calcManagers)
+  const staff = users.map((u) => ({ id: u.id, name: u.isActive ? u.name : `${u.name} (${t("plans.inactive")})` }));
   // менеджер (и фильтр по менеджеру) — только своя строка, без коллег
-  const visible = f.managerId && f.managerId !== "none" ? users.filter((u) => u.id === f.managerId) : users;
+  const visible = f.managerId && f.managerId !== "none" ? staff.filter((u) => u.id === f.managerId) : staff;
   const rows = calcManagers(leads, deals, visible, money(f), scheduleOf(settings));
   const table: Table = {
     title: t("rt.managers.title"),
