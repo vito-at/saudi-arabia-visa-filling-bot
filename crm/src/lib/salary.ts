@@ -17,6 +17,7 @@ import { round2, toNum } from "@/lib/money";
 import { getSettings } from "@/lib/refs";
 import { loadRateBook } from "@/lib/rate-history";
 import { dealProfit, dealRevenue } from "@/lib/reports/calc";
+import { UZS_DEAL_MIN, USD_DEAL_MAX } from "@/lib/deals";
 import { toInputDate } from "@/lib/format";
 
 export interface MonthRange {
@@ -221,4 +222,49 @@ export async function loadManagerMonths(range: MonthRange, managerId: string | n
       payouts: mine.map((p) => ({ id: p.id, amount: toNum(p.amount), paidAt: p.paidAt.toISOString(), note: p.note })),
     };
   });
+}
+
+export interface CurrencyIssue {
+  dealId: string;
+  leadId: string;
+  leadName: string;
+  manager: string | null;
+  product: string;
+  paidAt: string;
+  amount: number;
+  currency: Currency;
+  cost: number;
+  costCurrency: Currency;
+}
+
+/**
+ * Сделки, где сумма не похожа на валюту (см. currencyMismatch): сумы, сохранённые как доллары, и наоборот.
+ * Из-за них в тысячи раз завышаются продажи и зарплата — администратор исправляет такие сделки в карточке лида.
+ */
+export async function loadCurrencyIssues(): Promise<CurrencyIssue[]> {
+  const rows = await prisma.deal.findMany({
+    where: {
+      OR: [
+        { currency: "USD", amount: { gte: USD_DEAL_MAX } },
+        { currency: "UZS", amount: { gt: 0, lt: UZS_DEAL_MIN } },
+        { costCurrency: "USD", cost: { gte: USD_DEAL_MAX } },
+        { costCurrency: "UZS", cost: { gt: 0, lt: UZS_DEAL_MIN } },
+      ],
+    },
+    orderBy: { paidAt: "desc" },
+    take: 50,
+    select: { id: true, leadId: true, product: true, paidAt: true, amount: true, currency: true, cost: true, costCurrency: true, lead: { select: { name: true } }, manager: { select: { name: true } } },
+  });
+  return rows.map((d) => ({
+    dealId: d.id,
+    leadId: d.leadId,
+    leadName: d.lead.name,
+    manager: d.manager?.name ?? null,
+    product: d.product,
+    paidAt: d.paidAt.toISOString(),
+    amount: toNum(d.amount),
+    currency: d.currency,
+    cost: toNum(d.cost),
+    costCurrency: d.costCurrency,
+  }));
 }

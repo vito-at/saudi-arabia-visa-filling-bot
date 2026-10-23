@@ -13,7 +13,7 @@ import type { AdLevel } from "@/lib/reports/calc";
 import { visasTable } from "@/lib/reports/visas";
 import { productsByManagerTable } from "@/lib/reports/products";
 import { buildInsights } from "@/lib/reports/insights";
-import { loadManagerMonths, monthRange, shiftMonth } from "@/lib/salary";
+import { loadCurrencyIssues, loadManagerMonths, monthRange, shiftMonth } from "@/lib/salary";
 import { PlansTable } from "@/components/reports/plans-table";
 import { ChevronLeft, ChevronRight, Download } from "lucide-react";
 import { Lightbulb } from "lucide-react";
@@ -344,7 +344,12 @@ async function PlansReport({ f, ym, isAdmin, keep }: { f: F; ym: string | undefi
   const range = monthRange(ym);
   const managerId = isAdmin ? null : f.managerId;
   const months = [range.ym, ...[1, 2, 3, 4, 5].map((i) => shiftMonth(range.ym, -i))];
-  const [rows, ...history] = await Promise.all([loadManagerMonths(range, managerId), ...months.slice(1).map((m) => loadManagerMonths(monthRange(m), managerId))]);
+  const [issues, rows, ...history] = await Promise.all([
+    // сделки с перепутанной валютой завышают продажи и зарплату — администратору список, чтобы исправить
+    isAdmin ? loadCurrencyIssues() : Promise.resolve([]),
+    loadManagerMonths(range, managerId),
+    ...months.slice(1).map((m) => loadManagerMonths(monthRange(m), managerId)),
+  ]);
   const monthName = (m: string) => new Intl.DateTimeFormat(f.locale === "en" ? "en-GB" : f.locale === "uz" ? "uz-Latn" : "ru-RU", { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${m}-15T00:00:00Z`));
   const link = (m: string) => {
     const p = new URLSearchParams(keep);
@@ -371,6 +376,36 @@ async function PlansReport({ f, ym, isAdmin, keep }: { f: F; ym: string | undefi
           <Download className="size-4" /> Excel
         </a>
       </div>
+      {issues.length > 0 && (
+        <Card className="border-red-300 dark:border-red-900">
+          <CardHeader>
+            <CardTitle className="text-red-700 dark:text-red-400">{f.t("plans.currencyTitle", { n: issues.length })}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            <p className="text-muted-foreground">{f.t("plans.currencyHint")}</p>
+            <ul className="divide-y">
+              {issues.map((d) => (
+                <li key={d.dealId} className="flex flex-wrap items-baseline gap-x-3 gap-y-1 py-2">
+                  <Link href={`/leads/${d.leadId}`} className="font-medium text-primary hover:underline">
+                    {d.leadName}
+                  </Link>
+                  <span className="text-muted-foreground">{d.product}</span>
+                  <span className="font-medium tabular-nums">{fm.money(d.amount, d.currency)}</span>
+                  {d.cost > 0 && (
+                    <span className="text-muted-foreground tabular-nums">
+                      {f.t("plans.currencyCost")} {fm.money(d.cost, d.costCurrency)}
+                    </span>
+                  )}
+                  <span className="text-muted-foreground">
+                    {formatDate(d.paidAt)}
+                    {d.manager ? ` · ${d.manager}` : ""}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
       <Card>
         <CardHeader>
           <CardTitle>{f.t("plans.title")}</CardTitle>
