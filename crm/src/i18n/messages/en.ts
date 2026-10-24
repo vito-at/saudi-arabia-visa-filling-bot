@@ -207,6 +207,7 @@ export const en: Messages = {
     product: "Product *",
     productChoose: "Choose a product",
     productPh: "Dubai, 7 nights, 2 adults",
+    visaDetailsPh: "E.g. urgent, 2 adults and a child",
     profit: "Profit",
     quantity: "Number of sales",
     quantityHint: "How many sales to count in reports, e.g. a visa for 6 people is 6",

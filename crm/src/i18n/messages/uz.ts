@@ -207,6 +207,7 @@ export const uz: Messages = {
     product: "Mahsulot *",
     productChoose: "Mahsulotni tanlang",
     productPh: "Dubay, 7 kecha, 2 kattalar",
+    visaDetailsPh: "Masalan: shoshilinch, 2 kattalar va bola",
     profit: "Foyda",
     quantity: "Sotuvlar soni",
     quantityHint: "Hisobotlarda nechta sotuv hisoblansin: masalan, 6 kishilik viza — 6",
