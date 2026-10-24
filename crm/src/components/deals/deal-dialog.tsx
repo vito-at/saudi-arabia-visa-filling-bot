@@ -95,7 +95,7 @@ export function DealDialog({ open, onOpenChange, leadId, wonStatusId, rate, deal
         const destination = country === OTHER_COUNTRY ? otherCountry.trim() : country;
         const known = VISA_COUNTRIES.find((c) => c.ru === destination);
         const n = Number(applications) || null;
-        const details = joinDetails([known ? (known[locale] ?? known.ru) : destination, n ? t("deal.applicationsShort", { n }) : null]);
+        const details = joinDetails([known ? (known[locale] ?? known.ru) : destination, n ? t("deal.applicationsShort", { n }) : null, product.details.trim() || null]);
         input = { ...input, product: composeProduct(labels.VISA, details), destination: destination || null, visaApplications: n };
       }
       if (isAdmin) input = { ...input, quantity: quantityValue };
@@ -143,6 +143,9 @@ export function DealDialog({ open, onOpenChange, leadId, wonStatusId, rate, deal
               </Field>
               <Field label={t("lead.field.visaApplications")}>
                 <Input name="visaApplications" type="number" min={1} max={500} value={applications} onChange={(e) => setApplications(e.target.value)} placeholder="1" />
+              </Field>
+              <Field label={t("deal.details")} className="sm:col-span-2">
+                <Input name="details" value={product.details} onChange={(e) => setProduct({ ...product, details: e.target.value })} placeholder={t("deal.visaDetailsPh")} />
               </Field>
             </>
           ) : (
