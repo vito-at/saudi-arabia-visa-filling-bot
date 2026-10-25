@@ -81,8 +81,10 @@ model User {
   role           Role      @default(MANAGER)
   isActive       Boolean   @default(true)
   lastAssignedAt DateTime?
-  /// «В работе»: при автораспределении лиды получают только менеджеры на смене
+  /// «В работе»: при автораспределении лиды получают только менеджеры на смене; через час без действий в CRM выключается само
   onShift        Boolean   @default(false)
+  /// последнее действие менеджера в CRM (нажатие, ввод текста) — для автоотключения «В работе» и учёта часов работы
+  lastSeenAt     DateTime?
   createdAt      DateTime  @default(now())
   /// Зарплата: оклад в месяц, процент от суммы продаж (или прибыли) своих сделок и надбавка к проценту при выполнении плана по прибыли
   salaryBase     Decimal        @default(1500000) @db.Decimal(18, 2)
@@ -680,11 +682,13 @@ model SalaryTerm {
   @@unique([userId, fromMonth])
 }
 
-/// День, когда менеджер был «В работе» (включал переключатель) — для деления процента с авиабилетов
+/// День, когда менеджер был «В работе» (включал переключатель), и сколько он работал — для деления процента с авиабилетов
 model ShiftDay {
-  userId String
+  userId    String
   /// ташкентская дата (UTC-ключ)
-  day    DateTime @db.Date
+  day       DateTime @db.Date
+  /// сколько секунд за день менеджер был «В работе» и действовал в CRM (меньше 4 часов — день не идёт в деление авиабилетов)
+  activeSec Int      @default(0)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 

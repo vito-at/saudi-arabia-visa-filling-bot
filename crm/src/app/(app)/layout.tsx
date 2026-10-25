@@ -5,6 +5,9 @@ import { Sidebar } from "@/components/layout/sidebar";
 import { CallbackReminders } from "@/components/callbacks/callback-reminders";
 import { RateNotice } from "@/components/layout/rate-notice";
 import { RoleProvider } from "@/components/layout/role-context";
+import { ShiftBanner } from "@/components/layout/shift-banner";
+import { ActivityTracker } from "@/components/layout/shift-toggle";
+import { activeToday } from "@/lib/shift";
 import { formatDate, formatNumber, toInputDate } from "@/lib/format";
 import { isRateStale } from "@/lib/rates";
 import { getI18n } from "@/i18n/server";
@@ -29,7 +32,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     // новые визовые заявки — счётчик у «Виз» (визовому специалисту и администратору)
     user.role === "MANAGER" ? Promise.resolve(0) : prisma.leadService.count({ where: { ...handedVisa, status: "NEW" } }),
   ]);
-  // переключатель «В работе» — менеджерам при автораспределении
+  // переключатель «В работе» — менеджерам: лиды при автораспределении и доля с авиабилетов
+  const shift =
+    user.role === "MANAGER"
+      ? {
+          on: (await prisma.user.findUnique({ where: { id: user.id }, select: { onShift: true } }))?.onShift ?? false,
+          activeSec: await activeToday(user.id),
+        }
+      : null;
+  const autoDistribution = settings?.distributionMode === "ROUND_ROBIN";
   const rateStale = settings?.usdRateSource === "IPAK_YULI" && isRateStale(settings.usdRateUpdatedAt) && !!settings.usdRateError;
 
   async function logout() {
@@ -44,11 +55,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <div className="min-h-screen">
       <Sidebar
         user={user}
+        shift={shift}
         counters={{ leads: newLeads, tasks, finance: pendingCosts, chats: unreadChats, visa: newVisa }}
         rate={{ value: Number(settings?.usdRateCost ?? 0), updatedAt: settings?.usdRateUpdatedAt?.toISOString() ?? null }}
         logout={logout}
       />
       <main className="lg:pl-60">
+        {shift && !shift.on && <ShiftBanner text={t(autoDistribution ? "nav.shiftBanner" : "nav.shiftBannerManual")} action={t("nav.shiftStart")} />}
         {tokenProblem && user.role !== "VISA" && (
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 lg:px-8">
             <AlertTriangle className="size-5 shrink-0" />
@@ -80,6 +93,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <div className="mx-auto max-w-[1600px] px-3 py-4 sm:px-4 lg:px-8 lg:py-6">{children}</div>
       </main>
       {user.role !== "VISA" && <CallbackReminders />}
+      {shift && <ActivityTracker on={shift.on} />}
       {rateStale && settings && (
         <RateNotice
           day={toInputDate(new Date())}
