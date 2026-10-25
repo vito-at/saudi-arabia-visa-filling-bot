@@ -6,8 +6,9 @@
  * По умолчанию: 1 500 000 сум + 5% от суммы продаж.
  * Авиабилеты — отдельно: процент от чистой прибыли (flightPoolPct, 30%) делится поровну между менеджерами, работавшими
  * в день продажи (двое — по 15%, одна — 30%), и каждая получает свою долю только с билетов, проданных ею самой.
- * Работала в день — включала «В работе» (при автораспределении) или что-то делала в CRM: меняла лиды, писала
- * комментарии или клиентам, закрывала сделки (см. activityDays) — так доля делится и при ручном распределении.
+ * Работала в день — с 26.10.2026 была «В работе» не меньше 4 часов за день (FLIGHT_MIN_ACTIVE_SEC, время копится, пока
+ * переключатель включён и менеджер действует в CRM — см. lib/shift.ts). Раньше переключателя какое-то время не было:
+ * за дни до 26.10.2026 считается по-старому — включала «В работе» или что-то делала в CRM (activityDays).
  * Остальные услуги — оклад + процент от продаж/прибыли, как выше; авиабилеты в эту базу не входят.
  * Учёт зарплаты в CRM начинается с «salaryStartAt» (настройки): учитываются только сделки, оплаченные с этого момента,
  * а месяцы целиком до него не считаются (расчёты за них вели вне CRM). Выплаты — частями, «Осталось» = к выплате − выплачено.
@@ -22,6 +23,7 @@ import { loadRateBook } from "@/lib/rate-history";
 import { dealProfit, dealRevenue } from "@/lib/reports/calc";
 import { UZS_DEAL_MIN, USD_DEAL_MAX } from "@/lib/deals";
 import { toInputDate } from "@/lib/format";
+import { FLIGHT_MIN_ACTIVE_SEC } from "@/lib/shift";
 
 export interface MonthRange {
   ym: string;
@@ -123,6 +125,21 @@ export function flightShares(deals: { sellerId: string; day: string; profit: num
   return out;
 }
 
+/** С этого дня (по Ташкенту) в деление авиабилетов входят только те, кто был «В работе» не меньше 4 часов */
+export const SHIFT_RULE_FROM = "2026-10-26";
+
+/**
+ * Кто работал в какой день (для деления процента с авиабилетов): с SHIFT_RULE_FROM — «В работе» не меньше 4 часов,
+ * раньше — включал «В работе» или что-то делал в CRM (activity).
+ */
+export function flightWorkers(shiftDays: { userId: string; day: string; activeSec: number }[], activity: { userId: string; day: string }[]): Map<string, Set<string>> {
+  const workers = new Map<string, Set<string>>();
+  const add = (day: string, userId: string) => workers.set(day, (workers.get(day) ?? new Set()).add(userId));
+  for (const s of shiftDays) if (s.day < SHIFT_RULE_FROM || s.activeSec >= FLIGHT_MIN_ACTIVE_SEC) add(s.day, s.userId);
+  for (const a of activity) if (a.day < SHIFT_RULE_FROM) add(a.day, a.userId);
+  return workers;
+}
+
 export interface ManagerMonth extends PayoutRow {
   userId: string;
   name: string;
@@ -181,14 +198,14 @@ export async function loadManagerMonths(range: MonthRange, managerId: string | n
       where: { managerId: { in: ids }, paidAt: { gte: dealsFrom, lt: range.to } },
       select: { managerId: true, amount: true, cost: true, currency: true, costCurrency: true, paidAt: true, quantity: true, serviceType: true, costConfirmed: true },
     }),
-    // кто был «В работе» в дни месяца — все менеджеры, а не только показанные (делим процент с авиабилетов)
+    // кто был «В работе» в дни месяца и сколько — все менеджеры, а не только показанные (делим процент с авиабилетов)
     prisma.shiftDay.findMany({ where: { day: { gte: monthKey(range.ym), lt: monthKey(shiftMonth(range.ym, 1)) } } }),
     prisma.salaryPayout.findMany({ where: { userId: { in: ids }, month: monthKey(range.ym) }, orderBy: { paidAt: "asc" } }),
   ]);
-  const workers = new Map<string, Set<string>>();
-  const addWorker = (day: string, userId: string) => workers.set(day, (workers.get(day) ?? new Set()).add(userId));
-  for (const s of shiftDays) addWorker(s.day.toISOString().slice(0, 10), s.userId);
-  for (const a of await activityDays(range)) addWorker(a.day, a.userId);
+  const workers = flightWorkers(
+    shiftDays.map((s) => ({ userId: s.userId, day: s.day.toISOString().slice(0, 10), activeSec: s.activeSec })),
+    range.ym <= SHIFT_RULE_FROM.slice(0, 7) ? await activityDays(range) : [],
+  );
   const poolPct = toNum(settings.flightPoolPct);
   return users.map((u) => {
     const own = deals.filter((d) => d.managerId === u.id).map((d) => ({ ...d, amount: toNum(d.amount), cost: toNum(d.cost) }));
@@ -249,7 +266,7 @@ export async function loadManagerMonths(range: MonthRange, managerId: string | n
 
 /**
  * Дни (по Ташкенту), в которые менеджер работал в CRM: менял лиды (история), писал комментарии, отвечал клиентам в чатах,
- * закрывал сделки. Отметка «В работе» есть только при автораспределении, а делить 30% с авиабилетов нужно в любом режиме.
+ * закрывал сделки. Нужны только для дней до SHIFT_RULE_FROM, когда переключателя «В работе» не было.
  */
 export async function activityDays(range: { from: Date; to: Date }): Promise<{ userId: string; day: string }[]> {
   const day = (col: Prisma.Sql) => Prisma.sql`to_char(${col} + interval '5 hours', 'YYYY-MM-DD')`;

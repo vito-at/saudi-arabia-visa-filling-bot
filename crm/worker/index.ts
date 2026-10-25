@@ -13,6 +13,7 @@ import { syncSpend } from "../src/lib/meta/insights";
 import { backfillConversions, sendPendingConversions } from "../src/lib/meta/capi";
 import { isRateStale, RATE_RETRY_UNTIL_HOUR, updateUsdRate } from "../src/lib/rates";
 import { distributeQueue } from "../src/lib/leads/distribution";
+import { endIdleShifts } from "../src/lib/shift";
 import { i18nFor } from "../src/i18n/instance";
 import type { TKey } from "../src/i18n/core";
 
@@ -94,6 +95,8 @@ cron.schedule("* * * * *", () => void processSiteEvents().catch((e) => log("Orie
 cron.schedule("* * * * *", () => void processSiteFetches().catch((e) => log("Orient Visa, анкеты:", e)));
 // очередь лидов: страховка раздачи (после действий она идёт сразу)
 cron.schedule("* * * * *", () => void distributeQueue().then((n) => n && log(`Лиды из очереди выданы: ${n}`)).catch((e) => log("Очередь лидов:", e)));
+// «В работе» выключается само, если менеджер час ничего не делал в CRM
+cron.schedule("* * * * *", () => void endIdleShifts().then((n) => n && log(`«В работе» выключено (час без действий): ${n}`)).catch((e) => log("Конец смены:", e)));
 cron.schedule("* * * * *", () => void processAiReplies().catch((e) => log("ИИ-ассистент:", e)));
 cron.schedule("7 * * * *", () => void createTripFollowUps().then((n) => n && log(`Задачи после поездки: ${n}`)).catch((e) => log("Задачи после поездки:", e)));
 cron.schedule("17 * * * *", tickSpend);
