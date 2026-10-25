@@ -198,8 +198,9 @@ export async function loadManagerMonths(range: MonthRange, managerId: string | n
       where: { managerId: { in: ids }, paidAt: { gte: dealsFrom, lt: range.to } },
       select: { managerId: true, amount: true, cost: true, currency: true, costCurrency: true, paidAt: true, quantity: true, serviceType: true, costConfirmed: true },
     }),
-    // кто был «В работе» в дни месяца и сколько — все менеджеры, а не только показанные (делим процент с авиабилетов)
-    prisma.shiftDay.findMany({ where: { day: { gte: monthKey(range.ym), lt: monthKey(shiftMonth(range.ym, 1)) } } }),
+    // кто был «В работе» в дни месяца и сколько — все менеджеры по продажам, а не только показанные (делим процент с авиабилетов);
+    // администраторы и визовики в деление не входят, даже если раньше были менеджерами
+    prisma.shiftDay.findMany({ where: { day: { gte: monthKey(range.ym), lt: monthKey(shiftMonth(range.ym, 1)) }, user: { role: "MANAGER" } } }),
     prisma.salaryPayout.findMany({ where: { userId: { in: ids }, month: monthKey(range.ym) }, orderBy: { paidAt: "asc" } }),
   ]);
   const workers = flightWorkers(
