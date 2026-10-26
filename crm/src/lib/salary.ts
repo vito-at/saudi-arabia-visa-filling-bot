@@ -13,7 +13,7 @@
  * Учёт зарплаты в CRM начинается с «salaryStartAt» (настройки): учитываются только сделки, оплаченные с этого момента,
  * а месяцы целиком до него не считаются (расчёты за них вели вне CRM). Выплаты — частями, «Осталось» = к выплате − выплачено.
  */
-import { Prisma, type CommissionBase, type Currency } from "@prisma/client";
+import { Prisma, type CommissionBase, type Currency, type ServiceType } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { parseInputDate } from "@/lib/format";
 import { convertCost, round2, toNum } from "@/lib/money";
@@ -24,6 +24,7 @@ import { dealProfit, dealRevenue } from "@/lib/reports/calc";
 import { UZS_DEAL_MIN, USD_DEAL_MAX } from "@/lib/deals";
 import { toInputDate } from "@/lib/format";
 import { FLIGHT_MIN_ACTIVE_SEC } from "@/lib/shift";
+import { VISA_COUNTRIES } from "@/lib/constants";
 
 export interface MonthRange {
   ym: string;
@@ -80,6 +81,8 @@ export interface PlanFact {
   flightProfitSalary: number;
   /** доля с прибыли авиабилетов (валюта зарплаты) — см. flightShares */
   flightCommission: number;
+  /** начислено по особым процентам (SalaryRule) — эти сделки не входят в revenueSalary/profitSalary */
+  ruleCommission?: number;
   /** сделки, у которых администратор ещё не указал себестоимость: их прибыль не идёт в план и комиссию от прибыли */
   pendingCost?: number;
 }
@@ -106,7 +109,7 @@ export function calcPayout(terms: SalaryTerms, plan: PlanValues, fact: PlanFact)
   const ratePct = terms.pct + (planMet ? terms.bonusPct : 0);
   // убыточный месяц не уменьшает оклад
   const basis = terms.from === "PROFIT" ? fact.profitSalary : fact.revenueSalary;
-  const commission = round2((Math.max(0, basis) * ratePct) / 100 + Math.max(0, fact.flightCommission));
+  const commission = round2((Math.max(0, basis) * ratePct) / 100 + Math.max(0, fact.flightCommission) + Math.max(0, fact.ruleCommission ?? 0));
   return { plan, fact, done, planMet, ratePct, commission, base: terms.base, total: round2(terms.base + commission), currency: terms.currency };
 }
 
@@ -123,6 +126,39 @@ export function flightShares(deals: { sellerId: string; day: string; profit: num
   }
   for (const [k, v] of out) out.set(k, round2(v));
   return out;
+}
+
+export interface SalaryRuleView {
+  id: string;
+  serviceType: ServiceType;
+  /** русское название страны визы; null — любые сделки услуги */
+  country: string | null;
+  pct: number;
+  from: CommissionBase;
+  /** «2026-10-25» — с этого дня оплаты включительно */
+  fromDate: string;
+}
+
+/** Страна визы из названия продукта сделки («Виза: Таиланд, 2 заявл.», «Viza ko‘magi: Tailand») — русское название или null */
+export function dealCountry(product: string): string | null {
+  const p = product.toLowerCase();
+  const words = p.split(/[^\p{L}‘’']+/u).filter(Boolean);
+  const text = ` ${words.join(" ")} `;
+  for (const c of VISA_COUNTRIES) {
+    const names = [c.ru, c.uz, c.en, ...c.aliases].map((n) => n.toLowerCase().split(/[^\p{L}‘’']+/u).filter(Boolean).join(" "));
+    if (names.some((n) => n && text.includes(` ${n} `))) return c.ru;
+  }
+  return null;
+}
+
+/** Особый процент для сделки: правило той же услуги (и страны), действующее на день оплаты; из нескольких — самое позднее */
+export function ruleForDeal(deal: { serviceType: ServiceType | null; product: string; paidAt: Date }, rules: SalaryRuleView[]): SalaryRuleView | null {
+  if (!deal.serviceType || !rules.length) return null;
+  const day = toInputDate(deal.paidAt);
+  const country = deal.serviceType === "VISA" ? dealCountry(deal.product) : null;
+  const fit = rules.filter((r) => r.serviceType === deal.serviceType && r.fromDate <= day && (r.country === null || r.country === country));
+  // правило для конкретной страны важнее общего; среди равных — начавшееся позже
+  return fit.sort((a, b) => Number(b.country !== null) - Number(a.country !== null) || b.fromDate.localeCompare(a.fromDate))[0] ?? null;
 }
 
 /** С этого дня (по Ташкенту) в деление авиабилетов входят только те, кто был «В работе» не меньше 4 часов */
@@ -148,6 +184,8 @@ export interface ManagerMonth extends PayoutRow {
   terms: SalaryTerms;
   /** с какого месяца действуют условия («2026-10»); null — с самого начала */
   termsSince: string | null;
+  /** особые проценты с отдельных услуг */
+  rules: SalaryRuleView[];
   /** месяц входит в учёт зарплаты CRM (не целиком до даты начала учёта) */
   tracked: boolean;
   /** продажи считаются не с начала месяца, а с даты начала учёта (ISO) */
@@ -185,6 +223,7 @@ export async function loadManagerMonths(range: MonthRange, managerId: string | n
       plans: { where: { month: monthKey(range.ym) } },
       // условия, действующие в этом месяце: последняя запись, начавшаяся не позже него
       salaryTerms: { where: { fromMonth: { lte: monthKey(range.ym) } }, orderBy: { fromMonth: "desc" }, take: 1 },
+      salaryRules: { orderBy: { fromDate: "asc" } },
     },
   });
   const ids = users.map((u) => u.id);
@@ -196,7 +235,7 @@ export async function loadManagerMonths(range: MonthRange, managerId: string | n
     prisma.lead.groupBy({ by: ["managerId"], where: { managerId: { in: ids }, createdAt: { gte: range.from, lt: range.to } }, _count: { _all: true } }),
     prisma.deal.findMany({
       where: { managerId: { in: ids }, paidAt: { gte: dealsFrom, lt: range.to } },
-      select: { managerId: true, amount: true, cost: true, currency: true, costCurrency: true, paidAt: true, quantity: true, serviceType: true, costConfirmed: true },
+      select: { managerId: true, amount: true, cost: true, currency: true, costCurrency: true, paidAt: true, quantity: true, serviceType: true, costConfirmed: true, product: true },
     }),
     // кто был «В работе» в дни месяца и сколько — все менеджеры по продажам, а не только показанные (делим процент с авиабилетов);
     // администраторы и визовики в деление не входят, даже если раньше были менеджерами
@@ -210,8 +249,18 @@ export async function loadManagerMonths(range: MonthRange, managerId: string | n
   const poolPct = toNum(settings.flightPoolPct);
   return users.map((u) => {
     const own = deals.filter((d) => d.managerId === u.id).map((d) => ({ ...d, amount: toNum(d.amount), cost: toNum(d.cost) }));
+    const rules: SalaryRuleView[] = u.salaryRules.map((r) => ({
+      id: r.id,
+      serviceType: r.serviceType,
+      country: r.country,
+      pct: toNum(r.pct),
+      from: r.commissionFrom,
+      fromDate: r.fromDate.toISOString().slice(0, 10),
+    }));
     const flights = own.filter((d) => d.serviceType === "FLIGHTS");
-    const other = own.filter((d) => d.serviceType !== "FLIGHTS");
+    // сделки с особым процентом (например, 9% с виз в Таиланд) — вместо обычного процента
+    const special = own.filter((d) => d.serviceType !== "FLIGHTS").map((d) => ({ d, rule: ruleForDeal(d, rules) }));
+    const other = special.filter((x) => !x.rule).map((x) => x.d);
     // пока себестоимость не указана, прибыль сделки неизвестна (себестоимость 0 завысила бы план, надбавку и комиссию от прибыли)
     const confirmed = own.filter((d) => d.costConfirmed);
     const st = u.salaryTerms[0];
@@ -238,6 +287,14 @@ export async function loadManagerMonths(range: MonthRange, managerId: string | n
       revenueSalary: revenueIn(terms.currency, other),
       flightProfitSalary: profitIn(terms.currency, flights),
       flightCommission,
+      ruleCommission: round2(
+        special.reduce((sum, { d, rule }) => {
+          if (!rule) return sum;
+          // от прибыли — только когда себестоимость известна
+          const base = rule.from === "PROFIT" ? (d.costConfirmed ? dealProfit(d, money(terms.currency)) : 0) : dealRevenue(d, money(terms.currency));
+          return sum + (Math.max(0, base) * rule.pct) / 100;
+        }, 0),
+      ),
       pendingCost: own.length - confirmed.length,
     };
     const p = u.plans[0];
@@ -255,6 +312,7 @@ export async function loadManagerMonths(range: MonthRange, managerId: string | n
       isActive: u.isActive,
       terms,
       termsSince,
+      rules,
       ...pay,
       tracked,
       countedFrom: tracked && dealsFrom > range.from ? dealsFrom.toISOString() : null,

@@ -2,11 +2,13 @@
 
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { HandCoins, Pencil, Trash2 } from "lucide-react";
+import { HandCoins, Pencil, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Field, Input, NativeSelect } from "@/components/ui/input";
-import { addSalaryPayoutAction, deleteSalaryPayoutAction, savePlanAction } from "@/app/(app)/reports/actions";
+import { addSalaryPayoutAction, addSalaryRuleAction, deleteSalaryPayoutAction, deleteSalaryRuleAction, savePlanAction } from "@/app/(app)/reports/actions";
+import { SERVICE_TYPES, VISA_COUNTRIES } from "@/lib/constants";
+import { serviceLabel } from "@/i18n/labels";
 import { formatDate, formatNumber, formatPercent, toInputDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/i18n/client";
@@ -16,7 +18,7 @@ export interface PlanRowView {
   name: string;
   isActive?: boolean;
   plan: { leads: number | null; sales: number | null; profit: number | null };
-  fact: { leads: number; sales: number; profitUsd: number; profitSalary: number; revenueUsd: number; revenueSalary: number; flightProfitSalary: number; flightCommission: number; pendingCost?: number };
+  fact: { leads: number; sales: number; profitUsd: number; profitSalary: number; revenueUsd: number; revenueSalary: number; flightProfitSalary: number; flightCommission: number; ruleCommission?: number; pendingCost?: number };
   done: { leads: number | null; sales: number | null; profit: number | null };
   planMet: boolean;
   ratePct: number;
@@ -26,6 +28,7 @@ export interface PlanRowView {
   currency: "UZS" | "USD";
   terms: { base: number; currency: "UZS" | "USD"; pct: number; bonusPct: number; from: "REVENUE" | "PROFIT" };
   termsSince: string | null;
+  rules?: { id: string; serviceType: string; country: string | null; pct: number; from: "REVENUE" | "PROFIT"; fromDate: string }[];
   tracked: boolean;
   countedFrom: string | null;
   paid: number;
@@ -136,6 +139,99 @@ function Progress({ fact, plan, done, money }: { fact: number; plan: number | nu
   );
 }
 
+/** Особые проценты менеджера: «9% от продаж виз в Таиланд с 25.10.2026» — вместо обычного процента с этих сделок */
+function RulesBlock({ row }: { row: PlanRowView }) {
+  const { t, locale } = useI18n();
+  const [pending, start] = useTransition();
+  const [v, setV] = useState({ serviceType: "VISA", country: "", pct: "", from: "REVENUE", fromDate: toInputDate(new Date()) });
+  const set = (k: keyof typeof v) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setV({ ...v, [k]: e.target.value });
+  const countryName = (ru: string) => {
+    const c = VISA_COUNTRIES.find((x) => x.ru === ru);
+    return c ? (c[locale] ?? c.ru) : ru;
+  };
+  const add = () =>
+    start(async () => {
+      const res = await addSalaryRuleAction({ userId: row.userId, ...v });
+      if (!res.ok) return void toast.error(res.error);
+      toast.success(t("common.saved"));
+      setV({ ...v, pct: "" });
+    });
+  const remove = (id: string) =>
+    start(async () => {
+      if (!confirm(t("plans.ruleDeleteConfirm"))) return;
+      const res = await deleteSalaryRuleAction(id);
+      if (!res.ok) toast.error(res.error);
+    });
+  const rules = row.rules ?? [];
+  return (
+    <div className="space-y-3 border-t pt-4">
+      <div>
+        <div className="text-sm font-semibold">{t("plans.rulesTitle")}</div>
+        <div className="text-xs text-muted-foreground">{t("plans.rulesHint")}</div>
+      </div>
+      {rules.length > 0 && (
+        <ul className="divide-y rounded-lg border text-sm">
+          {rules.map((r) => (
+            <li key={r.id} className="flex items-center gap-3 px-3 py-2">
+              <span className="min-w-0 flex-1">
+                {t("plans.ruleText", {
+                  pct: formatNumber(r.pct, 2),
+                  base: r.from === "PROFIT" ? t("plans.ofProfit") : t("plans.ofRevenue"),
+                  service: `${serviceLabel(t, r.serviceType)}${r.country ? `: ${countryName(r.country)}` : ""}`,
+                  date: formatDate(r.fromDate),
+                })}
+              </span>
+              <Button size="icon-sm" variant="ghost" title={t("common.delete")} disabled={pending} onClick={() => remove(r.id)}>
+                <Trash2 />
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <Field label={t("deal.product")}>
+          <NativeSelect value={v.serviceType} onChange={set("serviceType")}>
+            {SERVICE_TYPES.filter((s) => s !== "FLIGHTS").map((s) => (
+              <option key={s} value={s}>
+                {serviceLabel(t, s)}
+              </option>
+            ))}
+          </NativeSelect>
+        </Field>
+        {v.serviceType === "VISA" && (
+          <Field label={t("lead.visaCountry")}>
+            <NativeSelect value={v.country} onChange={set("country")}>
+              <option value="">{t("plans.ruleAnyCountry")}</option>
+              {VISA_COUNTRIES.map((c) => (
+                <option key={c.ru} value={c.ru}>
+                  {countryName(c.ru)}
+                </option>
+              ))}
+            </NativeSelect>
+          </Field>
+        )}
+        <Field label={t("plans.pct")}>
+          <Input inputMode="decimal" value={v.pct} onChange={set("pct")} placeholder="9" />
+        </Field>
+        <Field label={t("plans.from")}>
+          <NativeSelect value={v.from} onChange={set("from")}>
+            <option value="REVENUE">{t("plans.fromRevenue")}</option>
+            <option value="PROFIT">{t("plans.fromProfit")}</option>
+          </NativeSelect>
+        </Field>
+        <Field label={t("plans.ruleFromDate")}>
+          <Input type="date" value={v.fromDate} onChange={set("fromDate")} />
+        </Field>
+      </div>
+      <div className="flex justify-end">
+        <Button type="button" variant="outline" disabled={pending || !v.pct.trim()} onClick={add}>
+          <Plus /> {t("plans.ruleAdd")}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function EditDialog({ row, month, onClose }: { row: PlanRowView; month: string; onClose: () => void }) {
   const { t } = useI18n();
   const [pending, start] = useTransition();
@@ -213,6 +309,7 @@ function EditDialog({ row, month, onClose }: { row: PlanRowView; month: string; 
             </Button>
           </div>
         </form>
+        <RulesBlock row={row} />
       </DialogContent>
     </Dialog>
   );
@@ -220,7 +317,9 @@ function EditDialog({ row, month, onClose }: { row: PlanRowView; month: string; 
 
 export function PlansTable({ rows, month, editable }: { rows: PlanRowView[]; month: string; editable: boolean }) {
   const { t, f } = useI18n();
-  const [edit, setEdit] = useState<PlanRowView | null>(null);
+  // строка берётся из свежих данных: после добавления особого процента список в окне обновляется
+  const [editId, setEditId] = useState<string | null>(null);
+  const edit = rows.find((r) => r.userId === editId) ?? null;
   const [pay, setPay] = useState<PlanRowView | null>(null);
   if (!rows.length) return <div className="p-5 text-sm text-muted-foreground">{t("plans.empty")}</div>;
   return (
@@ -269,6 +368,7 @@ export function PlansTable({ rows, month, editable }: { rows: PlanRowView[]; mon
                 <td className="px-3 py-3 text-right whitespace-nowrap tabular-nums">
                   {f.money(r.commission, r.currency)}
                   {r.fact.flightCommission !== 0 && <div className="text-[11px] text-muted-foreground">{t("plans.flightPart", { sum: f.money(r.fact.flightCommission, r.currency) })}</div>}
+                  {!!r.fact.ruleCommission && <div className="text-[11px] text-muted-foreground">{t("plans.rulePart", { sum: f.money(r.fact.ruleCommission, r.currency) })}</div>}
                 </td>
                 <td className="px-3 py-3 text-right whitespace-nowrap tabular-nums text-muted-foreground">{f.money(r.base, r.currency)}</td>
                 <td className="px-3 py-3 text-right font-semibold whitespace-nowrap tabular-nums">
@@ -285,7 +385,7 @@ export function PlansTable({ rows, month, editable }: { rows: PlanRowView[]; mon
                         <HandCoins />
                       </Button>
                     )}
-                    <Button size="icon-sm" variant="ghost" title={t("common.edit")} onClick={() => setEdit(r)}>
+                    <Button size="icon-sm" variant="ghost" title={t("common.edit")} onClick={() => setEditId(r.userId)}>
                       <Pencil />
                     </Button>
                   </td>
@@ -295,7 +395,7 @@ export function PlansTable({ rows, month, editable }: { rows: PlanRowView[]; mon
           </tbody>
         </table>
       </div>
-      {edit && <EditDialog row={edit} month={month} onClose={() => setEdit(null)} />}
+      {edit && <EditDialog row={edit} month={month} onClose={() => setEditId(null)} />}
       {pay && <PayDialog row={pay} month={month} onClose={() => setPay(null)} />}
     </>
   );
