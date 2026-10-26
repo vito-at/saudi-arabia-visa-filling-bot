@@ -6,7 +6,7 @@ import { prisma } from "@/lib/db";
 import { runAction } from "@/lib/actions";
 import { requireAdmin } from "@/lib/session";
 import { ValidationError } from "@/lib/leads/service";
-import { SERVICE_LABELS, SERVICE_TYPES } from "@/lib/constants";
+import { SERVICE_LABELS, SERVICE_TYPES, VISA_COUNTRIES } from "@/lib/constants";
 import { toNum, parseAmount } from "@/lib/money";
 import { confirmVisaDeals } from "@/lib/deal-costs";
 import { monthKey, monthRange } from "@/lib/salary";
@@ -174,6 +174,30 @@ export async function deleteSalaryPayoutAction(id: string) {
   return runAction(async () => {
     await requireAdmin();
     await prisma.salaryPayout.delete({ where: { id } }).catch(() => undefined);
+    revalidatePath("/reports");
+  });
+}
+
+/** Особый процент менеджеру с отдельной услуги (и страны визы) с выбранного дня — вместо обычного процента с этих сделок */
+export async function addSalaryRuleAction(input: { userId: string; serviceType: string; country: string; pct: string; from: string; fromDate: string }) {
+  return runAction(async () => {
+    await requireAdmin();
+    const serviceType = SERVICE_TYPES.find((s) => s === input.serviceType && s !== "FLIGHTS");
+    const pct = parseAmount(input.pct);
+    const fromDate = /^\d{4}-\d{2}-\d{2}$/.test(input.fromDate) ? new Date(`${input.fromDate}T00:00:00Z`) : null;
+    const country = serviceType === "VISA" ? (VISA_COUNTRIES.find((c) => c.ru === input.country)?.ru ?? null) : null;
+    if (!serviceType || !fromDate || Number.isNaN(fromDate.getTime()) || !Number.isFinite(pct) || pct <= 0 || pct > 100) throw new ValidationError("err.salaryRule");
+    const user = await prisma.user.findFirst({ where: { id: input.userId, role: "MANAGER" }, select: { id: true } });
+    if (!user) throw new ValidationError("err.salaryRule");
+    await prisma.salaryRule.create({ data: { userId: user.id, serviceType, country, pct, commissionFrom: input.from === "PROFIT" ? "PROFIT" : "REVENUE", fromDate } });
+    revalidatePath("/reports");
+  });
+}
+
+export async function deleteSalaryRuleAction(id: string) {
+  return runAction(async () => {
+    await requireAdmin();
+    await prisma.salaryRule.delete({ where: { id } }).catch(() => undefined);
     revalidatePath("/reports");
   });
 }

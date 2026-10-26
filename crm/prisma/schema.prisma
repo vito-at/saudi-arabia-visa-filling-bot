@@ -99,6 +99,7 @@ model User {
   chatMessages  ChatMessage[]
   plans         ManagerPlan[]
   salaryTerms   SalaryTerm[]
+  salaryRules   SalaryRule[]
   salaryPaid    SalaryPayout[] @relation("PayoutManager")
   shiftDays     ShiftDay[]
   salaryPaidBy  SalaryPayout[] @relation("PayoutAuthor")
@@ -662,6 +663,25 @@ model ManagerPlan {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, month])
+}
+
+/// Особый процент менеджеру с отдельной услуги (например, 9% с виз в Таиланд) с даты fromDate — вместо обычного процента
+/// с этих сделок (надбавка за план к нему не прибавляется). Удалить правило — сделки снова считаются по обычному проценту.
+model SalaryRule {
+  id             String         @id @default(cuid())
+  userId         String
+  serviceType    ServiceType
+  /// страна визы (русское название из списка VISA_COUNTRIES); null — любые сделки этой услуги
+  country        String?
+  pct            Decimal        @db.Decimal(5, 2)
+  commissionFrom CommissionBase @default(REVENUE)
+  /// с какого дня (по Ташкенту, включительно) — по дате оплаты сделки
+  fromDate       DateTime       @db.Date
+  createdAt      DateTime       @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 /// Условия зарплаты, действующие с месяца fromMonth до следующей записи: изменение не пересчитывает прошлые месяцы
