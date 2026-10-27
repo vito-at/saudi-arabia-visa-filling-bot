@@ -67,10 +67,10 @@ export async function handleTelegramUpdate(u: TgUpdate): Promise<boolean> {
   if (u.business_message) {
     const connectionId = u.business_message.business_connection_id;
     const account = connectionId ? await accountByConnection(connectionId) : null;
-    // подключение старой версии CRM (один общий аккаунт, ещё не привязанный к сотруднику) работает как раньше
-    const legacy = !account && !!connectionId && connectionId === integration.businessConnectionId;
-    // чужой аккаунт подключил нашего бота — его переписки в CRM не попадают
-    if (!account && !legacy) return false;
+    // переписки принимаются только от привязанного Telegram сотрудника: отвязал свой Telegram в CRM или чужой аккаунт
+    // подключил нашего бота — сообщения в CRM не попадают. (Общее подключение старой версии CRM больше не принимается:
+    // через него личные сообщения отвязавшегося владельца продолжали приходить и были видны менеджерам.)
+    if (!account) return false;
     return !!(await recordTelegram(u.business_message, true, account));
   }
   if (u.message) {

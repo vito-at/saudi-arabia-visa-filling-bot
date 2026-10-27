@@ -320,6 +320,7 @@ export const uz: Messages = {
     openTelegram: "Telegramda ochish",
     unlink: "Uzish",
     unlinkConfirm: "Telegram uzilsinmi? Yangi xabarlar CRMga kelmaydi, eski yozishmalar qoladi.",
+    unlinked: "Telegram uzildi: yangi xabarlar endi CRMga kelmaydi. Botni Telegramdan ham olib tashlash uchun: Sozlamalar → Telegram Business → Chat-botlar → botni o‘chiring.",
     unlinkStaffConfirm: "Xodimning Telegrami uzilsinmi? Uning Telegramidan yangi xabarlar CRMga kelmaydi.",
     step2: "Botni Telegram Businessda ulang",
     step2a: "Telegramda: Sozlamalar → Telegram Business → Chat-botlar.",

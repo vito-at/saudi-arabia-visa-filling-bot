@@ -320,6 +320,7 @@ export const en: Messages = {
     openTelegram: "Open in Telegram",
     unlink: "Unlink",
     unlinkConfirm: "Unlink Telegram? New messages will stop coming to the CRM; old chats stay.",
+    unlinked: "Telegram unlinked: new messages no longer come to the CRM. To remove the bot from Telegram too: Settings → Telegram Business → Chatbots → disconnect the bot.",
     unlinkStaffConfirm: "Unlink the employee’s Telegram? New messages from their Telegram will stop coming to the CRM.",
     step2: "Connect the bot in Telegram Business",
     step2a: "In Telegram: Settings → Telegram Business → Chatbots.",

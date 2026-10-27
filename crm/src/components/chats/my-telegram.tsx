@@ -94,7 +94,8 @@ export function MyTelegram({ botReady, bot, account, aiAvailable, isAdmin }: { b
                   if (!confirm(t("tgacc.unlinkConfirm"))) return;
                   start(async () => {
                     const r = await telegramUnlinkAction();
-                    if (!r.ok) toast.error(r.error);
+                    if (!r.ok) return void toast.error(r.error);
+                    toast.success(t("tgacc.unlinked"), { duration: 10_000 });
                   });
                 }}
               >

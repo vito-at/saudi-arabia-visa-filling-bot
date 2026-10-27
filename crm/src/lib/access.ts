@@ -40,7 +40,9 @@ export async function getLeadForUser(user: CurrentUser, leadId: string) {
 export function conversationScope(user: CurrentUser): Prisma.ConversationWhereInput {
   if (user.role === "VISA") return { id: { in: [] } };
   if (user.role === "ADMIN") return { OR: [{ accountId: null }, { account: { userId: user.id } }, { account: { user: { role: { not: "ADMIN" } } } }] };
-  return { OR: [{ accountId: null, OR: [{ leadId: null }, { lead: leadScope(user) }] }, { account: { userId: user.id } }] };
+  // переписки личного Telegram без аккаунта (через общее подключение старой версии CRM — это личный Telegram владельца)
+  // менеджерам не видны
+  return { OR: [{ accountId: null, businessConnectionId: null, OR: [{ leadId: null }, { lead: leadScope(user) }] }, { account: { userId: user.id } }] };
 }
 
 /**
