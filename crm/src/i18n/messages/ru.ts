@@ -318,6 +318,7 @@ export const ru = {
     openTelegram: "Открыть в Telegram",
     unlink: "Отвязать",
     unlinkConfirm: "Отвязать Telegram? Новые сообщения перестанут приходить в CRM, старые переписки останутся.",
+    unlinked: "Telegram отвязан: новые сообщения в CRM больше не приходят. Чтобы убрать бота и из Telegram: Настройки → Telegram для бизнеса → Чат-боты → отключить бота.",
     unlinkStaffConfirm: "Отвязать Telegram сотрудника? Новые сообщения из его Telegram перестанут приходить в CRM.",
     step2: "Подключите бота в Telegram для бизнеса",
     step2a: "В Telegram: Настройки → Telegram для бизнеса → Чат-боты.",
