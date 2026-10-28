@@ -32,17 +32,24 @@ export async function getLeadForUser(user: CurrentUser, leadId: string) {
 }
 
 /**
+ * Переписки отвязанного Telegram скрыты от всех: сотрудник (или владелец) отвязал свой Telegram — его старые чаты
+ * исчезают из CRM. Сюда же — переписки общего подключения старой версии CRM (личный Telegram владельца без аккаунта).
+ * Данные не удаляются: привяжет Telegram снова — переписки вернутся.
+ */
+const unlinkedTelegram: Prisma.ConversationWhereInput = { OR: [{ accountId: null, businessConnectionId: { not: null } }, { account: { tgUserId: null } }] };
+const visible = (where: Prisma.ConversationWhereInput): Prisma.ConversationWhereInput => ({ AND: [where, { NOT: unlinkedTelegram }] });
+
+/**
  * Переписки, которые пользователь может открыть.
  * - Общие (Instagram, сам бот): менеджер — чаты своих лидов и нераспределённых (как и сами лиды), администратор — все.
  * - Личный Telegram сотрудника: только сам сотрудник; администратор — ещё и переписки сотрудников (для контроля),
  *   но не других администраторов: личный Telegram владельца не видит никто.
+ * - Telegram отвязан — его переписки не видит никто (см. unlinkedTelegram).
  */
 export function conversationScope(user: CurrentUser): Prisma.ConversationWhereInput {
   if (user.role === "VISA") return { id: { in: [] } };
-  if (user.role === "ADMIN") return { OR: [{ accountId: null }, { account: { userId: user.id } }, { account: { user: { role: { not: "ADMIN" } } } }] };
-  // переписки личного Telegram без аккаунта (через общее подключение старой версии CRM — это личный Telegram владельца)
-  // менеджерам не видны
-  return { OR: [{ accountId: null, businessConnectionId: null, OR: [{ leadId: null }, { lead: leadScope(user) }] }, { account: { userId: user.id } }] };
+  if (user.role === "ADMIN") return visible({ OR: [{ accountId: null }, { account: { userId: user.id } }, { account: { user: { role: { not: "ADMIN" } } } }] });
+  return visible({ OR: [{ accountId: null, OR: [{ leadId: null }, { lead: leadScope(user) }] }, { account: { userId: user.id } }] });
 }
 
 /**
@@ -51,7 +58,7 @@ export function conversationScope(user: CurrentUser): Prisma.ConversationWhereIn
  */
 export function inboxScope(user: CurrentUser): Prisma.ConversationWhereInput {
   if (user.role !== "ADMIN") return conversationScope(user);
-  return { OR: [{ accountId: null }, { account: { userId: user.id } }] };
+  return visible({ OR: [{ accountId: null }, { account: { userId: user.id } }] });
 }
 
 /** Отвечать в переписке личного Telegram может только его хозяин; администратор переписки сотрудников только читает */
