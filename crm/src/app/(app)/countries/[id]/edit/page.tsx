@@ -9,7 +9,7 @@ import { getI18n } from "@/i18n/server";
 export default async function EditCountryPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const user = await requireUser();
-  if (!canEditCountries(user.role)) redirect(`/countries/${id}`);
+  if (!canEditCountries(user.role)) redirect("/countries");
   const { t } = await getI18n();
   const c = await prisma.visaCountry.findUnique({ where: { id } });
   if (!c) notFound();
@@ -20,6 +20,8 @@ export default async function EditCountryPage({ params }: { params: Promise<{ id
         id={c.id}
         canDelete={user.role === "ADMIN"}
         initial={{
+          citizenship: c.citizenship,
+          code: c.code ?? "",
           name: c.name,
           visaKind: c.visaKind ?? "",
           documents: c.documents,
@@ -33,6 +35,7 @@ export default async function EditCountryPage({ params }: { params: Promise<{ id
           appointmentUrl: c.appointmentUrl ?? "",
           visaCenter: c.visaCenter ?? "",
           notes: c.notes ?? "",
+          sources: c.sources ?? "",
         }}
       />
     </div>

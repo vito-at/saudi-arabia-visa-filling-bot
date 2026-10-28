@@ -9,11 +9,12 @@ import { Card } from "@/components/ui/card";
 import { Field, Input, NativeSelect, Textarea } from "@/components/ui/input";
 import { deleteCountryAction, saveCountryAction } from "@/app/(app)/countries/actions";
 import { VISA_KINDS, type CountryInput } from "@/lib/countries";
+import { CITIZENSHIPS, REGIONS, WORLD, countryName, flag, worldCountry } from "@/lib/world";
 import { useI18n } from "@/i18n/client";
 
 /** Карточка страны: создание и правка (администратор и визовые специалисты) */
 export function CountryForm({ id, initial, canDelete }: { id: string | null; initial: CountryInput; canDelete: boolean }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const router = useRouter();
   const [pending, start] = useTransition();
   const [v, setV] = useState(initial);
@@ -25,7 +26,8 @@ export function CountryForm({ id, initial, canDelete }: { id: string | null; ini
       const res = await saveCountryAction(id, v);
       if (!res.ok) return void toast.error(res.error);
       toast.success(t("common.saved"));
-      router.push(`/countries/${res.data}`);
+      const d = res.data!;
+      router.push(d.to ? `/countries?from=${d.from}&to=${d.to}` : `/countries?from=${d.from}&id=${d.id}`);
     });
   }
   const remove = () =>
@@ -33,16 +35,43 @@ export function CountryForm({ id, initial, canDelete }: { id: string | null; ini
       if (!id || !confirm(t("countries.deleteConfirm", { name: initial.name }))) return;
       const res = await deleteCountryAction(id);
       if (!res.ok) return void toast.error(res.error);
-      router.push("/countries");
+      router.push(`/countries?from=${initial.citizenship}`);
     });
 
   return (
     <form onSubmit={save} className="space-y-4">
       <Card className="space-y-4 p-5">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field label={t("countries.name")}>
-            <Input value={v.name} onChange={set("name")} required maxLength={100} placeholder={t("countries.namePh")} />
+          <Field label={t("countries.step1")}>
+            <NativeSelect value={v.citizenship} onChange={set("citizenship")}>
+              {CITIZENSHIPS.map((code) => (
+                <option key={code} value={code}>
+                  {flag(code)} {countryName(worldCountry(code)!, locale)}
+                </option>
+              ))}
+            </NativeSelect>
           </Field>
+          <Field label={t("countries.step2")}>
+            <NativeSelect value={v.code} onChange={set("code")}>
+              <option value="">{t("countries.ownDestination")}</option>
+              {REGIONS.map((r) => (
+                <optgroup key={r} label={t(`countries.regions.${r}`)}>
+                  {WORLD.filter((w) => w.region === r && w.code !== v.citizenship)
+                    .sort((a, b) => countryName(a, locale).localeCompare(countryName(b, locale), locale))
+                    .map((w) => (
+                      <option key={w.code} value={w.code}>
+                        {flag(w.code)} {countryName(w, locale)}
+                      </option>
+                    ))}
+                </optgroup>
+              ))}
+            </NativeSelect>
+          </Field>
+          {!v.code && (
+            <Field label={t("countries.name")}>
+              <Input value={v.name} onChange={set("name")} required maxLength={100} placeholder={t("countries.namePh")} />
+            </Field>
+          )}
           <Field label={t("countries.kind")}>
             <NativeSelect value={v.visaKind} onChange={set("visaKind")}>
               <option value="">—</option>
@@ -104,6 +133,9 @@ export function CountryForm({ id, initial, canDelete }: { id: string | null; ini
         </Field>
         <Field label={t("countries.notes")}>
           <Textarea value={v.notes} onChange={set("notes")} rows={4} placeholder={t("countries.notesPh")} />
+        </Field>
+        <Field label={t("countries.sources")} hint={t("countries.sourcesHint")}>
+          <Textarea value={v.sources} onChange={set("sources")} rows={3} placeholder="https://www.mfa.go.th" />
         </Field>
       </Card>
 
