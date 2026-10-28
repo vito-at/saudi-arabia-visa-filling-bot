@@ -1,89 +1,96 @@
 import Link from "next/link";
-import { Suspense } from "react";
-import { Plus } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card } from "@/components/ui/card";
-import { Empty } from "@/components/ui/empty";
-import { SearchBox } from "@/components/common/search-box";
-import { KindBadge } from "@/components/countries/kind-badge";
+import { CountryPicker } from "@/components/countries/country-picker";
+import { CountryInfo } from "@/components/countries/country-info";
 import { prisma } from "@/lib/db";
-import { canEditCountries, documentLines } from "@/lib/countries";
-import { toNum } from "@/lib/money";
+import { canEditCountries } from "@/lib/countries";
+import { DEFAULT_CITIZENSHIP, countryName, flag, isCitizenship, worldCountry } from "@/lib/world";
 import { sp, type SearchParams } from "@/lib/leads/query";
 import { requireUser } from "@/lib/session";
+import { cn } from "@/lib/utils";
 import { getI18n } from "@/i18n/server";
 
-/** Справочник стран для виз: список карточек с главным — вид визы, цена, сбор, срок */
+/** «Страны и визы»: выбрать гражданство и страну поездки — сразу видно, нужна ли виза, где и как делать, сколько стоит */
 export default async function CountriesPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const params = await searchParams;
   const user = await requireUser();
-  const { t, f } = await getI18n();
-  const q = sp(params, "q")?.trim();
-  const countries = await prisma.visaCountry.findMany({
-    where: q
-      ? { OR: [{ name: { contains: q, mode: "insensitive" } }, { visaCenter: { contains: q, mode: "insensitive" } }, { notes: { contains: q, mode: "insensitive" } }] }
-      : undefined,
-    orderBy: { name: "asc" },
-  });
+  const i18n = await getI18n();
+  const { t, locale } = i18n;
+  const fromParam = sp(params, "from");
+  const from = isCitizenship(fromParam) ? fromParam : DEFAULT_CITIZENSHIP;
+  const to = worldCountry(sp(params, "to"));
+  const customId = sp(params, "id");
+  const include = { updatedBy: { select: { name: true } }, verifiedBy: { select: { name: true } } } as const;
+  const [record, filled] = await Promise.all([
+    customId
+      ? prisma.visaCountry.findFirst({ where: { id: customId, citizenship: from }, include })
+      : to
+        ? prisma.visaCountry.findUnique({ where: { citizenship_code: { citizenship: from, code: to.code } }, include })
+        : null,
+    prisma.visaCountry.findMany({ where: { citizenship: from }, select: { id: true, code: true, name: true, visaKind: true, verifiedAt: true }, orderBy: { name: "asc" } }),
+  ]);
   const editable = canEditCountries(user.role);
+  const fromW = worldCountry(from)!;
+  const label = (code: string | null, name: string) => {
+    const w = worldCountry(code);
+    return w ? `${flag(w.code)} ${countryName(w, locale)}` : name;
+  };
+  const destName = record ? label(record.code, record.name) : to ? label(to.code, to.ru) : null;
+  const route = destName ? `${flag(from)} ${countryName(fromW, locale)} → ${destName}` : "";
 
   return (
-    <div>
-      <PageHeader
-        title={t("countries.title")}
-        description={t("countries.description")}
-        actions={
-          <>
-            <Suspense>
-              <SearchBox placeholder={t("countries.search")} />
-            </Suspense>
-            {editable && (
-              <Link href="/countries/new" className="inline-flex h-9 items-center gap-1.5 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground shadow-sm hover:bg-primary/90">
-                <Plus className="size-4" /> {t("countries.add")}
-              </Link>
-            )}
-          </>
-        }
-      />
-      {!countries.length ? (
-        <Card>
-          <Empty>{q ? t("countries.notFound") : t("countries.empty")}</Empty>
+    <div className="mx-auto max-w-4xl space-y-4">
+      <PageHeader title={t("countries.title")} description={t("countries.description")} />
+      <Card className="p-4 sm:p-5">
+        <CountryPicker from={from} to={to?.code ?? null} filled={filled.flatMap((r) => (r.code ? [r.code] : []))} />
+      </Card>
+
+      {record ? (
+        <CountryInfo c={record} route={route} i18n={i18n} canEdit={editable} isAdmin={user.role === "ADMIN"} />
+      ) : to ? (
+        <Card className="flex flex-col items-center gap-3 px-5 py-10 text-center">
+          <Search className="size-8 text-muted-foreground" />
+          <div className="text-lg font-semibold">{route}</div>
+          <p className="max-w-md text-sm text-muted-foreground">{t("countries.noInfo")}</p>
+          {editable && (
+            <Link href={`/countries/new?from=${from}&to=${to.code}`} className="inline-flex h-9 items-center gap-1.5 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground shadow-sm hover:bg-primary/90">
+              <Plus className="size-4" /> {t("countries.fill")}
+            </Link>
+          )}
         </Card>
       ) : (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {countries.map((c) => {
-            const docs = documentLines(c.documents).length;
-            return (
-              <Link key={c.id} href={`/countries/${c.id}`} className="block">
-                <Card className="h-full space-y-3 p-4 transition-colors hover:border-ring/50 hover:bg-accent/40">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="font-semibold">{c.name}</div>
-                    {c.visaKind && <KindBadge kind={c.visaKind} label={t(`countries.kinds.${c.visaKind}`)} />}
-                  </div>
-                  <dl className="grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
-                    <div>
-                      <dt className="text-xs text-muted-foreground">{t("countries.salePrice")}</dt>
-                      <dd className="font-medium tabular-nums">{c.salePrice !== null ? f.money(toNum(c.salePrice), c.saleCurrency) : "—"}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-xs text-muted-foreground">{t("countries.consularFee")}</dt>
-                      <dd className="truncate">{c.consularFee ?? "—"}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-xs text-muted-foreground">{t("countries.processingTime")}</dt>
-                      <dd className="truncate">{c.processingTime ?? "—"}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-xs text-muted-foreground">{t("countries.documents")}</dt>
-                      <dd>{docs ? t("countries.docsCount", { n: docs }) : <span className="text-amber-600">{t("countries.docsNone")}</span>}</dd>
-                    </div>
-                  </dl>
-                  {c.visaCenter && <div className="text-xs text-muted-foreground">{t("countries.via", { name: c.visaCenter })}</div>}
-                </Card>
+        <Card className="p-5">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold">{t("countries.filledTitle", { n: filled.length })}</h2>
+            {editable && (
+              <Link href={`/countries/new?from=${from}`} className="inline-flex h-8 items-center gap-1.5 rounded-md border bg-card px-3 text-xs hover:bg-accent">
+                <Plus className="size-3.5" /> {t("countries.addOwn")}
               </Link>
-            );
-          })}
-        </div>
+            )}
+          </div>
+          {filled.length ? (
+            <div className="flex flex-wrap gap-2">
+              {filled.map((r) => (
+                <Link
+                  key={r.id}
+                  href={r.code ? `/countries?from=${from}&to=${r.code}` : `/countries?from=${from}&id=${r.id}`}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm hover:bg-accent",
+                    r.verifiedAt ? "border-emerald-300 dark:border-emerald-800" : "",
+                  )}
+                  title={r.verifiedAt ? t("countries.verifiedTitle") : t("countries.notVerifiedTitle")}
+                >
+                  {label(r.code, r.name)}
+                  {r.verifiedAt && <span className="text-emerald-600">✓</span>}
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">{t("countries.empty")}</p>
+          )}
+        </Card>
       )}
     </div>
   );

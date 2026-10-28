@@ -101,6 +101,7 @@ model User {
   salaryTerms   SalaryTerm[]
   salaryRules   SalaryRule[]
   visaCountries VisaCountry[]  @relation("VisaCountryEditor")
+  visaVerified  VisaCountry[]  @relation("VisaCountryVerifier")
   salaryPaid    SalaryPayout[] @relation("PayoutManager")
   shiftDays     ShiftDay[]
   salaryPaidBy  SalaryPayout[] @relation("PayoutAuthor")
@@ -976,12 +977,16 @@ enum VisaKind {
   VISA_FREE
 }
 
-/// Справочник стран, куда агентство делает визы: документы, сборы, цена продажи, где и как подавать.
+/// Справочник виз: для гражданина страны citizenship — поездка в страну code: нужна ли виза, документы, сборы, цена, где и как подавать.
 /// Читают все сотрудники; правят администратор и визовые специалисты.
 model VisaCountry {
   id             String    @id @default(cuid())
-  /// «Таиланд», «Шенген (Италия)»
-  name           String    @unique
+  /// гражданство (паспорт) путешественника — код страны ISO, по умолчанию Узбекистан
+  citizenship    String    @default("UZ")
+  /// страна поездки — код ISO из списка стран мира (lib/world.ts); null — своё направление
+  code           String?
+  /// название страны поездки («Таиланд») или своё направление
+  name           String
   visaKind       VisaKind?
   /// список документов — по одному в строке
   documents      String    @default("")
@@ -1003,9 +1008,21 @@ model VisaCountry {
   /// визовый сервис (VFS Global, BLS, TLScontact…), если подача через него
   visaCenter     String?
   notes          String?
+  /// часть света — для фильтра: CIS, EUROPE, ASIA, MIDDLE_EAST, AFRICA, AMERICAS, OCEANIA
+  region         String?
+  /// официальные источники (сайты посольств, визовых сервисов) — по одной ссылке в строке
+  sources        String?
+  /// администратор проверил информацию; любая правка снимает отметку
+  verifiedAt     DateTime?
+  verifiedById   String?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
   updatedById    String?
 
-  updatedBy User? @relation("VisaCountryEditor", fields: [updatedById], references: [id], onDelete: SetNull)
+  updatedBy  User? @relation("VisaCountryEditor", fields: [updatedById], references: [id], onDelete: SetNull)
+  verifiedBy User? @relation("VisaCountryVerifier", fields: [verifiedById], references: [id], onDelete: SetNull)
+
+  @@unique([citizenship, code])
+  @@unique([citizenship, name])
+  @@index([region])
 }
