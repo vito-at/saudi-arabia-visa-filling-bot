@@ -4,7 +4,7 @@ import { RateWidget } from "./rate-widget";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { BarChart3, CalendarDays, Stamp, CheckSquare, ImagePlus, Inbox, MessageCircle, LayoutDashboard, LogOut, Megaphone, Menu, Settings, Users, Wallet, X } from "lucide-react";
+import { BarChart3, CalendarDays, Globe2, Stamp, CheckSquare, ImagePlus, Inbox, MessageCircle, LayoutDashboard, LogOut, Megaphone, Menu, Settings, Users, Wallet, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "./logo";
 import { NotificationBell } from "./notification-bell";
@@ -27,6 +27,8 @@ const NAV = [
   { href: "/posts", label: "nav.posts", icon: ImagePlus, badge: null },
   { href: "/reports", label: "nav.reports", icon: BarChart3, badge: null },
   { href: "/visa", label: "nav.visa", icon: Stamp, badge: "visa", visa: true },
+  // справочник стран для виз — всем, в том числе визовым специалистам
+  { href: "/countries", label: "nav.countries", icon: Globe2, badge: null, all: true },
   { href: "/ads", label: "nav.ads", icon: Megaphone, badge: null, admin: true },
   { href: "/finance", label: "nav.finance", icon: Wallet, badge: "finance", admin: true },
   { href: "/settings", label: "nav.settings", icon: Settings, badge: null, admin: true },
@@ -110,7 +112,7 @@ function SidebarContent({ user, counters, logout, rate, shift }: SidebarProps) {
       <nav className="min-h-40 flex-1 space-y-0.5 overflow-y-auto thin-scrollbar px-3">
         {NAV.filter((n) =>
           // визовый специалист видит только свой кабинет; «Визы» — ему и администратору
-          user.role === "VISA" ? "visa" in n : "visa" in n ? user.role === "ADMIN" : !("admin" in n) || user.role === "ADMIN",
+          user.role === "VISA" ? "visa" in n || "all" in n : "visa" in n ? user.role === "ADMIN" : !("admin" in n) || user.role === "ADMIN",
         ).map((item) => {
           const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
           const count = item.badge ? counters[item.badge] : 0;
