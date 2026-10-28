@@ -1,7 +1,7 @@
 import type { NextAuthConfig } from "next-auth";
 
 /** Разделы, доступные визовому специалисту */
-const VISA_PATHS = ["/visa", "/api/docs", "/api/notifications"];
+const VISA_PATHS = ["/visa", "/countries", "/api/docs", "/api/notifications"];
 
 // Конфиг без зависимостей от Node (Prisma, bcrypt) — используется в middleware.
 export const authConfig = {

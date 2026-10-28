@@ -100,6 +100,7 @@ model User {
   plans         ManagerPlan[]
   salaryTerms   SalaryTerm[]
   salaryRules   SalaryRule[]
+  visaCountries VisaCountry[]  @relation("VisaCountryEditor")
   salaryPaid    SalaryPayout[] @relation("PayoutManager")
   shiftDays     ShiftDay[]
   salaryPaidBy  SalaryPayout[] @relation("PayoutAuthor")
@@ -961,4 +962,50 @@ model SiteEvent {
 
   @@index([sentAt, nextAt])
   @@index([serviceId])
+}
+
+/// Вид визы в справочнике стран
+enum VisaKind {
+  /// электронная виза — приходит на почту
+  EVISA
+  /// стикер (наклейка) в паспорте — подача в посольство или визовый центр
+  STICKER
+  /// по прилёту
+  ON_ARRIVAL
+  /// виза не нужна
+  VISA_FREE
+}
+
+/// Справочник стран, куда агентство делает визы: документы, сборы, цена продажи, где и как подавать.
+/// Читают все сотрудники; правят администратор и визовые специалисты.
+model VisaCountry {
+  id             String    @id @default(cuid())
+  /// «Таиланд», «Шенген (Италия)»
+  name           String    @unique
+  visaKind       VisaKind?
+  /// список документов — по одному в строке
+  documents      String    @default("")
+  /// консульский сбор — текстом, валюты бывают разные («90 €», «35 $ + сервисный сбор VFS 25 $»)
+  consularFee    String?
+  /// цена для клиента
+  salePrice      Decimal?  @db.Decimal(18, 2)
+  saleCurrency   Currency  @default(USD)
+  /// срок оформления («5–7 рабочих дней»)
+  processingTime String?
+  /// срок действия визы и пребывания
+  validity       String?
+  /// где подавать: посольство, визовый центр, онлайн
+  whereToApply   String?
+  /// сайт подачи (анкета, e-visa)
+  applyUrl       String?
+  /// сайт записи в очередь
+  appointmentUrl String?
+  /// визовый сервис (VFS Global, BLS, TLScontact…), если подача через него
+  visaCenter     String?
+  notes          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  updatedById    String?
+
+  updatedBy User? @relation("VisaCountryEditor", fields: [updatedById], references: [id], onDelete: SetNull)
 }
