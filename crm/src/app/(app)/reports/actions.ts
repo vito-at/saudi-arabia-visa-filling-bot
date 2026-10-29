@@ -201,3 +201,25 @@ export async function deleteSalaryRuleAction(id: string) {
     revalidatePath("/reports");
   });
 }
+
+/** Фиксированная оплата всем менеджерам за каждую проданную единицу услуги (например, 5 $ за визу в ОАЭ) — вместо процента */
+export async function addSalesBonusAction(input: { serviceType: string; country: string; amount: string; currency: string; fromDate: string }) {
+  return runAction(async () => {
+    await requireAdmin();
+    const serviceType = SERVICE_TYPES.find((s) => s === input.serviceType && s !== "FLIGHTS");
+    const amount = parseAmount(input.amount);
+    const fromDate = /^\d{4}-\d{2}-\d{2}$/.test(input.fromDate) ? new Date(`${input.fromDate}T00:00:00Z`) : null;
+    const country = serviceType === "VISA" ? (VISA_COUNTRIES.find((c) => c.ru === input.country)?.ru ?? null) : null;
+    if (!serviceType || !fromDate || Number.isNaN(fromDate.getTime()) || !Number.isFinite(amount) || amount <= 0) throw new ValidationError("err.salesBonus");
+    await prisma.salesBonus.create({ data: { serviceType, country, amount, currency: input.currency === "UZS" ? "UZS" : "USD", fromDate } });
+    revalidatePath("/reports");
+  });
+}
+
+export async function deleteSalesBonusAction(id: string) {
+  return runAction(async () => {
+    await requireAdmin();
+    await prisma.salesBonus.delete({ where: { id } }).catch(() => undefined);
+    revalidatePath("/reports");
+  });
+}

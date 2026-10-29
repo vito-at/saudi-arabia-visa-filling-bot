@@ -83,6 +83,8 @@ export interface PlanFact {
   flightCommission: number;
   /** начислено по особым процентам (SalaryRule) — эти сделки не входят в revenueSalary/profitSalary */
   ruleCommission?: number;
+  /** фиксированная оплата за проданные единицы (SalesBonus, например 5 $ за визу в ОАЭ) — вместо процента с этих сделок, в валюте зарплаты */
+  bonusSalary?: number;
   /** сделки, у которых администратор ещё не указал себестоимость: их прибыль не идёт в план и комиссию от прибыли */
   pendingCost?: number;
 }
@@ -109,7 +111,7 @@ export function calcPayout(terms: SalaryTerms, plan: PlanValues, fact: PlanFact)
   const ratePct = terms.pct + (planMet ? terms.bonusPct : 0);
   // убыточный месяц не уменьшает оклад
   const basis = terms.from === "PROFIT" ? fact.profitSalary : fact.revenueSalary;
-  const commission = round2((Math.max(0, basis) * ratePct) / 100 + Math.max(0, fact.flightCommission) + Math.max(0, fact.ruleCommission ?? 0));
+  const commission = round2((Math.max(0, basis) * ratePct) / 100 + Math.max(0, fact.flightCommission) + Math.max(0, fact.ruleCommission ?? 0) + Math.max(0, fact.bonusSalary ?? 0));
   return { plan, fact, done, planMet, ratePct, commission, base: terms.base, total: round2(terms.base + commission), currency: terms.currency };
 }
 
@@ -159,6 +161,27 @@ export function ruleForDeal(deal: { serviceType: ServiceType | null; product: st
   const fit = rules.filter((r) => r.serviceType === deal.serviceType && r.fromDate <= day && (r.country === null || r.country === country));
   // правило для конкретной страны важнее общего; среди равных — начавшееся позже
   return fit.sort((a, b) => Number(b.country !== null) - Number(a.country !== null) || b.fromDate.localeCompare(a.fromDate))[0] ?? null;
+}
+
+export interface SalesBonusView {
+  id: string;
+  serviceType: ServiceType;
+  country: string | null;
+  amount: number;
+  currency: Currency;
+  fromDate: string;
+}
+
+/**
+ * Фиксированная оплата за сделку (вместо процента): правило той же услуги (и страны), действующее на день оплаты;
+ * из нескольких — для страны важнее общего, среди равных — начавшееся позже. Сумма — за каждую единицу
+ * (для визы — за каждое заявление, по количеству в сделке).
+ */
+export function bonusForDeal(deal: { serviceType: ServiceType | null; product: string; paidAt: Date; quantity: number }, bonuses: SalesBonusView[]): { amount: number; currency: Currency } | null {
+  const b = ruleForDeal(deal, bonuses.map((x) => ({ ...x, pct: 0, from: "REVENUE" as const })));
+  if (!b) return null;
+  const found = bonuses.find((x) => x.id === b.id)!;
+  return { amount: round2(found.amount * Math.max(1, deal.quantity)), currency: found.currency };
 }
 
 /** С этого дня (по Ташкенту) в деление авиабилетов входят только те, кто был «В работе» не меньше 4 часов */
@@ -231,7 +254,7 @@ export async function loadManagerMonths(range: MonthRange, managerId: string | n
   const tracked = !start || range.to > start;
   // в месяце начала учёта комиссия — только с даты начала; месяцы до учёта показывают продажи как есть, без начислений
   const dealsFrom = tracked && start && start > range.from ? start : range.from;
-  const [leads, deals, shiftDays, payouts] = await Promise.all([
+  const [leads, deals, shiftDays, payouts, bonusRows] = await Promise.all([
     prisma.lead.groupBy({ by: ["managerId"], where: { managerId: { in: ids }, createdAt: { gte: range.from, lt: range.to } }, _count: { _all: true } }),
     prisma.deal.findMany({
       where: { managerId: { in: ids }, paidAt: { gte: dealsFrom, lt: range.to } },
@@ -241,7 +264,9 @@ export async function loadManagerMonths(range: MonthRange, managerId: string | n
     // администраторы и визовики в деление не входят, даже если раньше были менеджерами
     prisma.shiftDay.findMany({ where: { day: { gte: monthKey(range.ym), lt: monthKey(shiftMonth(range.ym, 1)) }, user: { role: "MANAGER" } } }),
     prisma.salaryPayout.findMany({ where: { userId: { in: ids }, month: monthKey(range.ym) }, orderBy: { paidAt: "asc" } }),
+    prisma.salesBonus.findMany({ orderBy: { fromDate: "asc" } }),
   ]);
+  const bonuses: SalesBonusView[] = bonusRows.map((b) => ({ id: b.id, serviceType: b.serviceType, country: b.country, amount: toNum(b.amount), currency: b.currency, fromDate: b.fromDate.toISOString().slice(0, 10) }));
   const workers = flightWorkers(
     shiftDays.map((s) => ({ userId: s.userId, day: s.day.toISOString().slice(0, 10), activeSec: s.activeSec })),
     range.ym <= SHIFT_RULE_FROM.slice(0, 7) ? await activityDays(range) : [],
@@ -259,8 +284,14 @@ export async function loadManagerMonths(range: MonthRange, managerId: string | n
     }));
     const flights = own.filter((d) => d.serviceType === "FLIGHTS");
     // сделки с особым процентом (например, 9% с виз в Таиланд) — вместо обычного процента
-    const special = own.filter((d) => d.serviceType !== "FLIGHTS").map((d) => ({ d, rule: ruleForDeal(d, rules) }));
-    const other = special.filter((x) => !x.rule).map((x) => x.d);
+    // фиксированная оплата за единицу (например, 5 $ за визу в ОАЭ) — тоже вместо процента; особый процент менеджера важнее
+    const special = own
+      .filter((d) => d.serviceType !== "FLIGHTS")
+      .map((d) => {
+        const rule = ruleForDeal(d, rules);
+        return { d, rule, bonus: rule ? null : bonusForDeal(d, bonuses) };
+      });
+    const other = special.filter((x) => !x.rule && !x.bonus).map((x) => x.d);
     // пока себестоимость не указана, прибыль сделки неизвестна (себестоимость 0 завысила бы план, надбавку и комиссию от прибыли)
     const confirmed = own.filter((d) => d.costConfirmed);
     const st = u.salaryTerms[0];
@@ -294,6 +325,10 @@ export async function loadManagerMonths(range: MonthRange, managerId: string | n
           const base = rule.from === "PROFIT" ? (d.costConfirmed ? dealProfit(d, money(terms.currency)) : 0) : dealRevenue(d, money(terms.currency));
           return sum + (Math.max(0, base) * rule.pct) / 100;
         }, 0),
+      ),
+      // фиксированная оплата за проданные единицы — по курсу дня оплаты сделки
+      bonusSalary: round2(
+        special.reduce((sum, { d, bonus }) => (bonus ? sum + convertCost(bonus.amount, bonus.currency, terms.currency, ratesOn(book, d.paidAt)) : sum), 0),
       ),
       pendingCost: own.length - confirmed.length,
     };
