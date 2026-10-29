@@ -55,7 +55,7 @@ export function CountryInfo({
   isAdmin,
 }: {
   c: VisaCountry & { updatedBy: { name: string } | null; verifiedBy: { name: string } | null };
-  route: string;
+  route: React.ReactNode;
   i18n: I18n;
   canEdit: boolean;
   isAdmin: boolean;

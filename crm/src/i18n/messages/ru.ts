@@ -968,6 +968,10 @@ export const ru = {
     verifiedOk: "Отмечено: информация проверена",
     unverified: "Отметка «проверено» снята",
     unverifyConfirm: "Снять отметку «Информация проверена»?",
+    searchCountry: "Найти страну…",
+    nothingFound: "Ничего не найдено",
+    popular: "Популярные направления",
+    ownList: "Свои направления",
     regions: {
       CIS: "СНГ и соседи",
       EUROPE: "Европа",
