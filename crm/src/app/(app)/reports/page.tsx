@@ -18,6 +18,9 @@ import { PlansTable } from "@/components/reports/plans-table";
 import { ChevronLeft, ChevronRight, Download } from "lucide-react";
 import { Lightbulb } from "lucide-react";
 import { ProductSalesTable } from "@/components/reports/product-sales-table";
+import { SalesBonuses } from "@/components/reports/sales-bonuses";
+import { prisma } from "@/lib/db";
+import { toNum } from "@/lib/money";
 import { sp, type SearchParams } from "@/lib/leads/query";
 import { requireUser } from "@/lib/session";
 import { cn } from "@/lib/utils";
@@ -360,6 +363,8 @@ async function PlansReport({ f, ym, isAdmin, keep }: { f: F; ym: string | undefi
   const fm = formatters(f.locale);
   const allMonths = [rows, ...history];
   const salaryStart = (await getSettings()).salaryStartAt;
+  // фиксированная оплата за проданные единицы (5 $ за визу в ОАЭ и т. п.) — настраивает администратор
+  const bonuses = isAdmin ? await prisma.salesBonus.findMany({ orderBy: [{ fromDate: "desc" }, { createdAt: "desc" }] }) : [];
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -414,6 +419,16 @@ async function PlansReport({ f, ym, isAdmin, keep }: { f: F; ym: string | undefi
         <p className="px-5 py-3 text-xs text-muted-foreground">{f.t("plans.note")}</p>
         {salaryStart && <p className="px-5 pb-3 text-xs text-muted-foreground">{f.t("plans.countedFrom", { date: formatDate(salaryStart) })}</p>}
       </Card>
+      {isAdmin && (
+        <Card>
+          <CardHeader>
+            <CardTitle>{f.t("plans.bonusesTitle")}</CardTitle>
+          </CardHeader>
+          <SalesBonuses
+            rows={bonuses.map((b) => ({ id: b.id, serviceType: b.serviceType, country: b.country, amount: toNum(b.amount), currency: b.currency, fromDate: b.fromDate.toISOString().slice(0, 10) }))}
+          />
+        </Card>
+      )}
       {rows.length > 0 && (
         <Card>
           <CardHeader>

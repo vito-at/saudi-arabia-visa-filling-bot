@@ -108,6 +108,7 @@ export const VISA_COUNTRIES = [
   { ru: "Таиланд", uz: "Tailand", en: "Thailand", aliases: ["тайланд", "таиланд", "thailand", "tailand", "tayland"] },
   { ru: "Вьетнам", uz: "Vyetnam", en: "Vietnam", aliases: ["вьетнам", "vietnam", "vyetnam", "vetnam"] },
   { ru: "Саудовская Аравия", uz: "Saudiya Arabistoni", en: "Saudi Arabia", aliases: ["саудовская аравия", "саудия", "saudi arabia", "saudiya arabistoni", "saudiya"] },
+  { ru: "ОАЭ", uz: "BAA", en: "UAE", aliases: ["оаэ", "эмираты", "объединённые арабские эмираты", "объединенные арабские эмираты", "дубай", "абу-даби", "uae", "dubai", "emirates", "united arab emirates", "baa"] },
   { ru: "Кыргызстан", uz: "Qirg‘iziston", en: "Kyrgyzstan", aliases: ["кыргызстан", "киргизия", "kyrgyzstan", "qirg‘iziston", "qirgiziston"] },
 ] as const;
 

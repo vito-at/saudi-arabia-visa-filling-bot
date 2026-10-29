@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calcPayout, dealCountry, ruleForDeal, type SalaryRuleView } from "@/lib/salary";
+import { bonusForDeal, calcPayout, dealCountry, ruleForDeal, type SalaryRuleView } from "@/lib/salary";
 
 const thai: SalaryRuleView = { id: "r1", serviceType: "VISA", country: "Таиланд", pct: 9, from: "REVENUE", fromDate: "2026-10-25" };
 // 25.10 по Ташкенту начинается 24.10 в 19:00 UTC
@@ -12,7 +12,8 @@ describe("особые проценты", () => {
     expect(dealCountry("Visa support: Thailand")).toBe("Таиланд");
     expect(dealCountry("Виза: Саудовская Аравия")).toBe("Саудовская Аравия");
     expect(dealCountry("Виза: Вьетнам")).toBe("Вьетнам");
-    expect(dealCountry("Тур: Дубай")).toBeNull();
+    expect(dealCountry("Тур: Дубай")).toBe("ОАЭ");
+    expect(dealCountry("Авиабилеты: Москва")).toBeNull();
   });
 
   it("правило действует с 25.10 включительно (по Ташкенту) и только для своей страны", () => {
@@ -35,5 +36,25 @@ describe("особые проценты", () => {
     const fact = { leads: 0, sales: 0, profitUsd: 100, profitSalary: 0, revenueUsd: 0, revenueSalary: 1000, flightProfitSalary: 0, flightCommission: 0, ruleCommission: 18 };
     const pay = calcPayout(terms, { leads: null, sales: null, profit: 50 }, fact);
     expect(pay.commission).toBe(1000 * 0.07 + 18);
+  });
+});
+
+describe("фиксированная оплата за продажи", () => {
+  const uae = { id: "b1", serviceType: "VISA" as const, country: "ОАЭ", amount: 5, currency: "USD" as const, fromDate: "2026-10-29" };
+  const sg = { ...uae, id: "b2", country: "Сингапур" };
+  it("5 $ за каждую визу в ОАЭ и Сингапур с 29.10, по числу заявлений", () => {
+    const d = (product: string, paidAt: string, quantity = 1) => ({ serviceType: "VISA" as const, product, paidAt: new Date(paidAt), quantity });
+    expect(bonusForDeal(d("Виза: ОАЭ, 2 заявл.", "2026-10-29T06:00:00Z", 2), [uae, sg])).toEqual({ amount: 10, currency: "USD" });
+    expect(bonusForDeal(d("Viza ko‘magi: BAA", "2026-10-30T06:00:00Z"), [uae, sg])?.amount).toBe(5);
+    expect(bonusForDeal(d("Виза: Дубай", "2026-10-30T06:00:00Z"), [uae, sg])?.amount).toBe(5);
+    expect(bonusForDeal(d("Виза: Сингапур", "2026-10-30T06:00:00Z"), [uae, sg])?.amount).toBe(5);
+    expect(bonusForDeal(d("Виза: ОАЭ", "2026-10-28T06:00:00Z"), [uae, sg])).toBeNull();
+    expect(bonusForDeal(d("Виза: Таиланд", "2026-10-30T06:00:00Z"), [uae, sg])).toBeNull();
+    expect(bonusForDeal({ serviceType: "TOUR", product: "Тур: ОАЭ", paidAt: new Date("2026-10-30T06:00:00Z"), quantity: 1 }, [uae, sg])).toBeNull();
+  });
+  it("фиксированная оплата входит в начисление", () => {
+    const terms = { base: 0, currency: "USD" as const, pct: 5, bonusPct: 0, from: "REVENUE" as const };
+    const fact = { leads: 0, sales: 0, profitUsd: 0, profitSalary: 0, revenueUsd: 0, revenueSalary: 300, flightProfitSalary: 0, flightCommission: 0, bonusSalary: 15 };
+    expect(calcPayout(terms, { leads: null, sales: null, profit: null }, fact).commission).toBe(30);
   });
 });
