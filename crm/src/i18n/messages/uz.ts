@@ -970,6 +970,11 @@ export const uz: Messages = {
     verifiedOk: "Belgilandi: ma’lumot tekshirilgan",
     unverified: "«Tekshirilgan» belgisi olib tashlandi",
     unverifyConfirm: "«Ma’lumot tekshirilgan» belgisi olib tashlansinmi?",
+    searchCountry: "Davlatni qidirish…",
+    nothingFound: "Hech narsa topilmadi",
+    popular: "Mashhur yo‘nalishlar",
+    ownList: "O‘z yo‘nalishlari",
+    allCountries: "Barcha davlatlar",
     regions: {
       CIS: "MDH va qo‘shnilar",
       EUROPE: "Yevropa",

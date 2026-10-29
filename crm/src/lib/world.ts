@@ -236,6 +236,35 @@ export const worldCountry = (code: string | null | undefined) => (code ? BY_CODE
 
 export const isCitizenship = (v: string | null | undefined): v is Citizenship => CITIZENSHIPS.includes(v as Citizenship);
 
+/** Строка для поиска: нижний регистр, ё → е, без апострофов узбекской латиницы */
+export const searchText = (v: string) => v.toLowerCase().replace(/ё/g, "е").replace(/[‘’'`ʻ]/g, "").replace(/\s+/g, " ").trim();
+
+/** Другие названия, по которым ищут страну */
+const ALIASES: Record<string, string> = {
+  AE: "эмираты дубай абу-даби uae dubai emirates amirliklar",
+  GB: "англия британия лондон uk england britain angliya",
+  US: "америка штаты usa america amerika",
+  KR: "корея korea koreya",
+  KP: "северная корея north korea",
+  CZ: "чехия czech republic",
+  NL: "голландия holland gollandiya",
+  TR: "турция turkiye turkey",
+  CN: "кнр prc",
+  HK: "гонконг hong kong",
+  CH: "швейцария switzerland",
+  SA: "саудия ksa saudiya",
+  ID: "бали bali",
+  MV: "мальдивы maldives",
+  CY: "кипр cyprus",
+  EG: "египет шарм хургада sharm hurghada",
+  TH: "таиланд тайланд пхукет phuket",
+  VN: "вьетнам нячанг vietnam",
+  GE: "грузия батуми тбилиси batumi tbilisi",
+};
+
+/** Всё, по чему ищется страна: названия на трёх языках, код и другие названия */
+export const countrySearch = (w: WorldCountry) => searchText([w.ru, w.uz, w.en, w.code, ALIASES[w.code] ?? ""].join(" "));
+
 /** Флаг из кода страны («UZ» → 🇺🇿) */
 export const flag = (code: string) =>
   /^[A-Z]{2}$/.test(code) ? String.fromCodePoint(...[...code].map((ch) => 0x1f1e6 + ch.charCodeAt(0) - 65)) : "🏳️";

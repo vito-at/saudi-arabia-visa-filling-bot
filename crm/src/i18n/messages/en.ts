@@ -970,6 +970,11 @@ export const en: Messages = {
     verifiedOk: "Marked: information verified",
     unverified: "“Verified” mark removed",
     unverifyConfirm: "Remove the “Information verified” mark?",
+    searchCountry: "Find a country…",
+    nothingFound: "Nothing found",
+    popular: "Popular destinations",
+    ownList: "Custom destinations",
+    allCountries: "All countries",
     regions: {
       CIS: "CIS and neighbours",
       EUROPE: "Europe",

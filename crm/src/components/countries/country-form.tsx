@@ -6,11 +6,15 @@ import { toast } from "sonner";
 import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Field, Input, NativeSelect, Textarea } from "@/components/ui/input";
+import { Field, Input, Label, NativeSelect, Textarea } from "@/components/ui/input";
 import { deleteCountryAction, saveCountryAction } from "@/app/(app)/countries/actions";
 import { VISA_KINDS, type CountryInput } from "@/lib/countries";
-import { CITIZENSHIPS, REGIONS, WORLD, countryName, flag, worldCountry } from "@/lib/world";
+import { CITIZENSHIPS, WORLD, countryName, countrySearch, worldCountry } from "@/lib/world";
+import { CountryCombo, type ComboOption } from "@/components/countries/country-combo";
 import { useI18n } from "@/i18n/client";
+
+/** «Своё направление» в выборе страны */
+const OWN = "__own";
 
 /** Карточка страны: создание и правка (администратор и визовые специалисты) */
 export function CountryForm({ id, initial, canDelete }: { id: string | null; initial: CountryInput; canDelete: boolean }) {
@@ -18,6 +22,9 @@ export function CountryForm({ id, initial, canDelete }: { id: string | null; ini
   const router = useRouter();
   const [pending, start] = useTransition();
   const [v, setV] = useState(initial);
+  const destinations: ComboOption[] = WORLD.filter((w) => w.code !== v.citizenship)
+    .map((w) => ({ code: w.code, label: countryName(w, locale), search: countrySearch(w) }))
+    .sort((a, b) => a.label.localeCompare(b.label, locale));
   const set = (k: keyof CountryInput) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setV({ ...v, [k]: e.target.value });
 
   function save(e: React.FormEvent) {
@@ -42,31 +49,29 @@ export function CountryForm({ id, initial, canDelete }: { id: string | null; ini
     <form onSubmit={save} className="space-y-4">
       <Card className="space-y-4 p-5">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field label={t("countries.step1")}>
-            <NativeSelect value={v.citizenship} onChange={set("citizenship")}>
-              {CITIZENSHIPS.map((code) => (
-                <option key={code} value={code}>
-                  {flag(code)} {countryName(worldCountry(code)!, locale)}
-                </option>
-              ))}
-            </NativeSelect>
-          </Field>
-          <Field label={t("countries.step2")}>
-            <NativeSelect value={v.code} onChange={set("code")}>
-              <option value="">{t("countries.ownDestination")}</option>
-              {REGIONS.map((r) => (
-                <optgroup key={r} label={t(`countries.regions.${r}`)}>
-                  {WORLD.filter((w) => w.region === r && w.code !== v.citizenship)
-                    .sort((a, b) => countryName(a, locale).localeCompare(countryName(b, locale), locale))
-                    .map((w) => (
-                      <option key={w.code} value={w.code}>
-                        {flag(w.code)} {countryName(w, locale)}
-                      </option>
-                    ))}
-                </optgroup>
-              ))}
-            </NativeSelect>
-          </Field>
+          <div className="space-y-1.5">
+            <Label>{t("countries.step1")}</Label>
+            <CountryCombo
+              value={v.citizenship}
+              onChange={(code) => setV({ ...v, citizenship: code })}
+              options={CITIZENSHIPS.map((code) => worldCountry(code)!).map((w) => ({ code: w.code, label: countryName(w, locale), search: countrySearch(w) }))}
+              placeholder={t("countries.choose")}
+              searchPlaceholder={t("countries.searchCountry")}
+              emptyText={t("countries.nothingFound")}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>{t("countries.step2")}</Label>
+            <CountryCombo
+              value={v.code || OWN}
+              onChange={(code) => setV({ ...v, code: code === OWN ? "" : code })}
+              options={destinations}
+              extra={{ code: OWN, label: t("countries.ownDestination") }}
+              placeholder={t("countries.choose")}
+              searchPlaceholder={t("countries.searchCountry")}
+              emptyText={t("countries.nothingFound")}
+            />
+          </div>
           {!v.code && (
             <Field label={t("countries.name")}>
               <Input value={v.name} onChange={set("name")} required maxLength={100} placeholder={t("countries.namePh")} />
