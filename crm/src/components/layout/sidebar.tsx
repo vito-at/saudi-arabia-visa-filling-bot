@@ -139,17 +139,15 @@ function SidebarContent({ user, counters, logout, rate, shift }: SidebarProps) {
       <div className="shrink-0 space-y-3 border-t border-sidebar-border p-3">
         {shift && <ShiftToggle on={shift.on} activeSec={shift.activeSec} />}
         <RateWidget rate={rate.value} updatedAt={rate.updatedAt} />
-        {/* тема и язык — одной строкой, чтобы не занимать место под разделами */}
-        <div className="flex items-center gap-2">
-          <ThemeToggle compact />
-          <LanguageSwitcher compact className="flex-1" />
-        </div>
-        <div className="flex items-center gap-3 px-1">
+        {/* тема и язык — маленькими кнопками в строке пользователя, чтобы не занимать место под разделами */}
+        <div className="flex items-center gap-2 px-1">
           <div className="flex size-8 items-center justify-center rounded-full bg-brand text-xs font-semibold text-white">{user.name.slice(0, 1).toUpperCase()}</div>
           <div className="min-w-0 flex-1">
             <div className="truncate text-sm font-medium text-foreground">{user.name}</div>
-            <div className="text-xs text-sidebar-muted">{t(`role.${user.role}` as TKey)}</div>
+            <div className="truncate text-xs text-sidebar-muted">{t(`role.${user.role}` as TKey)}</div>
           </div>
+          <ThemeToggle compact />
+          <LanguageSwitcher compact />
           <form action={logout}>
             <button type="submit" title={t("nav.logout")} className="rounded-md p-1.5 text-sidebar-muted hover:bg-sidebar-hover hover:text-foreground cursor-pointer">
               <LogOut className="size-4" />
