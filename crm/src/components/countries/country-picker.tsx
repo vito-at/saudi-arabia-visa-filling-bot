@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { ArrowRight } from "lucide-react";
 import { Label } from "@/components/ui/input";
 import { CountryCombo, type ComboOption } from "@/components/countries/country-combo";
-import { CITIZENSHIPS, REGIONS, WORLD, countryName, countrySearch, worldCountry } from "@/lib/world";
+import { CITIZENSHIPS, WORLD, countryName, countrySearch, worldCountry } from "@/lib/world";
 import { useI18n } from "@/i18n/client";
 
 /** Шаг 1 — гражданство (по умолчанию Узбекистан), шаг 2 — куда едет; поиск по названию, выбор сразу открывает информацию */
@@ -18,14 +18,12 @@ export function CountryPicker({ from, to, filled }: { from: string; to: string |
     () => CITIZENSHIPS.map((code) => worldCountry(code)!).map((w) => ({ code: w.code, label: countryName(w, locale), search: countrySearch(w) })),
     [locale],
   );
-  // страны по частям света, внутри — по алфавиту на языке пользователя
+  // все страны по алфавиту на языке пользователя
   const destinations: ComboOption[] = useMemo(
     () =>
-      REGIONS.flatMap((r) =>
-        WORLD.filter((w) => w.region === r && w.code !== from)
-          .sort((a, b) => countryName(a, locale).localeCompare(countryName(b, locale), locale))
-          .map((w) => ({ code: w.code, label: countryName(w, locale), region: r, search: countrySearch(w), mark: has.has(w.code) })),
-      ),
+      WORLD.filter((w) => w.code !== from)
+        .map((w) => ({ code: w.code, label: countryName(w, locale), search: countrySearch(w), mark: has.has(w.code) }))
+        .sort((a, b) => a.label.localeCompare(b.label, locale)),
     [from, locale, has],
   );
   return (
@@ -51,7 +49,6 @@ export function CountryPicker({ from, to, filled }: { from: string; to: string |
           placeholder={t("countries.choose")}
           searchPlaceholder={t("countries.searchCountry")}
           emptyText={t("countries.nothingFound")}
-          regionLabel={(r) => t(`countries.regions.${r}`)}
         />
       </div>
     </div>

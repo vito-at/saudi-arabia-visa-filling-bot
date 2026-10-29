@@ -974,6 +974,7 @@ export const en: Messages = {
     nothingFound: "Nothing found",
     popular: "Popular destinations",
     ownList: "Custom destinations",
+    allCountries: "All countries",
     regions: {
       CIS: "CIS and neighbours",
       EUROPE: "Europe",

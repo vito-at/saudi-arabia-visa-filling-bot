@@ -9,7 +9,7 @@ import { Card } from "@/components/ui/card";
 import { Field, Input, Label, NativeSelect, Textarea } from "@/components/ui/input";
 import { deleteCountryAction, saveCountryAction } from "@/app/(app)/countries/actions";
 import { VISA_KINDS, type CountryInput } from "@/lib/countries";
-import { CITIZENSHIPS, REGIONS, WORLD, countryName, countrySearch, worldCountry } from "@/lib/world";
+import { CITIZENSHIPS, WORLD, countryName, countrySearch, worldCountry } from "@/lib/world";
 import { CountryCombo, type ComboOption } from "@/components/countries/country-combo";
 import { useI18n } from "@/i18n/client";
 
@@ -22,11 +22,9 @@ export function CountryForm({ id, initial, canDelete }: { id: string | null; ini
   const router = useRouter();
   const [pending, start] = useTransition();
   const [v, setV] = useState(initial);
-  const destinations: ComboOption[] = REGIONS.flatMap((r) =>
-    WORLD.filter((w) => w.region === r && w.code !== v.citizenship)
-      .sort((a, b) => countryName(a, locale).localeCompare(countryName(b, locale), locale))
-      .map((w) => ({ code: w.code, label: countryName(w, locale), region: r, search: countrySearch(w) })),
-  );
+  const destinations: ComboOption[] = WORLD.filter((w) => w.code !== v.citizenship)
+    .map((w) => ({ code: w.code, label: countryName(w, locale), search: countrySearch(w) }))
+    .sort((a, b) => a.label.localeCompare(b.label, locale));
   const set = (k: keyof CountryInput) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setV({ ...v, [k]: e.target.value });
 
   function save(e: React.FormEvent) {
@@ -72,7 +70,6 @@ export function CountryForm({ id, initial, canDelete }: { id: string | null; ini
               placeholder={t("countries.choose")}
               searchPlaceholder={t("countries.searchCountry")}
               emptyText={t("countries.nothingFound")}
-              regionLabel={(r) => t(`countries.regions.${r}`)}
             />
           </div>
           {!v.code && (

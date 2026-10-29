@@ -974,6 +974,7 @@ export const uz: Messages = {
     nothingFound: "Hech narsa topilmadi",
     popular: "Mashhur yo‘nalishlar",
     ownList: "O‘z yo‘nalishlari",
+    allCountries: "Barcha davlatlar",
     regions: {
       CIS: "MDH va qo‘shnilar",
       EUROPE: "Yevropa",

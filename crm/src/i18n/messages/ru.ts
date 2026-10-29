@@ -972,6 +972,7 @@ export const ru = {
     nothingFound: "Ничего не найдено",
     popular: "Популярные направления",
     ownList: "Свои направления",
+    allCountries: "Все страны",
     regions: {
       CIS: "СНГ и соседи",
       EUROPE: "Европа",

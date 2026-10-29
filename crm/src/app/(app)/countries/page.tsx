@@ -7,7 +7,7 @@ import { CountryInfo } from "@/components/countries/country-info";
 import { Flag } from "@/components/countries/flag";
 import { prisma } from "@/lib/db";
 import { canEditCountries } from "@/lib/countries";
-import { DEFAULT_CITIZENSHIP, REGIONS, countryName, isCitizenship, worldCountry } from "@/lib/world";
+import { DEFAULT_CITIZENSHIP, countryName, isCitizenship, worldCountry } from "@/lib/world";
 import { sp, type SearchParams } from "@/lib/leads/query";
 import { requireUser } from "@/lib/session";
 import { cn } from "@/lib/utils";
@@ -66,6 +66,14 @@ export default async function CountriesPage({ searchParams }: { searchParams: Pr
   );
   const byName = (a: (typeof filled)[number], b: (typeof filled)[number]) => nameOf(a.code, a.name).localeCompare(nameOf(b.code, b.name), locale);
   const popular = POPULAR.flatMap((code) => filled.filter((r) => r.code === code));
+  // все страны — по алфавиту, по первой букве названия на языке пользователя
+  const letters: [string, typeof filled][] = [];
+  for (const r of filled.filter((x) => worldCountry(x.code)).sort(byName)) {
+    const letter = nameOf(r.code, r.name).charAt(0).toUpperCase();
+    const last = letters.at(-1);
+    if (last && last[0] === letter) last[1].push(r);
+    else letters.push([letter, [r]]);
+  }
 
   return (
     <div className="mx-auto max-w-4xl space-y-4">
@@ -105,15 +113,17 @@ export default async function CountriesPage({ searchParams }: { searchParams: Pr
                   <div className="flex flex-wrap gap-2">{popular.map(chip)}</div>
                 </section>
               )}
-              {REGIONS.map((reg) => {
-                const list = filled.filter((r) => (worldCountry(r.code)?.region ?? null) === reg).sort(byName);
-                return list.length ? (
-                  <section key={reg}>
-                    <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t(`countries.regions.${reg}`)}</h3>
-                    <div className="flex flex-wrap gap-2">{list.map(chip)}</div>
-                  </section>
-                ) : null;
-              })}
+              <section>
+                <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("countries.allCountries")}</h3>
+                <div className="space-y-3">
+                  {letters.map(([letter, list]) => (
+                    <div key={letter} className="flex gap-3">
+                      <div className="w-6 shrink-0 pt-1.5 text-sm font-semibold text-muted-foreground">{letter}</div>
+                      <div className="flex flex-1 flex-wrap gap-2">{list.map(chip)}</div>
+                    </div>
+                  ))}
+                </div>
+              </section>
               {filled.some((r) => !worldCountry(r.code)) && (
                 <section>
                   <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("countries.ownList")}</h3>
