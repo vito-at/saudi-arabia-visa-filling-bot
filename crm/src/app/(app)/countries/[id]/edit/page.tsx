@@ -1,8 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { CountryForm } from "@/components/countries/country-form";
 import { prisma } from "@/lib/db";
-import { canEditCountries } from "@/lib/countries";
-import { toNum } from "@/lib/money";
+import { canEditCountries, readPrices } from "@/lib/countries";
 import { requireUser } from "@/lib/session";
 import { getI18n } from "@/i18n/server";
 
@@ -26,8 +25,7 @@ export default async function EditCountryPage({ params }: { params: Promise<{ id
           visaKind: c.visaKind ?? "",
           documents: c.documents,
           consularFee: c.consularFee ?? "",
-          salePrice: c.salePrice === null ? "" : String(toNum(c.salePrice)),
-          saleCurrency: c.saleCurrency,
+          prices: readPrices(c.prices).map((p) => ({ label: p.label, price: String(p.price), currency: p.currency })),
           processingTime: c.processingTime ?? "",
           validity: c.validity ?? "",
           whereToApply: c.whereToApply ?? "",

@@ -1,6 +1,6 @@
 /**
  * Справочник виз: для гражданина страны (по умолчанию Узбекистан) — поездка в страну мира: нужна ли виза, документы,
- * консульский сбор, цена продажи, где подавать, сайты подачи и записи, визовый сервис, официальные источники.
+ * консульский сбор, цены продажи по вариантам визы (30 дней, 1 год…), где подавать, сайты подачи и записи, визовый сервис, официальные источники.
  * Читают все сотрудники; правят администратор и визовые специалисты (canEditCountries); любая правка снимает
  * отметку «проверено», ставит её только администратор.
  */
@@ -12,6 +12,33 @@ export const VISA_KINDS: VisaKind[] = ["EVISA", "STICKER", "ON_ARRIVAL", "VISA_F
 
 export const canEditCountries = (role: Role) => role === "ADMIN" || role === "VISA";
 
+/** Вариант визы с ценой для клиента: «30 дней» — 40 $, «1 год» — 65 $ */
+export interface PriceOption {
+  label: string;
+  price: number;
+  currency: Currency;
+}
+
+/** Вариант цены в форме — строками, как ввели */
+export interface PriceInput {
+  label: string;
+  price: string;
+  currency: string;
+}
+
+export const MAX_PRICES = 10;
+
+const currencyOf = (v: unknown): Currency => (v === "UZS" ? "UZS" : "USD");
+
+/** Варианты цен из колонки prices (Json); битые записи пропускаем */
+export function readPrices(v: unknown): PriceOption[] {
+  if (!Array.isArray(v)) return [];
+  return v
+    .filter((p): p is Record<string, unknown> => !!p && typeof p === "object")
+    .map((p) => ({ label: typeof p.label === "string" ? p.label : "", price: Number(p.price), currency: currencyOf(p.currency) }))
+    .filter((p) => Number.isFinite(p.price) && p.price >= 0);
+}
+
 export interface CountryInput {
   citizenship: string;
   /** код страны поездки; пусто — своё направление (name) */
@@ -20,8 +47,7 @@ export interface CountryInput {
   visaKind: string;
   documents: string;
   consularFee: string;
-  salePrice: string;
-  saleCurrency: string;
+  prices: PriceInput[];
   processingTime: string;
   validity: string;
   whereToApply: string;
@@ -40,6 +66,8 @@ export interface CountryData {
   visaKind: VisaKind | null;
   documents: string;
   consularFee: string | null;
+  prices: PriceOption[];
+  /** первый вариант — для старого кода */
   salePrice: number | null;
   saleCurrency: Currency;
   processingTime: string | null;
@@ -78,11 +106,16 @@ export function parseCountry(input: CountryInput): { data: CountryData } | { err
   const applyUrl = normalizeUrl(input.applyUrl);
   const appointmentUrl = normalizeUrl(input.appointmentUrl);
   if (applyUrl === "invalid" || appointmentUrl === "invalid") return { error: "err.countryUrl" };
-  let salePrice: number | null = null;
-  if (input.salePrice.trim()) {
-    salePrice = parseAmount(input.salePrice);
-    if (!Number.isFinite(salePrice) || salePrice < 0) return { error: "err.countryPrice" };
+  // варианты цен: пустые строки убираем; подпись без цены — ошибка
+  const prices: PriceOption[] = [];
+  for (const p of input.prices) {
+    const label = p.label.trim().replace(/\s+/g, " ").slice(0, 60);
+    if (!label && !p.price.trim()) continue;
+    const price = parseAmount(p.price);
+    if (!p.price.trim() || !Number.isFinite(price) || price < 0) return { error: "err.countryPrice" };
+    prices.push({ label, price, currency: currencyOf(p.currency) });
   }
+  prices.splice(MAX_PRICES);
   return {
     data: {
       citizenship: input.citizenship,
@@ -98,8 +131,9 @@ export function parseCountry(input: CountryInput): { data: CountryData } | { err
         .join("\n")
         .slice(0, 10_000),
       consularFee: text(input.consularFee, 300),
-      salePrice,
-      saleCurrency: input.saleCurrency === "UZS" ? "UZS" : "USD",
+      prices,
+      salePrice: prices[0]?.price ?? null,
+      saleCurrency: prices[0]?.currency ?? "USD",
       processingTime: text(input.processingTime, 200),
       validity: text(input.validity, 200),
       whereToApply: text(input.whereToApply, 1000),

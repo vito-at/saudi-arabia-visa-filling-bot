@@ -3,12 +3,12 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Trash2 } from "lucide-react";
+import { Plus, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Field, Input, Label, NativeSelect, Textarea } from "@/components/ui/input";
 import { deleteCountryAction, saveCountryAction } from "@/app/(app)/countries/actions";
-import { VISA_KINDS, type CountryInput } from "@/lib/countries";
+import { MAX_PRICES, VISA_KINDS, type CountryInput, type PriceInput } from "@/lib/countries";
 import { CITIZENSHIPS, WORLD, countryName, countrySearch, worldCountry } from "@/lib/world";
 import { CountryCombo, type ComboOption } from "@/components/countries/country-combo";
 import { useI18n } from "@/i18n/client";
@@ -21,11 +21,17 @@ export function CountryForm({ id, initial, canDelete }: { id: string | null; ini
   const { t, locale } = useI18n();
   const router = useRouter();
   const [pending, start] = useTransition();
-  const [v, setV] = useState(initial);
+  // хотя бы одна строка цены — чтобы сразу было куда вписать
+  const [v, setV] = useState<CountryInput>(initial.prices.length ? initial : { ...initial, prices: [{ label: "", price: "", currency: "USD" }] });
   const destinations: ComboOption[] = WORLD.filter((w) => w.code !== v.citizenship)
     .map((w) => ({ code: w.code, label: countryName(w, locale), search: countrySearch(w) }))
     .sort((a, b) => a.label.localeCompare(b.label, locale));
   const set = (k: keyof CountryInput) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setV({ ...v, [k]: e.target.value });
+
+  const setPrice = (i: number, k: keyof PriceInput) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+    setV({ ...v, prices: v.prices.map((p, j) => (j === i ? { ...p, [k]: e.target.value } : p)) });
+  const addPrice = () => setV({ ...v, prices: [...v.prices, { label: "", price: "", currency: v.prices.at(-1)?.currency ?? "USD" }] });
+  const removePrice = (i: number) => setV({ ...v, prices: v.prices.filter((_, j) => j !== i) });
 
   function save(e: React.FormEvent) {
     e.preventDefault();
@@ -92,16 +98,29 @@ export function CountryForm({ id, initial, canDelete }: { id: string | null; ini
 
       <Card className="space-y-4 p-5">
         <h2 className="text-sm font-semibold">{t("countries.moneyTitle")}</h2>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field label={t("countries.salePrice")}>
-            <div className="flex gap-2">
-              <Input value={v.salePrice} onChange={set("salePrice")} inputMode="decimal" placeholder="120" />
-              <NativeSelect value={v.saleCurrency} onChange={set("saleCurrency")} className="w-24 shrink-0">
+        <div className="space-y-1.5">
+          <Label>{t("countries.salePrice")}</Label>
+          <p className="text-xs text-muted-foreground">{t("countries.pricesHint")}</p>
+          {v.prices.map((p, i) => (
+            <div key={i} className="flex flex-wrap gap-2 sm:flex-nowrap">
+              <Input value={p.label} onChange={setPrice(i, "label")} className="basis-full sm:basis-auto" maxLength={60} placeholder={t("countries.priceLabelPh")} aria-label={t("countries.priceLabel")} />
+              <Input value={p.price} onChange={setPrice(i, "price")} inputMode="decimal" placeholder="40" className="w-auto min-w-0 flex-1 sm:w-28 sm:flex-none" aria-label={t("countries.salePrice")} />
+              <NativeSelect value={p.currency} onChange={setPrice(i, "currency")} className="w-24 shrink-0" aria-label={t("countries.currency")}>
                 <option value="USD">{t("currency.USD")}</option>
                 <option value="UZS">{t("currency.UZS")}</option>
               </NativeSelect>
+              <Button type="button" variant="ghost" size="icon" className="shrink-0" onClick={() => removePrice(i)} aria-label={t("common.delete")}>
+                <X />
+              </Button>
             </div>
-          </Field>
+          ))}
+          {v.prices.length < MAX_PRICES && (
+            <Button type="button" variant="outline" size="sm" onClick={addPrice}>
+              <Plus /> {t("countries.addPrice")}
+            </Button>
+          )}
+        </div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label={t("countries.consularFee")}>
             <Input value={v.consularFee} onChange={set("consularFee")} maxLength={300} placeholder={t("countries.consularFeePh")} />
           </Field>

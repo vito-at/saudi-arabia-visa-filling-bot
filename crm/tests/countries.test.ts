@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { canEditCountries, documentLines, normalizeUrl, parseCountry, sourceLines, type CountryInput } from "@/lib/countries";
+import { canEditCountries, documentLines, normalizeUrl, parseCountry, readPrices, sourceLines, type CountryInput } from "@/lib/countries";
 import { CITIZENSHIPS, WORLD, flag, worldCountry } from "@/lib/world";
 
-const empty: CountryInput = { citizenship: "UZ", code: "", sources: "", name: "", visaKind: "", documents: "", consularFee: "", salePrice: "", saleCurrency: "USD", processingTime: "", validity: "", whereToApply: "", applyUrl: "", appointmentUrl: "", visaCenter: "", notes: "" };
+const empty: CountryInput = { citizenship: "UZ", code: "", sources: "", name: "", visaKind: "", documents: "", consularFee: "", prices: [], processingTime: "", validity: "", whereToApply: "", applyUrl: "", appointmentUrl: "", visaCenter: "", notes: "" };
 
 describe("справочник стран", () => {
   it("адрес сайта без https дополняется, не сайт — ошибка", () => {
@@ -15,12 +15,36 @@ describe("справочник стран", () => {
 
   it("форма: название обязательно, цена — число, пустые строки документов убираются", () => {
     expect(parseCountry(empty)).toEqual({ error: "err.countryName" });
-    expect(parseCountry({ ...empty, name: "Таиланд", salePrice: "сто" })).toEqual({ error: "err.countryPrice" });
+    expect(parseCountry({ ...empty, name: "Таиланд", prices: [{ label: "30 дней", price: "сто", currency: "USD" }] })).toEqual({ error: "err.countryPrice" });
     expect(parseCountry({ ...empty, name: "Таиланд", applyUrl: "не сайт" })).toEqual({ error: "err.countryUrl" });
-    const r = parseCountry({ ...empty, name: "  Шенген   (Италия) ", visaKind: "STICKER", salePrice: "1 200", documents: "Паспорт\n\n  Фото  \n", saleCurrency: "UZS" });
+    const r = parseCountry({ ...empty, name: "  Шенген   (Италия) ", visaKind: "STICKER", prices: [{ label: "", price: "1 200", currency: "UZS" }], documents: "Паспорт\n\n  Фото  \n" });
     expect("data" in r && r.data).toMatchObject({ name: "Шенген (Италия)", visaKind: "STICKER", salePrice: 1200, saleCurrency: "UZS", documents: "Паспорт\nФото", consularFee: null });
     expect("data" in r && r.data.visaKind).toBe("STICKER");
     expect(parseCountry({ ...empty, name: "X", visaKind: "WRONG" })).toMatchObject({ data: { visaKind: null } });
+  });
+
+  it("несколько цен по вариантам визы: пустые строки убираются, первая — основная цена, подпись без цены — ошибка", () => {
+    const r = parseCountry({
+      ...empty,
+      name: "Индия",
+      prices: [
+        { label: " 30   дней ", price: "40", currency: "USD" },
+        { label: "", price: "", currency: "USD" },
+        { label: "1 год", price: "65,5", currency: "USD" },
+      ],
+    });
+    expect("data" in r && r.data).toMatchObject({
+      prices: [
+        { label: "30 дней", price: 40, currency: "USD" },
+        { label: "1 год", price: 65.5, currency: "USD" },
+      ],
+      salePrice: 40,
+      saleCurrency: "USD",
+    });
+    expect(parseCountry({ ...empty, name: "Индия", prices: [{ label: "1 год", price: "", currency: "USD" }] })).toEqual({ error: "err.countryPrice" });
+    expect(parseCountry({ ...empty, name: "Индия" })).toMatchObject({ data: { prices: [], salePrice: null } });
+    expect(readPrices([{ label: "30 дней", price: 40, currency: "USD" }, null, { price: "x" }, "y"])).toEqual([{ label: "30 дней", price: 40, currency: "USD" }]);
+    expect(readPrices(null)).toEqual([]);
   });
 
   it("документы списком без своих номеров и маркеров", () => {
