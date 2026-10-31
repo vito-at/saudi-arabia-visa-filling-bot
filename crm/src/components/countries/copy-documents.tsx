@@ -5,10 +5,10 @@ import { Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/i18n/client";
 
-/** Скопировать список документов — чтобы отправить клиенту в мессенджер */
-export function CopyDocuments({ name, lines }: { name: string; lines: string[] }) {
+/** Скопировать нумерованный список (документы, вопросы по анкете) — чтобы отправить клиенту в мессенджер */
+export function CopyDocuments({ title, lines }: { title: string; lines: string[] }) {
   const { t } = useI18n();
-  const text = `${t("countries.copyTitle", { name })}\n${lines.map((l, i) => `${i + 1}. ${l}`).join("\n")}`;
+  const text = `${title}\n${lines.map((l, i) => `${i + 1}. ${l}`).join("\n")}`;
   return (
     <Button
       type="button"

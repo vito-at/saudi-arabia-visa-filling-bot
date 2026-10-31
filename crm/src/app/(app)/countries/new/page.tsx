@@ -26,6 +26,7 @@ export default async function NewCountryPage({ searchParams }: { searchParams: P
           name: "",
           visaKind: "",
           documents: "",
+          questions: "",
           consularFee: "",
           prices: [],
           processingTime: "",

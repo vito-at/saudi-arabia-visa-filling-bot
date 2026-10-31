@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { canEditCountries, documentLines, normalizeUrl, parseCountry, readPrices, sourceLines, type CountryInput } from "@/lib/countries";
 import { CITIZENSHIPS, WORLD, flag, worldCountry } from "@/lib/world";
 
-const empty: CountryInput = { citizenship: "UZ", code: "", sources: "", name: "", visaKind: "", documents: "", consularFee: "", prices: [], processingTime: "", validity: "", whereToApply: "", applyUrl: "", appointmentUrl: "", visaCenter: "", notes: "" };
+const empty: CountryInput = { citizenship: "UZ", code: "", sources: "", name: "", visaKind: "", documents: "", consularFee: "", questions: "", prices: [], processingTime: "", validity: "", whereToApply: "", applyUrl: "", appointmentUrl: "", visaCenter: "", notes: "" };
 
 describe("справочник стран", () => {
   it("адрес сайта без https дополняется, не сайт — ошибка", () => {
@@ -45,6 +45,11 @@ describe("справочник стран", () => {
     expect(parseCountry({ ...empty, name: "Индия" })).toMatchObject({ data: { prices: [], salePrice: null } });
     expect(readPrices([{ label: "30 дней", price: 40, currency: "USD" }, null, { price: "x" }, "y"])).toEqual([{ label: "30 дней", price: 40, currency: "USD" }]);
     expect(readPrices(null)).toEqual([]);
+  });
+
+  it("вопросы для клиента — по одному в строке, пустые строки убираются", () => {
+    expect(parseCountry({ ...empty, name: "Индия", questions: "  Религия \n\n2. Семейное положение\n" })).toMatchObject({ data: { questions: "Религия\n2. Семейное положение" } });
+    expect(documentLines("Религия\n2. Семейное положение")).toEqual(["Религия", "Семейное положение"]);
   });
 
   it("документы списком без своих номеров и маркеров", () => {

@@ -155,6 +155,9 @@ export function CountryForm({ id, initial, canDelete }: { id: string | null; ini
         <Field label={t("countries.documents")} hint={t("countries.documentsHint")}>
           <Textarea value={v.documents} onChange={set("documents")} rows={10} placeholder={t("countries.documentsPh")} />
         </Field>
+        <Field label={t("countries.questions")} hint={t("countries.questionsHint")}>
+          <Textarea value={v.questions} onChange={set("questions")} rows={10} placeholder={t("countries.questionsPh")} />
+        </Field>
         <Field label={t("countries.notes")}>
           <Textarea value={v.notes} onChange={set("notes")} rows={4} placeholder={t("countries.notesPh")} />
         </Field>

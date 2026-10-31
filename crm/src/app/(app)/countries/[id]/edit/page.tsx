@@ -24,6 +24,7 @@ export default async function EditCountryPage({ params }: { params: Promise<{ id
           name: c.name,
           visaKind: c.visaKind ?? "",
           documents: c.documents,
+          questions: c.questions,
           consularFee: c.consularFee ?? "",
           prices: readPrices(c.prices).map((p) => ({ label: p.label, price: String(p.price), currency: p.currency })),
           processingTime: c.processingTime ?? "",
