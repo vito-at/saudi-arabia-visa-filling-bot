@@ -4,7 +4,7 @@ import { AlertTriangle, CheckCircle2, ExternalLink, Pencil, Plane, ShieldCheck }
 import { Card } from "@/components/ui/card";
 import { CopyDocuments } from "@/components/countries/copy-documents";
 import { VerifyButton } from "@/components/countries/verify-button";
-import { documentLines, sourceLines } from "@/lib/countries";
+import { documentLines, readPrices, sourceLines } from "@/lib/countries";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { toNum } from "@/lib/money";
 import { cn } from "@/lib/utils";
@@ -63,6 +63,7 @@ export function CountryInfo({
   const docs = documentLines(c.documents);
   const sources = sourceLines(c.sources);
   const dash = <span className="text-muted-foreground">—</span>;
+  const prices = readPrices(c.prices);
   const kind = c.visaKind ?? "NONE";
   return (
     <div className="space-y-4">
@@ -107,7 +108,20 @@ export function CountryInfo({
         <h2 className="pt-3 text-sm font-semibold">{t("countries.moneyTitle")}</h2>
         <dl className="divide-y">
           <Row label={t("countries.salePrice")}>
-            {c.salePrice !== null ? <span className="text-base font-semibold tabular-nums">{f.money(toNum(c.salePrice), c.saleCurrency)}</span> : dash}
+            {prices.length ? (
+              <ul className="space-y-1">
+                {prices.map((p, i) => (
+                  <li key={i} className="flex flex-wrap items-baseline gap-x-2">
+                    {p.label && <span className="text-muted-foreground">{p.label} —</span>}
+                    <span className="text-base font-semibold tabular-nums">{f.money(p.price, p.currency)}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : c.salePrice !== null ? (
+              <span className="text-base font-semibold tabular-nums">{f.money(toNum(c.salePrice), c.saleCurrency)}</span>
+            ) : (
+              dash
+            )}
           </Row>
           <Row label={t("countries.consularFee")}>{c.consularFee}</Row>
           <Row label={t("countries.processingTime")}>{c.processingTime}</Row>

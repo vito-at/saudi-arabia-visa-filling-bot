@@ -1007,9 +1007,11 @@ model VisaCountry {
   documents      String    @default("")
   /// консульский сбор — текстом, валюты бывают разные («90 €», «35 $ + сервисный сбор VFS 25 $»)
   consularFee    String?
-  /// цена для клиента
+  /// цена для клиента — первый вариант из prices (для старого кода и отчётов)
   salePrice      Decimal?  @db.Decimal(18, 2)
   saleCurrency   Currency  @default(USD)
+  /// цены для клиента по вариантам визы: [{ label: "30 дней", price: 40, currency: "USD" }, { label: "1 год", price: 65, currency: "USD" }]
+  prices         Json      @default("[]")
   /// срок оформления («5–7 рабочих дней»)
   processingTime String?
   /// срок действия визы и пребывания

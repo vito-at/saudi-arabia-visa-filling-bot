@@ -16,7 +16,7 @@ export async function saveCountryAction(id: string | null, input: CountryInput) 
     const parsed = parseCountry(input);
     if ("error" in parsed) throw new ValidationError(parsed.error);
     // любая правка снимает отметку «проверено» — администратор проверяет заново
-    const data = { ...parsed.data, updatedById: user.id, verifiedAt: null, verifiedById: null };
+    const data = { ...parsed.data, prices: parsed.data.prices as unknown as Prisma.InputJsonArray, updatedById: user.id, verifiedAt: null, verifiedById: null };
     try {
       const saved = id ? await prisma.visaCountry.update({ where: { id }, data }) : await prisma.visaCountry.create({ data });
       revalidatePath("/countries");
