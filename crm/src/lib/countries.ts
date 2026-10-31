@@ -1,6 +1,6 @@
 /**
  * Справочник виз: для гражданина страны (по умолчанию Узбекистан) — поездка в страну мира: нужна ли виза, документы,
- * консульский сбор, цены продажи по вариантам визы (30 дней, 1 год…), где подавать, сайты подачи и записи, визовый сервис, официальные источники.
+ * вопросы клиенту из анкеты, консульский сбор, цены продажи по вариантам визы (30 дней, 1 год…), где подавать, сайты подачи и записи, визовый сервис, официальные источники.
  * Читают все сотрудники; правят администратор и визовые специалисты (canEditCountries); любая правка снимает
  * отметку «проверено», ставит её только администратор.
  */
@@ -46,6 +46,7 @@ export interface CountryInput {
   name: string;
   visaKind: string;
   documents: string;
+  questions: string;
   consularFee: string;
   prices: PriceInput[];
   processingTime: string;
@@ -65,6 +66,7 @@ export interface CountryData {
   region: string | null;
   visaKind: VisaKind | null;
   documents: string;
+  questions: string;
   consularFee: string | null;
   prices: PriceOption[];
   /** первый вариант — для старого кода */
@@ -79,6 +81,15 @@ export interface CountryData {
   notes: string | null;
   sources: string | null;
 }
+
+/** Список по одному в строке: пустые строки убираем */
+const cleanLines = (v: string) =>
+  v
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .join("\n")
+    .slice(0, 10_000);
 
 const text = (v: string, max = 500) => v.trim().slice(0, max) || null;
 
@@ -124,12 +135,8 @@ export function parseCountry(input: CountryInput): { data: CountryData } | { err
       region: world?.region ?? null,
       visaKind: VISA_KINDS.find((k) => k === input.visaKind) ?? null,
       // документы — по одному в строке, пустые строки убираем
-      documents: input.documents
-        .split("\n")
-        .map((l) => l.trim())
-        .filter(Boolean)
-        .join("\n")
-        .slice(0, 10_000),
+      documents: cleanLines(input.documents),
+      questions: cleanLines(input.questions),
       consularFee: text(input.consularFee, 300),
       prices,
       salePrice: prices[0]?.price ?? null,

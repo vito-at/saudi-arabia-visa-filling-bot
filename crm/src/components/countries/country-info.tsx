@@ -61,6 +61,7 @@ export function CountryInfo({
   isAdmin: boolean;
 }) {
   const docs = documentLines(c.documents);
+  const questions = documentLines(c.questions);
   const sources = sourceLines(c.sources);
   const dash = <span className="text-muted-foreground">—</span>;
   const prices = readPrices(c.prices);
@@ -147,7 +148,7 @@ export function CountryInfo({
             {t("countries.documents")}
             {docs.length > 0 && <span className="ml-1.5 font-normal text-muted-foreground">({docs.length})</span>}
           </h2>
-          {docs.length > 0 && <CopyDocuments name={c.name} lines={docs} />}
+          {docs.length > 0 && <CopyDocuments title={t("countries.copyTitle", { name: c.name })} lines={docs} />}
         </div>
         {docs.length ? (
           <ol className="list-decimal space-y-1.5 pl-5 text-sm marker:text-muted-foreground">
@@ -161,6 +162,26 @@ export function CountryInfo({
           <p className="text-sm text-muted-foreground">{c.visaKind === "VISA_FREE" ? t("countries.docsVisaFree") : t("countries.docsEmpty")}</p>
         )}
       </Card>
+
+      {questions.length > 0 && (
+        <Card className="p-5">
+          <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold">
+              {t("countries.questions")}
+              <span className="ml-1.5 font-normal text-muted-foreground">({questions.length})</span>
+            </h2>
+            <CopyDocuments title={t("countries.questionsCopyTitle", { name: c.name })} lines={questions} />
+          </div>
+          <p className="mb-3 text-xs text-muted-foreground">{t("countries.questionsHelp")}</p>
+          <ol className="list-decimal space-y-1.5 pl-5 text-sm marker:text-muted-foreground">
+            {questions.map((q, i) => (
+              <li key={i} className="pl-1">
+                {q}
+              </li>
+            ))}
+          </ol>
+        </Card>
+      )}
 
       {c.notes && (
         <Card className="p-5">
