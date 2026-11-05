@@ -295,7 +295,9 @@ export async function loadManagerMonths(range: MonthRange, managerId: string | n
   const poolPct = toNum(settings.flightPoolPct);
   return users.map((u) => {
     const period = payPeriod(range.ym, u.payDay);
-    const tracked = !start || period.to > start;
+    // период, последний день которого (день выплаты) уже до начала учёта, — «до учёта»: зарплату за него выдали вне CRM
+    // (Сабине выплата 20-го, учёт с 20.10 — её октябрь 21.09–20.10 закрыт вне CRM)
+    const tracked = !start || period.to.getTime() - 86_400_000 > start.getTime();
     // в периоде начала учёта комиссия — только с даты начала; периоды до учёта показывают продажи как есть, без начислений
     const dealsFrom = tracked && start && start > period.from ? start : period.from;
     const own = deals
