@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calcPayout, flightShares, monthRange, shiftMonth } from "@/lib/salary";
+import { calcPayout, flightShares, monthRange, payPeriod, shiftMonth } from "@/lib/salary";
 
 const fact = { leads: 40, sales: 12, profitUsd: 5000, profitSalary: 60_000_000, revenueUsd: 20_000, revenueSalary: 240_000_000, flightProfitSalary: 0, flightCommission: 0 };
 
@@ -56,6 +56,17 @@ describe("зарплата и план", () => {
     expect(monthRange("bad", new Date("2026-10-17T12:00:00Z")).ym).toBe("2026-10");
     expect(shiftMonth("2026-01", -1)).toBe("2025-12");
     expect(shiftMonth("2026-12", 1)).toBe("2027-01");
+  });
+  it("период зарплаты по дню выплаты: 20-го — с 21-го прошлого месяца по 20-е включительно; без дня — календарный месяц", () => {
+    const p = payPeriod("2026-11", 20);
+    expect(p.from.toISOString()).toBe("2026-10-20T19:00:00.000Z"); // 21.10 00:00 по Ташкенту
+    expect(p.to.toISOString()).toBe("2026-11-20T19:00:00.000Z"); // до 21.11 00:00
+    const jan = payPeriod("2027-01", 20);
+    expect(jan.from.toISOString()).toBe("2026-12-20T19:00:00.000Z");
+    expect(payPeriod("2026-11", null)).toEqual({ from: monthRange("2026-11").from, to: monthRange("2026-11").to });
+    expect(payPeriod("2026-11", 31)).toEqual({ from: monthRange("2026-11").from, to: monthRange("2026-11").to });
+    // 28 февраля → период марта с 1 марта
+    expect(payPeriod("2027-03", 28).from.toISOString()).toBe("2027-02-28T19:00:00.000Z");
   });
 });
 
