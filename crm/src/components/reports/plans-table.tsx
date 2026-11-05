@@ -12,6 +12,7 @@ import { serviceLabel } from "@/i18n/labels";
 import { formatDate, formatNumber, formatPercent, toInputDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/i18n/client";
+import { SalaryBreakdown, type SalaryLineView } from "@/components/reports/salary-breakdown";
 
 export interface PlanRowView {
   userId: string;
@@ -38,6 +39,8 @@ export interface PlanRowView {
   paid: number;
   left: number;
   payouts: { id: string; amount: number; currency?: "UZS" | "USD"; paidAt: string; note: string | null }[];
+  /** расшифровка зарплаты по сделкам */
+  lines?: SalaryLineView[];
 }
 
 /** Выплаты зарплаты за месяц: список и новая выплата (по умолчанию — весь остаток) */
@@ -325,7 +328,10 @@ function EditDialog({ row, month, onClose }: { row: PlanRowView; month: string; 
 }
 
 export function PlansTable({ rows, month, editable }: { rows: PlanRowView[]; month: string; editable: boolean }) {
-  const { t, f } = useI18n();
+  const { t, f, locale } = useI18n();
+  const [detailId, setDetailId] = useState<string | null>(null);
+  const detail = rows.find((r) => r.userId === detailId) ?? null;
+  const monthName = new Intl.DateTimeFormat(locale === "en" ? "en-GB" : locale === "uz" ? "uz-Latn" : "ru-RU", { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${month}-15T00:00:00Z`));
   // строка берётся из свежих данных: после добавления особого процента список в окне обновляется
   const [editId, setEditId] = useState<string | null>(null);
   const edit = rows.find((r) => r.userId === editId) ?? null;
@@ -355,7 +361,14 @@ export function PlansTable({ rows, month, editable }: { rows: PlanRowView[]; mon
             {rows.map((r) => (
               <tr key={r.userId}>
                 <td className="px-4 py-3 font-medium">
-                  {r.name}
+                  <button type="button" className="cursor-pointer text-left text-primary hover:underline" title={t("plans.bdOpen")} onClick={() => setDetailId(r.userId)}>
+                    {r.name}
+                  </button>
+                  <div>
+                    <button type="button" className="cursor-pointer text-[11px] font-normal text-muted-foreground underline-offset-2 hover:underline" onClick={() => setDetailId(r.userId)}>
+                      {t("plans.bdOpen")}
+                    </button>
+                  </div>
                   {r.isActive === false && <div className="text-[11px] font-normal text-muted-foreground">{t("plans.inactive")}</div>}
                   {r.payDay && r.period && (
                     <div className="text-[11px] font-normal whitespace-nowrap text-muted-foreground">
@@ -412,6 +425,7 @@ export function PlansTable({ rows, month, editable }: { rows: PlanRowView[]; mon
       </div>
       {edit && <EditDialog row={edit} month={month} onClose={() => setEditId(null)} />}
       {pay && <PayDialog row={pay} month={month} onClose={() => setPay(null)} />}
+      {detail && <SalaryBreakdown row={detail} monthName={monthName} onClose={() => setDetailId(null)} />}
     </>
   );
 }
