@@ -9,7 +9,7 @@ import { ValidationError } from "@/lib/leads/service";
 import { SERVICE_LABELS, SERVICE_TYPES, VISA_COUNTRIES } from "@/lib/constants";
 import { toNum, parseAmount } from "@/lib/money";
 import { confirmVisaDeals } from "@/lib/deal-costs";
-import { monthKey, monthRange } from "@/lib/salary";
+import { PAY_DAY_MAX, monthKey, monthRange } from "@/lib/salary";
 import { parseInputDate } from "@/lib/format";
 
 export interface CellDeal {
@@ -102,10 +102,14 @@ export async function savePlanAction(input: {
   commissionPct: string;
   planBonusPct: string;
   commissionFrom: string;
+  /** день выплаты зарплаты 1–28; пусто — в конце месяца */
+  payDay: string;
 }) {
   return runAction(async () => {
     await requireAdmin();
     const range = monthRange(input.month);
+    const payDay = num(input.payDay);
+    if (payDay !== null && (Number.isNaN(payDay) || !Number.isInteger(payDay) || payDay < 1 || payDay > PAY_DAY_MAX)) throw new ValidationError("err.payDay");
     const leads = num(input.leads);
     const sales = num(input.sales);
     const profit = num(input.profit);
@@ -125,6 +129,8 @@ export async function savePlanAction(input: {
       toNum(current.bonusPct) === bonus &&
       current.commissionFrom === terms.commissionFrom;
     await prisma.$transaction([
+      // день выплаты — у сотрудника, действует на все месяцы
+      prisma.user.update({ where: { id: input.userId }, data: { payDay } }),
       prisma.managerPlan.upsert({
         where: { userId_month: { userId: input.userId, month: monthKey(range.ym) } },
         update: { leads: leads === null ? null : Math.round(leads), sales: sales === null ? null : Math.round(sales), profit },

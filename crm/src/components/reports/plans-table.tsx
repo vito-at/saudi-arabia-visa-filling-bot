@@ -31,6 +31,10 @@ export interface PlanRowView {
   rules?: { id: string; serviceType: string; country: string | null; pct: number; from: "REVENUE" | "PROFIT"; fromDate: string }[];
   tracked: boolean;
   countedFrom: string | null;
+  /** день выплаты зарплаты; null — в конце месяца */
+  payDay?: number | null;
+  /** период расчёта (ISO): to — не включая */
+  period?: { from: string; to: string };
   paid: number;
   left: number;
   payouts: { id: string; amount: number; currency?: "UZS" | "USD"; paidAt: string; note: string | null }[];
@@ -245,6 +249,7 @@ function EditDialog({ row, month, onClose }: { row: PlanRowView; month: string; 
     commissionPct: String(row.terms.pct),
     planBonusPct: String(row.terms.bonusPct),
     commissionFrom: row.terms.from,
+    payDay: row.payDay ? String(row.payDay) : "",
   });
   const set = (k: keyof typeof v) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setV({ ...v, [k]: e.target.value });
   function save(e: React.FormEvent) {
@@ -298,7 +303,11 @@ function EditDialog({ row, month, onClose }: { row: PlanRowView; month: string; 
             <Field label={t("plans.bonusPct")}>
               <Input inputMode="decimal" value={v.planBonusPct} onChange={set("planBonusPct")} />
             </Field>
+            <Field label={t("plans.payDay")}>
+              <Input type="number" min={1} max={28} value={v.payDay} onChange={set("payDay")} placeholder={t("plans.payDayEnd")} />
+            </Field>
           </div>
+          <p className="text-xs text-muted-foreground">{t("plans.payDayHint")}</p>
           <p className="text-xs text-muted-foreground">{t("plans.termsHint")}</p>
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={onClose}>
@@ -348,6 +357,11 @@ export function PlansTable({ rows, month, editable }: { rows: PlanRowView[]; mon
                 <td className="px-4 py-3 font-medium">
                   {r.name}
                   {r.isActive === false && <div className="text-[11px] font-normal text-muted-foreground">{t("plans.inactive")}</div>}
+                  {r.payDay && r.period && (
+                    <div className="text-[11px] font-normal whitespace-nowrap text-muted-foreground">
+                      {t("plans.period", { from: formatDate(r.period.from), to: formatDate(new Date(new Date(r.period.to).getTime() - 1)) })}
+                    </div>
+                  )}
                 </td>
                 <td className="px-3 py-3">
                   <Progress fact={r.fact.leads} plan={r.plan.leads} done={r.done.leads} />

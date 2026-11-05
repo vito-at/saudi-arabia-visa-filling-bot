@@ -10,6 +10,9 @@
  * переключатель включён и менеджер действует в CRM — см. lib/shift.ts). Раньше переключателя какое-то время не было:
  * за дни до 26.10.2026 считается по-старому — включала «В работе» или что-то делала в CRM (activityDays).
  * Остальные услуги — оклад + процент от продаж/прибыли, как выше; авиабилеты в эту базу не входят.
+ * Период расчёта у каждого менеджера свой — по дню выплаты (User.payDay, см. payPeriod): выплата в конце месяца —
+ * календарный месяц, выплата 20-го — с 21-го числа прошлого месяца по 20-е этого (зарплата за ноябрь — с 21.10 по 20.11).
+ * Лиды, продажи и доля с авиабилетов считаются за этот период; план, условия и выплаты — по месяцу выплаты.
  * Учёт зарплаты в CRM начинается с «salaryStartAt» (настройки): учитываются только сделки, оплаченные с этого момента,
  * а месяцы целиком до него не считаются (расчёты за них вели вне CRM). Выплаты — частями, «Осталось» = к выплате − выплачено.
  */
@@ -39,6 +42,20 @@ export function monthRange(ym: string | null | undefined, now = new Date()): Mon
   const [y, m] = v.split("-").map(Number);
   const next = m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, "0")}`;
   return { ym: v, from: parseInputDate(`${v}-01`)!, to: parseInputDate(`${next}-01`)! };
+}
+
+export const PAY_DAY_MAX = 28;
+
+/**
+ * Период зарплаты за месяц ym при выплате payDay-го числа: со дня после выплаты в прошлом месяце по день выплаты
+ * включительно (по Ташкенту). Нет дня выплаты — календарный месяц.
+ */
+export function payPeriod(ym: string, payDay: number | null | undefined): { from: Date; to: Date } {
+  const month = monthRange(ym);
+  if (!payDay || payDay < 1 || payDay > PAY_DAY_MAX) return { from: month.from, to: month.to };
+  const day = String(payDay).padStart(2, "0");
+  const after = (s: string) => new Date(parseInputDate(s)!.getTime() + 86_400_000);
+  return { from: after(`${shiftMonth(month.ym, -1)}-${day}`), to: after(`${month.ym}-${day}`) };
 }
 
 /** Ключ месяца для колонки @db.Date: первое число по UTC (Prisma сохраняет дату по UTC) */
@@ -211,8 +228,12 @@ export interface ManagerMonth extends PayoutRow {
   rules: SalaryRuleView[];
   /** месяц входит в учёт зарплаты CRM (не целиком до даты начала учёта) */
   tracked: boolean;
-  /** продажи считаются не с начала месяца, а с даты начала учёта (ISO) */
+  /** продажи считаются не с начала периода, а с даты начала учёта (ISO) */
   countedFrom: string | null;
+  /** день выплаты зарплаты; null — в конце месяца */
+  payDay: number | null;
+  /** период расчёта: с from (ISO) до to (ISO, не включая) */
+  period: { from: string; to: string };
   paid: number;
   /** к выплате − выплачено (отрицательное — переплата) */
   left: number;
@@ -228,6 +249,8 @@ export async function loadManagerMonths(range: MonthRange, managerId: string | n
   const book = await loadRateBook(settings);
   const rate = toNum(settings.usdRate);
   const costRate = toNum(settings.usdRateCost);
+  // у менеджеров с выплатой не в конце месяца период сдвинут — выбираем данные сразу за все возможные периоды
+  const wide = { from: payPeriod(range.ym, 1).from, to: range.to };
   const users = await prisma.user.findMany({
     // отключённый (уволенный) менеджер остаётся в месяцах, где у него есть продажи, лиды или выплаты: его зарплату нужно закрыть
     where: managerId
@@ -236,8 +259,8 @@ export async function loadManagerMonths(range: MonthRange, managerId: string | n
           role: "MANAGER",
           OR: [
             { isActive: true },
-            { deals: { some: { paidAt: { gte: range.from, lt: range.to } } } },
-            { leads: { some: { createdAt: { gte: range.from, lt: range.to } } } },
+            { deals: { some: { paidAt: { gte: wide.from, lt: wide.to } } } },
+            { leads: { some: { createdAt: { gte: wide.from, lt: wide.to } } } },
             { salaryPaid: { some: { month: monthKey(range.ym) } } },
           ],
         },
@@ -251,29 +274,33 @@ export async function loadManagerMonths(range: MonthRange, managerId: string | n
   });
   const ids = users.map((u) => u.id);
   const start = settings.salaryStartAt;
-  const tracked = !start || range.to > start;
-  // в месяце начала учёта комиссия — только с даты начала; месяцы до учёта показывают продажи как есть, без начислений
-  const dealsFrom = tracked && start && start > range.from ? start : range.from;
+  const dayKeyOf = (d: Date) => new Date(`${toInputDate(d)}T00:00:00Z`);
   const [leads, deals, shiftDays, payouts, bonusRows] = await Promise.all([
-    prisma.lead.groupBy({ by: ["managerId"], where: { managerId: { in: ids }, createdAt: { gte: range.from, lt: range.to } }, _count: { _all: true } }),
+    prisma.lead.findMany({ where: { managerId: { in: ids }, createdAt: { gte: wide.from, lt: wide.to } }, select: { managerId: true, createdAt: true } }),
     prisma.deal.findMany({
-      where: { managerId: { in: ids }, paidAt: { gte: dealsFrom, lt: range.to } },
+      where: { managerId: { in: ids }, paidAt: { gte: wide.from, lt: wide.to } },
       select: { managerId: true, amount: true, cost: true, currency: true, costCurrency: true, paidAt: true, quantity: true, serviceType: true, costConfirmed: true, product: true },
     }),
     // кто был «В работе» в дни месяца и сколько — все менеджеры по продажам, а не только показанные (делим процент с авиабилетов);
     // администраторы и визовики в деление не входят, даже если раньше были менеджерами
-    prisma.shiftDay.findMany({ where: { day: { gte: monthKey(range.ym), lt: monthKey(shiftMonth(range.ym, 1)) }, user: { role: "MANAGER" } } }),
+    prisma.shiftDay.findMany({ where: { day: { gte: dayKeyOf(wide.from), lt: dayKeyOf(wide.to) }, user: { role: "MANAGER" } } }),
     prisma.salaryPayout.findMany({ where: { userId: { in: ids }, month: monthKey(range.ym) }, orderBy: { paidAt: "asc" } }),
     prisma.salesBonus.findMany({ orderBy: { fromDate: "asc" } }),
   ]);
   const bonuses: SalesBonusView[] = bonusRows.map((b) => ({ id: b.id, serviceType: b.serviceType, country: b.country, amount: toNum(b.amount), currency: b.currency, fromDate: b.fromDate.toISOString().slice(0, 10) }));
   const workers = flightWorkers(
     shiftDays.map((s) => ({ userId: s.userId, day: s.day.toISOString().slice(0, 10), activeSec: s.activeSec })),
-    range.ym <= SHIFT_RULE_FROM.slice(0, 7) ? await activityDays(range) : [],
+    range.ym <= SHIFT_RULE_FROM.slice(0, 7) ? await activityDays(wide) : [],
   );
   const poolPct = toNum(settings.flightPoolPct);
   return users.map((u) => {
-    const own = deals.filter((d) => d.managerId === u.id).map((d) => ({ ...d, amount: toNum(d.amount), cost: toNum(d.cost) }));
+    const period = payPeriod(range.ym, u.payDay);
+    const tracked = !start || period.to > start;
+    // в периоде начала учёта комиссия — только с даты начала; периоды до учёта показывают продажи как есть, без начислений
+    const dealsFrom = tracked && start && start > period.from ? start : period.from;
+    const own = deals
+      .filter((d) => d.managerId === u.id && d.paidAt >= dealsFrom && d.paidAt < period.to)
+      .map((d) => ({ ...d, amount: toNum(d.amount), cost: toNum(d.cost) }));
     const rules: SalaryRuleView[] = u.salaryRules.map((r) => ({
       id: r.id,
       serviceType: r.serviceType,
@@ -310,7 +337,7 @@ export async function loadManagerMonths(range: MonthRange, managerId: string | n
         poolPct,
       ).get(u.id) ?? 0;
     const fact: PlanFact = {
-      leads: leads.find((l) => l.managerId === u.id)?._count._all ?? 0,
+      leads: leads.filter((l) => l.managerId === u.id && l.createdAt >= period.from && l.createdAt < period.to).length,
       sales: own.reduce((s, d) => s + d.quantity, 0),
       profitUsd: profitIn("USD", confirmed),
       profitSalary: profitIn(terms.currency, other.filter((d) => d.costConfirmed)),
@@ -350,7 +377,9 @@ export async function loadManagerMonths(range: MonthRange, managerId: string | n
       rules,
       ...pay,
       tracked,
-      countedFrom: tracked && dealsFrom > range.from ? dealsFrom.toISOString() : null,
+      countedFrom: tracked && dealsFrom > period.from ? dealsFrom.toISOString() : null,
+      payDay: u.payDay,
+      period: { from: period.from.toISOString(), to: period.to.toISOString() },
       paid,
       left: round2(pay.total - paid),
       payouts: mine.map((p) => ({ id: p.id, amount: toNum(p.amount), currency: p.currency, paidAt: p.paidAt.toISOString(), note: p.note })),
