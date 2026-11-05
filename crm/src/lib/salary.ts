@@ -138,13 +138,16 @@ export function calcPayout(terms: SalaryTerms, plan: PlanValues, fact: PlanFact)
  */
 export function flightShares(deals: { sellerId: string; day: string; profit: number }[], workers: Map<string, Set<string>>, poolPct: number): Map<string, number> {
   const out = new Map<string, number>();
-  for (const d of deals) {
-    const team = new Set(workers.get(d.day) ?? []);
-    team.add(d.sellerId);
-    out.set(d.sellerId, (out.get(d.sellerId) ?? 0) + (d.profit * poolPct) / 100 / team.size);
-  }
+  for (const d of deals) out.set(d.sellerId, (out.get(d.sellerId) ?? 0) + flightShare(d, workers, poolPct).share);
   for (const [k, v] of out) out.set(k, round2(v));
   return out;
+}
+
+/** Доля продавшей с одного билета и сколько менеджеров её делили (для расшифровки зарплаты) */
+export function flightShare(d: { sellerId: string; day: string; profit: number }, workers: Map<string, Set<string>>, poolPct: number) {
+  const team = new Set(workers.get(d.day) ?? []);
+  team.add(d.sellerId);
+  return { share: (d.profit * poolPct) / 100 / team.size, team: team.size, pct: poolPct / team.size };
 }
 
 export interface SalaryRuleView {
@@ -216,6 +219,34 @@ export function flightWorkers(shiftDays: { userId: string; day: string; activeSe
   return workers;
 }
 
+/**
+ * Строка расшифровки зарплаты — сделка и что за неё начислено:
+ * PCT — обычный процент (с надбавкой за план), RULE — особый процент, BONUS — фиксированная оплата за единицы,
+ * FLIGHT — доля с прибыли авиабилета. Суммы base и earned — в валюте зарплаты.
+ */
+export interface SalaryLine {
+  dealId: string;
+  leadId: string;
+  leadName: string;
+  paidAt: string;
+  product: string;
+  quantity: number;
+  kind: "PCT" | "RULE" | "BONUS" | "FLIGHT";
+  /** сумма сделки в её валюте */
+  amount: number;
+  currency: Currency;
+  /** от чего считается: сумма продажи или прибыль (валюта зарплаты); null — себестоимость не указана, от прибыли пока 0 */
+  base: number | null;
+  from: CommissionBase | null;
+  /** процент; для FLIGHT — доля менеджера в процентах от прибыли; для BONUS — null */
+  pct: number | null;
+  /** FLIGHT: сколько менеджеров были «В работе» в день продажи */
+  team: number | null;
+  /** BONUS: оплата за единицу и её валюта */
+  unit: { amount: number; currency: Currency } | null;
+  earned: number;
+}
+
 export interface ManagerMonth extends PayoutRow {
   userId: string;
   name: string;
@@ -238,6 +269,8 @@ export interface ManagerMonth extends PayoutRow {
   /** к выплате − выплачено (отрицательное — переплата) */
   left: number;
   payouts: { id: string; amount: number; currency: Currency; paidAt: string; note: string | null }[];
+  /** расшифровка: что начислено за каждую сделку периода */
+  lines: SalaryLine[];
 }
 
 /** Условия до этой даты считаем «с самого начала» (запись миграции) */
@@ -279,7 +312,22 @@ export async function loadManagerMonths(range: MonthRange, managerId: string | n
     prisma.lead.findMany({ where: { managerId: { in: ids }, createdAt: { gte: wide.from, lt: wide.to } }, select: { managerId: true, createdAt: true } }),
     prisma.deal.findMany({
       where: { managerId: { in: ids }, paidAt: { gte: wide.from, lt: wide.to } },
-      select: { managerId: true, amount: true, cost: true, currency: true, costCurrency: true, paidAt: true, quantity: true, serviceType: true, costConfirmed: true, product: true },
+      select: {
+        id: true,
+        leadId: true,
+        lead: { select: { name: true } },
+        managerId: true,
+        amount: true,
+        cost: true,
+        currency: true,
+        costCurrency: true,
+        paidAt: true,
+        quantity: true,
+        serviceType: true,
+        costConfirmed: true,
+        product: true,
+      },
+      orderBy: { paidAt: "asc" },
     }),
     // кто был «В работе» в дни месяца и сколько — все менеджеры по продажам, а не только показанные (делим процент с авиабилетов);
     // администраторы и визовики в деление не входят, даже если раньше были менеджерами
@@ -366,6 +414,41 @@ export async function loadManagerMonths(range: MonthRange, managerId: string | n
     const pay = calcPayout(terms, plan, fact);
     // месяц до начала учёта: зарплату за него платили вне CRM
     if (!tracked) Object.assign(pay, { commission: 0, base: 0, total: 0 });
+    const line = (d: (typeof own)[number], x: Pick<SalaryLine, "kind" | "base" | "from" | "pct" | "team" | "unit" | "earned">): SalaryLine => ({
+      dealId: d.id,
+      leadId: d.leadId,
+      leadName: d.lead.name,
+      paidAt: d.paidAt.toISOString(),
+      product: d.product,
+      quantity: d.quantity,
+      amount: d.amount,
+      currency: d.currency,
+      ...x,
+      earned: round2(x.earned),
+    });
+    const salaryBase = (d: (typeof own)[number], from: CommissionBase) =>
+      from === "PROFIT" ? (d.costConfirmed ? dealProfit(d, money(terms.currency)) : null) : dealRevenue(d, money(terms.currency));
+    const lines: SalaryLine[] = tracked
+      ? own.map((d) => {
+          if (d.serviceType === "FLIGHTS") {
+            const profit = dealProfit(d, money(terms.currency));
+            const s = flightShare({ sellerId: u.id, day: toInputDate(d.paidAt), profit }, workers, poolPct);
+            return line(d, { kind: "FLIGHT", base: profit, from: "PROFIT", pct: round2(s.pct), team: s.team, unit: null, earned: s.share });
+          }
+          const x = special.find((y) => y.d === d)!;
+          if (x.rule) {
+            const base = salaryBase(d, x.rule.from);
+            return line(d, { kind: "RULE", base, from: x.rule.from, pct: x.rule.pct, team: null, unit: null, earned: (Math.max(0, base ?? 0) * x.rule.pct) / 100 });
+          }
+          if (x.bonus) {
+            const earned = convertCost(x.bonus.amount, x.bonus.currency, terms.currency, ratesOn(book, d.paidAt));
+            const unit = { amount: round2(x.bonus.amount / Math.max(1, d.quantity)), currency: x.bonus.currency };
+            return line(d, { kind: "BONUS", base: null, from: null, pct: null, team: null, unit, earned });
+          }
+          const base = salaryBase(d, terms.from);
+          return line(d, { kind: "PCT", base, from: terms.from, pct: pay.ratePct, team: null, unit: null, earned: ((base ?? 0) * pay.ratePct) / 100 });
+        })
+      : [];
     const mine = payouts.filter((p) => p.userId === u.id);
     // выплата могла быть в другой валюте (валюту условий сменили) — пересчёт по курсу дня выплаты
     const inTerms = (p: (typeof mine)[number]) => convertCost(toNum(p.amount), p.currency, terms.currency, ratesOn(book, p.paidAt));
@@ -385,6 +468,7 @@ export async function loadManagerMonths(range: MonthRange, managerId: string | n
       paid,
       left: round2(pay.total - paid),
       payouts: mine.map((p) => ({ id: p.id, amount: toNum(p.amount), currency: p.currency, paidAt: p.paidAt.toISOString(), note: p.note })),
+      lines,
     };
   });
 }
