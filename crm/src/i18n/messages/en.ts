@@ -1162,7 +1162,7 @@ export const en: Messages = {
     bdPlanNotMet: "Profit plan: {fact} of {plan} — the +{pct}% bonus is not added",
     bdNoDeals: "No deals in the period — base pay only.",
     bdPayouts: "Payouts",
-    bdNote: "Amounts are in the pay currency at the rate of the deal's payment day. A loss-making deal doesn't reduce the base pay.",
+    bdNote: "Amounts are in the pay currency at the rate of the deal's payment day. A deal or ticket sold at a loss counts as 0 — the loss is never deducted from pay.",
     bonusOn: "plan met",
     bonusPct: "Plan bonus, %",
     commission: "Commission",

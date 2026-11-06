@@ -44,6 +44,18 @@ describe("зарплата и план", () => {
     expect(r.commission).toBe(950_000);
     expect(r.total).toBe(2_450_000);
   });
+  it("билет в убыток даёт 0, а не минус: убыток не вычитается из доли с других билетов", () => {
+    const workers = new Map([["2026-10-23", new Set(["a", "b"])]]);
+    const shares = flightShares(
+      [
+        { sellerId: "a", day: "2026-10-23", profit: -17_999 },
+        { sellerId: "a", day: "2026-10-23", profit: 1_000_000 },
+      ],
+      workers,
+      30,
+    );
+    expect(shares.get("a")).toBe(150_000);
+  });
   it("убыточный месяц — только оклад", () => {
     const r = calcPayout({ base: 500, currency: "USD", pct: 10, bonusPct: 0, from: "PROFIT" }, { leads: null, sales: null, profit: null }, { ...fact, profitUsd: -100, profitSalary: -100 });
     expect(r.commission).toBe(0);

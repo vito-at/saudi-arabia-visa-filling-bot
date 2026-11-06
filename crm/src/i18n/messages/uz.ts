@@ -1162,7 +1162,7 @@ export const uz: Messages = {
     bdPlanNotMet: "Foyda rejasi: {fact} / {plan} — +{pct}% qo‘shimcha berilmadi",
     bdNoDeals: "Davrda bitimlar yo‘q — faqat oklad.",
     bdPayouts: "To‘lovlar",
-    bdNote: "Summalar maosh valyutasida, bitim to‘langan kundagi kurs bo‘yicha. Bitimdan zarar bo‘lsa, foydadan foiz okladni kamaytirmaydi.",
+    bdNote: "Summalar maosh valyutasida, bitim to‘langan kundagi kurs bo‘yicha. Zarar bilan sotilgan bitim yoki chipta 0 beradi — zarar maoshdan ayirilmaydi.",
     bonusOn: "reja bajarildi",
     bonusPct: "Reja uchun qo‘shimcha, %",
     commission: "Komissiya",

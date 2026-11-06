@@ -134,7 +134,8 @@ export function calcPayout(terms: SalaryTerms, plan: PlanValues, fact: PlanFact)
 
 /**
  * Доли с авиабилетов: прибыль каждого билета × (процент / число менеджеров «В работе» в день продажи).
- * Продавшая считается работавшей в этот день, даже если не включила переключатель. Убыточный билет уменьшает долю.
+ * Продавшая считается работавшей в этот день, даже если не включила переключатель. Билет в убыток даёт 0 — из зарплаты
+ * менеджера убыток не вычитается (решение владельца 06.11.2026).
  */
 export function flightShares(deals: { sellerId: string; day: string; profit: number }[], workers: Map<string, Set<string>>, poolPct: number): Map<string, number> {
   const out = new Map<string, number>();
@@ -147,7 +148,7 @@ export function flightShares(deals: { sellerId: string; day: string; profit: num
 export function flightShare(d: { sellerId: string; day: string; profit: number }, workers: Map<string, Set<string>>, poolPct: number) {
   const team = new Set(workers.get(d.day) ?? []);
   team.add(d.sellerId);
-  return { share: (d.profit * poolPct) / 100 / team.size, team: team.size, pct: poolPct / team.size };
+  return { share: Math.max(0, (d.profit * poolPct) / 100 / team.size), team: team.size, pct: poolPct / team.size };
 }
 
 export interface SalaryRuleView {
@@ -397,7 +398,8 @@ export async function loadManagerMonths(range: MonthRange, managerId: string | n
       leads: leads.filter((l) => l.managerId === u.id && l.createdAt >= period.from && l.createdAt < period.to).length,
       sales: own.reduce((s, d) => s + d.quantity, 0),
       profitUsd: profitIn("USD", confirmed),
-      profitSalary: profitIn(terms.currency, other.filter((d) => d.costConfirmed)),
+      // сделка в убыток в процент от прибыли идёт как 0: убыток не уменьшает начисления с других сделок
+      profitSalary: round2(other.filter((d) => d.costConfirmed).reduce((s, d) => s + Math.max(0, salaryProfit(d, terms.currency)), 0)),
       revenueUsd: revenueIn("USD"),
       revenueSalary: revenueIn(terms.currency, other),
       flightProfitSalary: profitIn(terms.currency, flights),
@@ -453,7 +455,7 @@ export async function loadManagerMonths(range: MonthRange, managerId: string | n
             return line(d, { kind: "BONUS", base: null, from: null, pct: null, team: null, unit, earned });
           }
           const base = salaryBase(d, terms.from);
-          return line(d, { kind: "PCT", base, from: terms.from, pct: pay.ratePct, team: null, unit: null, earned: ((base ?? 0) * pay.ratePct) / 100 });
+          return line(d, { kind: "PCT", base, from: terms.from, pct: pay.ratePct, team: null, unit: null, earned: (Math.max(0, base ?? 0) * pay.ratePct) / 100 });
         })
       : [];
     const mine = payouts.filter((p) => p.userId === u.id);
