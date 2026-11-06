@@ -19,11 +19,11 @@
 import { Prisma, type CommissionBase, type Currency, type ServiceType } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { parseInputDate } from "@/lib/format";
-import { convertCost, round2, toNum } from "@/lib/money";
+import { convertCost, convertRevenue, dealProfitInSale, round2, toNum, type DealMoney } from "@/lib/money";
 import { ratesOn } from "@/lib/rate-book";
 import { getSettings } from "@/lib/refs";
 import { loadRateBook } from "@/lib/rate-history";
-import { dealProfit, dealRevenue } from "@/lib/reports/calc";
+import { dealRevenue } from "@/lib/reports/calc";
 import { UZS_DEAL_MIN, USD_DEAL_MAX } from "@/lib/deals";
 import { toInputDate } from "@/lib/format";
 import { FLIGHT_MIN_ACTIVE_SEC } from "@/lib/shift";
@@ -378,11 +378,18 @@ export async function loadManagerMonths(range: MonthRange, managerId: string | n
     const since = st ? st.fromMonth.toISOString().slice(0, 7) : null;
     const termsSince = since && since > TERMS_EPOCH ? since : null;
     const money = (currency: Currency) => ({ currency, rate, costRate, book });
-    const profitIn = (currency: Currency, list = own) => round2(list.reduce((s, d) => s + dealProfit(d, money(currency)), 0));
+    // прибыль — как в карточке сделки: в валюте продажи, затем одним курсом дня в валюту зарплаты.
+    // Иначе продажа и себестоимость в долларах шли бы в сумы по разным курсам и билет с прибылью $3 давал бы минус.
+    const salaryProfit = (d: DealMoney & { paidAt: Date }, currency: Currency) => {
+      const r = ratesOn(book, d.paidAt);
+      const p = dealProfitInSale(d, r);
+      return p >= 0 ? convertRevenue(p, d.currency, currency, r) : convertCost(p, d.currency, currency, r);
+    };
+    const profitIn = (currency: Currency, list = own) => round2(list.reduce((s, d) => s + salaryProfit(d, currency), 0));
     const revenueIn = (currency: Currency, list = own) => round2(list.reduce((s, d) => s + dealRevenue(d, money(currency)), 0));
     const flightCommission =
       flightShares(
-        flights.map((d) => ({ sellerId: u.id, day: toInputDate(d.paidAt), profit: dealProfit(d, money(terms.currency)) })),
+        flights.map((d) => ({ sellerId: u.id, day: toInputDate(d.paidAt), profit: salaryProfit(d, terms.currency) })),
         workers,
         poolPct,
       ).get(u.id) ?? 0;
@@ -399,7 +406,7 @@ export async function loadManagerMonths(range: MonthRange, managerId: string | n
         special.reduce((sum, { d, rule }) => {
           if (!rule) return sum;
           // от прибыли — только когда себестоимость известна
-          const base = rule.from === "PROFIT" ? (d.costConfirmed ? dealProfit(d, money(terms.currency)) : 0) : dealRevenue(d, money(terms.currency));
+          const base = rule.from === "PROFIT" ? (d.costConfirmed ? salaryProfit(d, terms.currency) : 0) : dealRevenue(d, money(terms.currency));
           return sum + (Math.max(0, base) * rule.pct) / 100;
         }, 0),
       ),
@@ -427,11 +434,11 @@ export async function loadManagerMonths(range: MonthRange, managerId: string | n
       earned: round2(x.earned),
     });
     const salaryBase = (d: (typeof own)[number], from: CommissionBase) =>
-      from === "PROFIT" ? (d.costConfirmed ? dealProfit(d, money(terms.currency)) : null) : dealRevenue(d, money(terms.currency));
+      from === "PROFIT" ? (d.costConfirmed ? salaryProfit(d, terms.currency) : null) : dealRevenue(d, money(terms.currency));
     const lines: SalaryLine[] = tracked
       ? own.map((d) => {
           if (d.serviceType === "FLIGHTS") {
-            const profit = dealProfit(d, money(terms.currency));
+            const profit = salaryProfit(d, terms.currency);
             const s = flightShare({ sellerId: u.id, day: toInputDate(d.paidAt), profit }, workers, poolPct);
             return line(d, { kind: "FLIGHT", base: profit, from: "PROFIT", pct: round2(s.pct), team: s.team, unit: null, earned: s.share });
           }
