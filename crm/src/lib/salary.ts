@@ -19,11 +19,11 @@
 import { Prisma, type CommissionBase, type Currency, type ServiceType } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { parseInputDate } from "@/lib/format";
-import { convertCost, round2, toNum } from "@/lib/money";
+import { convertCost, convertRevenue, dealProfitInSale, round2, toNum, type DealMoney } from "@/lib/money";
 import { ratesOn } from "@/lib/rate-book";
 import { getSettings } from "@/lib/refs";
 import { loadRateBook } from "@/lib/rate-history";
-import { dealProfit, dealRevenue } from "@/lib/reports/calc";
+import { dealRevenue } from "@/lib/reports/calc";
 import { UZS_DEAL_MIN, USD_DEAL_MAX } from "@/lib/deals";
 import { toInputDate } from "@/lib/format";
 import { FLIGHT_MIN_ACTIVE_SEC } from "@/lib/shift";
@@ -134,7 +134,8 @@ export function calcPayout(terms: SalaryTerms, plan: PlanValues, fact: PlanFact)
 
 /**
  * Доли с авиабилетов: прибыль каждого билета × (процент / число менеджеров «В работе» в день продажи).
- * Продавшая считается работавшей в этот день, даже если не включила переключатель. Убыточный билет уменьшает долю.
+ * Продавшая считается работавшей в этот день, даже если не включила переключатель. Билет в убыток даёт 0 — из зарплаты
+ * менеджера убыток не вычитается (решение владельца 06.11.2026).
  */
 export function flightShares(deals: { sellerId: string; day: string; profit: number }[], workers: Map<string, Set<string>>, poolPct: number): Map<string, number> {
   const out = new Map<string, number>();
@@ -147,7 +148,7 @@ export function flightShares(deals: { sellerId: string; day: string; profit: num
 export function flightShare(d: { sellerId: string; day: string; profit: number }, workers: Map<string, Set<string>>, poolPct: number) {
   const team = new Set(workers.get(d.day) ?? []);
   team.add(d.sellerId);
-  return { share: (d.profit * poolPct) / 100 / team.size, team: team.size, pct: poolPct / team.size };
+  return { share: Math.max(0, (d.profit * poolPct) / 100 / team.size), team: team.size, pct: poolPct / team.size };
 }
 
 export interface SalaryRuleView {
@@ -378,11 +379,18 @@ export async function loadManagerMonths(range: MonthRange, managerId: string | n
     const since = st ? st.fromMonth.toISOString().slice(0, 7) : null;
     const termsSince = since && since > TERMS_EPOCH ? since : null;
     const money = (currency: Currency) => ({ currency, rate, costRate, book });
-    const profitIn = (currency: Currency, list = own) => round2(list.reduce((s, d) => s + dealProfit(d, money(currency)), 0));
+    // прибыль — как в карточке сделки: в валюте продажи, затем одним курсом дня в валюту зарплаты.
+    // Иначе продажа и себестоимость в долларах шли бы в сумы по разным курсам и билет с прибылью $3 давал бы минус.
+    const salaryProfit = (d: DealMoney & { paidAt: Date }, currency: Currency) => {
+      const r = ratesOn(book, d.paidAt);
+      const p = dealProfitInSale(d, r);
+      return p >= 0 ? convertRevenue(p, d.currency, currency, r) : convertCost(p, d.currency, currency, r);
+    };
+    const profitIn = (currency: Currency, list = own) => round2(list.reduce((s, d) => s + salaryProfit(d, currency), 0));
     const revenueIn = (currency: Currency, list = own) => round2(list.reduce((s, d) => s + dealRevenue(d, money(currency)), 0));
     const flightCommission =
       flightShares(
-        flights.map((d) => ({ sellerId: u.id, day: toInputDate(d.paidAt), profit: dealProfit(d, money(terms.currency)) })),
+        flights.map((d) => ({ sellerId: u.id, day: toInputDate(d.paidAt), profit: salaryProfit(d, terms.currency) })),
         workers,
         poolPct,
       ).get(u.id) ?? 0;
@@ -390,7 +398,8 @@ export async function loadManagerMonths(range: MonthRange, managerId: string | n
       leads: leads.filter((l) => l.managerId === u.id && l.createdAt >= period.from && l.createdAt < period.to).length,
       sales: own.reduce((s, d) => s + d.quantity, 0),
       profitUsd: profitIn("USD", confirmed),
-      profitSalary: profitIn(terms.currency, other.filter((d) => d.costConfirmed)),
+      // сделка в убыток в процент от прибыли идёт как 0: убыток не уменьшает начисления с других сделок
+      profitSalary: round2(other.filter((d) => d.costConfirmed).reduce((s, d) => s + Math.max(0, salaryProfit(d, terms.currency)), 0)),
       revenueUsd: revenueIn("USD"),
       revenueSalary: revenueIn(terms.currency, other),
       flightProfitSalary: profitIn(terms.currency, flights),
@@ -399,7 +408,7 @@ export async function loadManagerMonths(range: MonthRange, managerId: string | n
         special.reduce((sum, { d, rule }) => {
           if (!rule) return sum;
           // от прибыли — только когда себестоимость известна
-          const base = rule.from === "PROFIT" ? (d.costConfirmed ? dealProfit(d, money(terms.currency)) : 0) : dealRevenue(d, money(terms.currency));
+          const base = rule.from === "PROFIT" ? (d.costConfirmed ? salaryProfit(d, terms.currency) : 0) : dealRevenue(d, money(terms.currency));
           return sum + (Math.max(0, base) * rule.pct) / 100;
         }, 0),
       ),
@@ -427,11 +436,11 @@ export async function loadManagerMonths(range: MonthRange, managerId: string | n
       earned: round2(x.earned),
     });
     const salaryBase = (d: (typeof own)[number], from: CommissionBase) =>
-      from === "PROFIT" ? (d.costConfirmed ? dealProfit(d, money(terms.currency)) : null) : dealRevenue(d, money(terms.currency));
+      from === "PROFIT" ? (d.costConfirmed ? salaryProfit(d, terms.currency) : null) : dealRevenue(d, money(terms.currency));
     const lines: SalaryLine[] = tracked
       ? own.map((d) => {
           if (d.serviceType === "FLIGHTS") {
-            const profit = dealProfit(d, money(terms.currency));
+            const profit = salaryProfit(d, terms.currency);
             const s = flightShare({ sellerId: u.id, day: toInputDate(d.paidAt), profit }, workers, poolPct);
             return line(d, { kind: "FLIGHT", base: profit, from: "PROFIT", pct: round2(s.pct), team: s.team, unit: null, earned: s.share });
           }
@@ -446,7 +455,7 @@ export async function loadManagerMonths(range: MonthRange, managerId: string | n
             return line(d, { kind: "BONUS", base: null, from: null, pct: null, team: null, unit, earned });
           }
           const base = salaryBase(d, terms.from);
-          return line(d, { kind: "PCT", base, from: terms.from, pct: pay.ratePct, team: null, unit: null, earned: ((base ?? 0) * pay.ratePct) / 100 });
+          return line(d, { kind: "PCT", base, from: terms.from, pct: pay.ratePct, team: null, unit: null, earned: (Math.max(0, base ?? 0) * pay.ratePct) / 100 });
         })
       : [];
     const mine = payouts.filter((p) => p.userId === u.id);
