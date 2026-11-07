@@ -31,6 +31,8 @@ enum ServiceType {
   FLIGHTS
   TOUR
   VISA
+  /// страховка (с 07.11.2026): менеджеру 10% от суммы продажи
+  INSURANCE
   OTHER
 }
 

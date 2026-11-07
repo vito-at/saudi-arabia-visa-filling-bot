@@ -1,11 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { bonusForDeal, calcPayout, dealCountry, ruleForDeal, type SalaryRuleView } from "@/lib/salary";
+import { COMMON_RULES, bonusForDeal, calcPayout, dealCountry, ruleForDeal, type SalaryRuleView } from "@/lib/salary";
 
 const thai: SalaryRuleView = { id: "r1", serviceType: "VISA", country: "Таиланд", pct: 9, from: "REVENUE", fromDate: "2026-10-25" };
 // 25.10 по Ташкенту начинается 24.10 в 19:00 UTC
 const at = (iso: string) => new Date(iso);
 
 describe("особые проценты", () => {
+  it("страховка — 10% от суммы продажи всем менеджерам; свой особый процент менеджера важнее", () => {
+    const deal = { serviceType: "INSURANCE" as const, product: "Страховка: Турция", paidAt: at("2026-11-07T08:00:00Z") };
+    expect(ruleForDeal(deal, COMMON_RULES)).toMatchObject({ pct: 10, from: "REVENUE" });
+    expect(ruleForDeal({ ...deal, serviceType: "TOUR" }, COMMON_RULES)).toBeNull();
+    const own: SalaryRuleView = { id: "r2", serviceType: "INSURANCE", country: null, pct: 12, from: "REVENUE", fromDate: "2026-11-01" };
+    expect(ruleForDeal(deal, [own]) ?? ruleForDeal(deal, COMMON_RULES)).toMatchObject({ pct: 12 });
+  });
+
   it("страна визы из названия продукта на любом языке", () => {
     expect(dealCountry("Виза: Таиланд, 2 заявл.")).toBe("Таиланд");
     expect(dealCountry("Viza ko‘magi: Tailand, 1 ariza")).toBe("Таиланд");

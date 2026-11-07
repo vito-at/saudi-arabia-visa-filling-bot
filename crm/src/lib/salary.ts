@@ -205,6 +205,9 @@ export function bonusForDeal(deal: { serviceType: ServiceType | null; product: s
   return { amount: round2(found.amount * Math.max(1, deal.quantity)), currency: found.currency };
 }
 
+/** Общие проценты для всех менеджеров вместо обычного: со страховок — 10% от суммы продажи (решение владельца 07.11.2026) */
+export const COMMON_RULES: SalaryRuleView[] = [{ id: "common-insurance", serviceType: "INSURANCE", country: null, pct: 10, from: "REVENUE", fromDate: "2000-01-01" }];
+
 /** С этого дня (по Ташкенту) в деление авиабилетов входят только те, кто был «В работе» не меньше 4 часов */
 export const SHIFT_RULE_FROM = "2026-10-26";
 
@@ -366,7 +369,8 @@ export async function loadManagerMonths(range: MonthRange, managerId: string | n
     const special = own
       .filter((d) => d.serviceType !== "FLIGHTS")
       .map((d) => {
-        const rule = ruleForDeal(d, rules);
+        // свой особый процент менеджера важнее общего (страховка — 10% всем)
+        const rule = ruleForDeal(d, rules) ?? ruleForDeal(d, COMMON_RULES);
         return { d, rule, bonus: rule ? null : bonusForDeal(d, bonuses) };
       });
     const other = special.filter((x) => !x.rule && !x.bonus).map((x) => x.d);

@@ -138,6 +138,7 @@ export function parseTravelers(v: string): number | null {
 export function guessService(text: string): ServiceType | null {
   const t = text.toLowerCase();
   if (/авиа|билет|avia|chipta|flight|ticket/.test(t)) return "FLIGHTS";
+  if (/страхов|sug.?urta|insurance/.test(t)) return "INSURANCE";
   if (/виз|viza|visa/.test(t)) return "VISA";
   if (/тур|tour|sayohat|отдых/.test(t)) return "TOUR";
   return null;

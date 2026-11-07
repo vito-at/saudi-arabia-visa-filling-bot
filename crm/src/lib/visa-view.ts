@@ -22,7 +22,7 @@ export interface DocView {
 export interface ServiceView {
   id: string;
   leadId: string;
-  type: "FLIGHTS" | "TOUR" | "VISA" | "OTHER";
+  type: "FLIGHTS" | "TOUR" | "VISA" | "INSURANCE" | "OTHER";
   country: string | null;
   note: string | null;
   status: "NEW" | "IN_PROGRESS" | "PAID_WAITING" | "DOCS_REQUESTED" | "APPROVED" | "REJECTED";

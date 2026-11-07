@@ -49,6 +49,7 @@ const SERVICE_RU: Record<string, TKey> = {
   "Выездной тур": "service.TOUR",
   "Въездной тур": "service.TOUR",
   "Визовая поддержка": "service.VISA",
+  "Страховка": "service.INSURANCE",
 };
 
 const SOURCE_RU: Record<string, TKey> = {
