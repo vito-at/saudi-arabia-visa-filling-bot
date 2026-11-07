@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calcPayout, flightShares, monthRange, payPeriod, shiftMonth } from "@/lib/salary";
+import { calcPayout, flightShares, inProfitPool, monthRange, payPeriod, shiftMonth } from "@/lib/salary";
 
 const fact = { leads: 40, sales: 12, profitUsd: 5000, profitSalary: 60_000_000, revenueUsd: 20_000, revenueSalary: 240_000_000, flightProfitSalary: 0, flightCommission: 0 };
 
@@ -22,27 +22,33 @@ describe("зарплата и план", () => {
     expect(r.commission).toBe(12_000_000);
     expect(r.total).toBe(13_500_000);
   });
-  it("авиабилеты: 30% прибыли делится на тех, кто в работе в день продажи, — только со своих билетов", () => {
+  it("авиабилеты: 30% прибыли каждого билета делится на продавшую и тех, кто в работе в день продажи", () => {
     const workers = new Map([
       ["2026-10-21", new Set(["a", "b"])],
       ["2026-10-22", new Set(["a"])],
     ]);
     const shares = flightShares(
       [
-        { sellerId: "a", day: "2026-10-21", profit: 1_000_000 }, // двое в работе → 15%
-        { sellerId: "a", day: "2026-10-22", profit: 1_000_000 }, // одна → 30%
-        { sellerId: "b", day: "2026-10-21", profit: 2_000_000 }, // 15% со своего билета
-        { sellerId: "b", day: "2026-10-23", profit: 500_000 }, // переключатель не включала, но продала — считается одна → 30%
+        { sellerId: "a", day: "2026-10-21", profit: 1_000_000 }, // двое в работе → по 15%: a 150 000, b 150 000
+        { sellerId: "a", day: "2026-10-22", profit: 1_000_000 }, // одна → 30%: a 300 000
+        { sellerId: "b", day: "2026-10-21", profit: 2_000_000 }, // двое → по 15%: a 300 000, b 300 000
+        { sellerId: "b", day: "2026-10-23", profit: 500_000 }, // переключатель не включала, но продала — считается одна → 30%: b 150 000
       ],
       workers,
       30,
     );
-    expect(shares.get("a")).toBe(450_000);
-    expect(shares.get("b")).toBe(450_000);
+    expect(shares.get("a")).toBe(750_000);
+    expect(shares.get("b")).toBe(600_000);
     // доля с билетов добавляется к комиссии от остальных продаж
     const r = calcPayout({ base: 1_500_000, currency: "UZS", pct: 5, bonusPct: 0, from: "REVENUE" }, { leads: null, sales: null, profit: null }, { ...fact, revenueSalary: 10_000_000, flightCommission: 450_000 });
     expect(r.commission).toBe(950_000);
     expect(r.total).toBe(2_450_000);
+  });
+  it("туры с 07.11.2026 (по Ташкенту) — как авиабилеты, раньше — обычный процент", () => {
+    expect(inProfitPool({ serviceType: "TOUR", paidAt: new Date("2026-11-06T18:59:00Z") })).toBe(false); // 06.11 23:59 по Ташкенту
+    expect(inProfitPool({ serviceType: "TOUR", paidAt: new Date("2026-11-06T19:00:00Z") })).toBe(true); // 07.11 00:00
+    expect(inProfitPool({ serviceType: "FLIGHTS", paidAt: new Date("2026-01-01T00:00:00Z") })).toBe(true);
+    expect(inProfitPool({ serviceType: "VISA", paidAt: new Date("2026-11-10T00:00:00Z") })).toBe(false);
   });
   it("билет в убыток даёт 0, а не минус: убыток не вычитается из доли с других билетов", () => {
     const workers = new Map([["2026-10-23", new Set(["a", "b"])]]);

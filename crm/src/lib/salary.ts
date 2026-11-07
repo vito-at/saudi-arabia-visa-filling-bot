@@ -4,12 +4,15 @@
  * сумма продаж и прибыль — по этим сделкам (по курсам дня оплаты).
  * Зарплата = оклад + сумма продаж (или прибыль — задаётся у менеджера) × (процент + надбавка, если план по прибыли выполнен).
  * По умолчанию: 1 500 000 сум + 5% от суммы продаж.
- * Авиабилеты — отдельно: процент от чистой прибыли (flightPoolPct, 30%) делится поровну между менеджерами, работавшими
- * в день продажи (двое — по 15%, одна — 30%), и каждая получает свою долю только с билетов, проданных ею самой.
+ * Авиабилеты — отдельно: процент от чистой прибыли (flightPoolPct, 30%) каждого билета делится поровну между продавшей
+ * и менеджерами, работавшими в день продажи (двое — по 15%, одна — 30%): работавшая получает долю и с чужих билетов
+ * этого дня (решение владельца 07.11.2026, с начала учёта; раньше — только со своих).
  * Работала в день — с 26.10.2026 была «В работе» не меньше 4 часов за день (FLIGHT_MIN_ACTIVE_SEC, время копится, пока
  * переключатель включён и менеджер действует в CRM — см. lib/shift.ts). Раньше переключателя какое-то время не было:
  * за дни до 26.10.2026 считается по-старому — включала «В работе» или что-то делала в CRM (activityDays).
- * Остальные услуги — оклад + процент от продаж/прибыли, как выше; авиабилеты в эту базу не входят.
+ * Туры с 07.11.2026 (TOUR_POOL_FROM) — так же, как авиабилеты (решение владельца); долю с тура считаем, когда
+ * администратор указал себестоимость, до этого — 0.
+ * Остальные услуги — оклад + процент от продаж/прибыли, как выше; авиабилеты и туры в эту базу не входят.
  * Период расчёта у каждого менеджера свой — по дню выплаты (User.payDay, см. payPeriod): выплата в конце месяца —
  * календарный месяц, выплата 20-го — с 21-го числа прошлого месяца по 20-е этого (зарплата за ноябрь — с 21.10 по 20.11).
  * Лиды, продажи и доля с авиабилетов считаются за этот период; план, условия и выплаты — по месяцу выплаты.
@@ -133,22 +136,25 @@ export function calcPayout(terms: SalaryTerms, plan: PlanValues, fact: PlanFact)
 }
 
 /**
- * Доли с авиабилетов: прибыль каждого билета × (процент / число менеджеров «В работе» в день продажи).
+ * Доли с авиабилетов: прибыль каждого билета × (процент / число менеджеров «В работе» в день продажи) — каждому из них.
  * Продавшая считается работавшей в этот день, даже если не включила переключатель. Билет в убыток даёт 0 — из зарплаты
  * менеджера убыток не вычитается (решение владельца 06.11.2026).
  */
 export function flightShares(deals: { sellerId: string; day: string; profit: number }[], workers: Map<string, Set<string>>, poolPct: number): Map<string, number> {
   const out = new Map<string, number>();
-  for (const d of deals) out.set(d.sellerId, (out.get(d.sellerId) ?? 0) + flightShare(d, workers, poolPct).share);
+  for (const d of deals) {
+    const s = flightShare(d, workers, poolPct);
+    for (const id of s.members) out.set(id, (out.get(id) ?? 0) + s.share);
+  }
   for (const [k, v] of out) out.set(k, round2(v));
   return out;
 }
 
-/** Доля продавшей с одного билета и сколько менеджеров её делили (для расшифровки зарплаты) */
+/** Доля каждого из делящих один билет, кто делит (продавшая и работавшие в тот день) и сколько их */
 export function flightShare(d: { sellerId: string; day: string; profit: number }, workers: Map<string, Set<string>>, poolPct: number) {
   const team = new Set(workers.get(d.day) ?? []);
   team.add(d.sellerId);
-  return { share: Math.max(0, (d.profit * poolPct) / 100 / team.size), team: team.size, pct: poolPct / team.size };
+  return { share: Math.max(0, (d.profit * poolPct) / 100 / team.size), team: team.size, pct: poolPct / team.size, members: team };
 }
 
 export interface SalaryRuleView {
@@ -205,6 +211,13 @@ export function bonusForDeal(deal: { serviceType: ServiceType | null; product: s
   return { amount: round2(found.amount * Math.max(1, deal.quantity)), currency: found.currency };
 }
 
+/** С этого дня оплаты (по Ташкенту) туры считаются как авиабилеты: доля с 30% прибыли вместо процента с продаж */
+export const TOUR_POOL_FROM = "2026-11-07";
+
+/** Сделка идёт в деление процента с прибыли (авиабилеты; туры — с TOUR_POOL_FROM), а не в процент с продаж */
+export const inProfitPool = (d: { serviceType: ServiceType | null; paidAt: Date }) =>
+  d.serviceType === "FLIGHTS" || (d.serviceType === "TOUR" && toInputDate(d.paidAt) >= TOUR_POOL_FROM);
+
 /** Общие проценты для всех менеджеров вместо обычного: со страховок — 10% от суммы продажи (решение владельца 07.11.2026) */
 export const COMMON_RULES: SalaryRuleView[] = [{ id: "common-insurance", serviceType: "INSURANCE", country: null, pct: 10, from: "REVENUE", fromDate: "2000-01-01" }];
 
@@ -236,6 +249,8 @@ export interface SalaryLine {
   product: string;
   quantity: number;
   kind: "PCT" | "RULE" | "BONUS" | "FLIGHT";
+  /** FLIGHT: кто продал, если не сам менеджер (доля с чужого билета в день, когда менеджер был в работе) */
+  seller: string | null;
   /** сумма сделки в её валюте */
   amount: number;
   currency: Currency;
@@ -312,25 +327,33 @@ export async function loadManagerMonths(range: MonthRange, managerId: string | n
   const ids = users.map((u) => u.id);
   const start = settings.salaryStartAt;
   const dayKeyOf = (d: Date) => new Date(`${toInputDate(d)}T00:00:00Z`);
-  const [leads, deals, shiftDays, payouts, bonusRows] = await Promise.all([
+  const dealSelect = {
+    id: true,
+    leadId: true,
+    lead: { select: { name: true } },
+    manager: { select: { name: true } },
+    managerId: true,
+    amount: true,
+    cost: true,
+    currency: true,
+    costCurrency: true,
+    paidAt: true,
+    quantity: true,
+    serviceType: true,
+    costConfirmed: true,
+    product: true,
+  } as const;
+  const [leads, deals, poolDeals, shiftDays, payouts, bonusRows] = await Promise.all([
     prisma.lead.findMany({ where: { managerId: { in: ids }, createdAt: { gte: wide.from, lt: wide.to } }, select: { managerId: true, createdAt: true } }),
     prisma.deal.findMany({
       where: { managerId: { in: ids }, paidAt: { gte: wide.from, lt: wide.to } },
-      select: {
-        id: true,
-        leadId: true,
-        lead: { select: { name: true } },
-        managerId: true,
-        amount: true,
-        cost: true,
-        currency: true,
-        costCurrency: true,
-        paidAt: true,
-        quantity: true,
-        serviceType: true,
-        costConfirmed: true,
-        product: true,
-      },
+      select: dealSelect,
+      orderBy: { paidAt: "asc" },
+    }),
+    // авиабилеты и туры всех менеджеров по продажам: доля с них идёт и тем, кто был в работе в день продажи
+    prisma.deal.findMany({
+      where: { serviceType: { in: ["FLIGHTS", "TOUR"] }, manager: { role: "MANAGER" }, paidAt: { gte: wide.from, lt: wide.to } },
+      select: dealSelect,
       orderBy: { paidAt: "asc" },
     }),
     // кто был «В работе» в дни месяца и сколько — все менеджеры по продажам, а не только показанные (делим процент с авиабилетов);
@@ -363,11 +386,12 @@ export async function loadManagerMonths(range: MonthRange, managerId: string | n
       from: r.commissionFrom,
       fromDate: r.fromDate.toISOString().slice(0, 10),
     }));
-    const flights = own.filter((d) => d.serviceType === "FLIGHTS");
+    // авиабилеты и туры (с 07.11.2026) — доля с прибыли; тур без себестоимости пока даёт 0
+    const flights = own.filter(inProfitPool);
     // сделки с особым процентом (например, 9% с виз в Таиланд) — вместо обычного процента
     // фиксированная оплата за единицу (например, 5 $ за визу в ОАЭ) — тоже вместо процента; особый процент менеджера важнее
     const special = own
-      .filter((d) => d.serviceType !== "FLIGHTS")
+      .filter((d) => !inProfitPool(d))
       .map((d) => {
         // свой особый процент менеджера важнее общего (страховка — 10% всем)
         const rule = ruleForDeal(d, rules) ?? ruleForDeal(d, COMMON_RULES);
@@ -390,14 +414,16 @@ export async function loadManagerMonths(range: MonthRange, managerId: string | n
       const p = dealProfitInSale(d, r);
       return p >= 0 ? convertRevenue(p, d.currency, currency, r) : convertCost(p, d.currency, currency, r);
     };
+    const poolProfit = (d: (typeof own)[number]) => (d.costConfirmed ? salaryProfit(d, terms.currency) : 0);
     const profitIn = (currency: Currency, list = own) => round2(list.reduce((s, d) => s + salaryProfit(d, currency), 0));
     const revenueIn = (currency: Currency, list = own) => round2(list.reduce((s, d) => s + dealRevenue(d, money(currency)), 0));
-    const flightCommission =
-      flightShares(
-        flights.map((d) => ({ sellerId: u.id, day: toInputDate(d.paidAt), profit: salaryProfit(d, terms.currency) })),
-        workers,
-        poolPct,
-      ).get(u.id) ?? 0;
+    // доля с каждого билета и тура периода, который делит этот менеджер: свой — всегда, чужой — если был в работе в тот день
+    const pool = poolDeals
+      .map((d) => ({ ...d, amount: toNum(d.amount), cost: toNum(d.cost) }))
+      .filter((d) => d.managerId && inProfitPool(d) && d.paidAt >= dealsFrom && d.paidAt < period.to)
+      .map((d) => ({ d, s: flightShare({ sellerId: d.managerId!, day: toInputDate(d.paidAt), profit: poolProfit(d) }, workers, poolPct) }))
+      .filter((x) => x.s.members.has(u.id));
+    const flightCommission = round2(pool.reduce((sum, x) => sum + x.s.share, 0));
     const fact: PlanFact = {
       leads: leads.filter((l) => l.managerId === u.id && l.createdAt >= period.from && l.createdAt < period.to).length,
       sales: own.reduce((s, d) => s + d.quantity, 0),
@@ -427,27 +453,29 @@ export async function loadManagerMonths(range: MonthRange, managerId: string | n
     const pay = calcPayout(terms, plan, fact);
     // месяц до начала учёта: зарплату за него платили вне CRM
     if (!tracked) Object.assign(pay, { commission: 0, base: 0, total: 0 });
-    const line = (d: (typeof own)[number], x: Pick<SalaryLine, "kind" | "base" | "from" | "pct" | "team" | "unit" | "earned">): SalaryLine => ({
+    const line = (d: (typeof own)[number] | (typeof pool)[number]["d"], x: Pick<SalaryLine, "kind" | "base" | "from" | "pct" | "team" | "unit" | "earned">): SalaryLine => ({
       dealId: d.id,
       leadId: d.leadId,
       leadName: d.lead.name,
       paidAt: d.paidAt.toISOString(),
       product: d.product,
       quantity: d.quantity,
-      amount: d.amount,
+      amount: toNum(d.amount),
       currency: d.currency,
+      seller: null,
       ...x,
       earned: round2(x.earned),
     });
     const salaryBase = (d: (typeof own)[number], from: CommissionBase) =>
       from === "PROFIT" ? (d.costConfirmed ? salaryProfit(d, terms.currency) : null) : dealRevenue(d, money(terms.currency));
+    const poolLines = pool.map(({ d, s }) => ({
+      ...line(d, { kind: "FLIGHT", base: d.costConfirmed ? poolProfit(d) : null, from: "PROFIT", pct: round2(s.pct), team: s.team, unit: null, earned: s.share }),
+      seller: d.managerId === u.id ? null : (d.manager?.name ?? null),
+    }));
     const lines: SalaryLine[] = tracked
-      ? own.map((d) => {
-          if (d.serviceType === "FLIGHTS") {
-            const profit = salaryProfit(d, terms.currency);
-            const s = flightShare({ sellerId: u.id, day: toInputDate(d.paidAt), profit }, workers, poolPct);
-            return line(d, { kind: "FLIGHT", base: profit, from: "PROFIT", pct: round2(s.pct), team: s.team, unit: null, earned: s.share });
-          }
+      ? own
+          .filter((d) => !inProfitPool(d))
+          .map((d) => {
           const x = special.find((y) => y.d === d)!;
           if (x.rule) {
             const base = salaryBase(d, x.rule.from);
@@ -460,7 +488,9 @@ export async function loadManagerMonths(range: MonthRange, managerId: string | n
           }
           const base = salaryBase(d, terms.from);
           return line(d, { kind: "PCT", base, from: terms.from, pct: pay.ratePct, team: null, unit: null, earned: (Math.max(0, base ?? 0) * pay.ratePct) / 100 });
-        })
+          })
+          .concat(poolLines)
+          .sort((a, b) => a.paidAt.localeCompare(b.paidAt))
       : [];
     const mine = payouts.filter((p) => p.userId === u.id);
     // выплата могла быть в другой валюте (валюту условий сменили) — пересчёт по курсу дня выплаты
