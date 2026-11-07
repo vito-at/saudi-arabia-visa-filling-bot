@@ -9,7 +9,9 @@
  * Работала в день — с 26.10.2026 была «В работе» не меньше 4 часов за день (FLIGHT_MIN_ACTIVE_SEC, время копится, пока
  * переключатель включён и менеджер действует в CRM — см. lib/shift.ts). Раньше переключателя какое-то время не было:
  * за дни до 26.10.2026 считается по-старому — включала «В работе» или что-то делала в CRM (activityDays).
- * Остальные услуги — оклад + процент от продаж/прибыли, как выше; авиабилеты в эту базу не входят.
+ * Туры с 07.11.2026 (TOUR_POOL_FROM) — так же, как авиабилеты (решение владельца); долю с тура считаем, когда
+ * администратор указал себестоимость, до этого — 0.
+ * Остальные услуги — оклад + процент от продаж/прибыли, как выше; авиабилеты и туры в эту базу не входят.
  * Период расчёта у каждого менеджера свой — по дню выплаты (User.payDay, см. payPeriod): выплата в конце месяца —
  * календарный месяц, выплата 20-го — с 21-го числа прошлого месяца по 20-е этого (зарплата за ноябрь — с 21.10 по 20.11).
  * Лиды, продажи и доля с авиабилетов считаются за этот период; план, условия и выплаты — по месяцу выплаты.
@@ -205,6 +207,13 @@ export function bonusForDeal(deal: { serviceType: ServiceType | null; product: s
   return { amount: round2(found.amount * Math.max(1, deal.quantity)), currency: found.currency };
 }
 
+/** С этого дня оплаты (по Ташкенту) туры считаются как авиабилеты: доля с 30% прибыли вместо процента с продаж */
+export const TOUR_POOL_FROM = "2026-11-07";
+
+/** Сделка идёт в деление процента с прибыли (авиабилеты; туры — с TOUR_POOL_FROM), а не в процент с продаж */
+export const inProfitPool = (d: { serviceType: ServiceType | null; paidAt: Date }) =>
+  d.serviceType === "FLIGHTS" || (d.serviceType === "TOUR" && toInputDate(d.paidAt) >= TOUR_POOL_FROM);
+
 /** Общие проценты для всех менеджеров вместо обычного: со страховок — 10% от суммы продажи (решение владельца 07.11.2026) */
 export const COMMON_RULES: SalaryRuleView[] = [{ id: "common-insurance", serviceType: "INSURANCE", country: null, pct: 10, from: "REVENUE", fromDate: "2000-01-01" }];
 
@@ -363,11 +372,12 @@ export async function loadManagerMonths(range: MonthRange, managerId: string | n
       from: r.commissionFrom,
       fromDate: r.fromDate.toISOString().slice(0, 10),
     }));
-    const flights = own.filter((d) => d.serviceType === "FLIGHTS");
+    // авиабилеты и туры (с 07.11.2026) — доля с прибыли; тур без себестоимости пока даёт 0
+    const flights = own.filter(inProfitPool);
     // сделки с особым процентом (например, 9% с виз в Таиланд) — вместо обычного процента
     // фиксированная оплата за единицу (например, 5 $ за визу в ОАЭ) — тоже вместо процента; особый процент менеджера важнее
     const special = own
-      .filter((d) => d.serviceType !== "FLIGHTS")
+      .filter((d) => !inProfitPool(d))
       .map((d) => {
         // свой особый процент менеджера важнее общего (страховка — 10% всем)
         const rule = ruleForDeal(d, rules) ?? ruleForDeal(d, COMMON_RULES);
@@ -390,11 +400,12 @@ export async function loadManagerMonths(range: MonthRange, managerId: string | n
       const p = dealProfitInSale(d, r);
       return p >= 0 ? convertRevenue(p, d.currency, currency, r) : convertCost(p, d.currency, currency, r);
     };
+    const poolProfit = (d: (typeof own)[number]) => (d.costConfirmed ? salaryProfit(d, terms.currency) : 0);
     const profitIn = (currency: Currency, list = own) => round2(list.reduce((s, d) => s + salaryProfit(d, currency), 0));
     const revenueIn = (currency: Currency, list = own) => round2(list.reduce((s, d) => s + dealRevenue(d, money(currency)), 0));
     const flightCommission =
       flightShares(
-        flights.map((d) => ({ sellerId: u.id, day: toInputDate(d.paidAt), profit: salaryProfit(d, terms.currency) })),
+        flights.map((d) => ({ sellerId: u.id, day: toInputDate(d.paidAt), profit: poolProfit(d) })),
         workers,
         poolPct,
       ).get(u.id) ?? 0;
@@ -443,10 +454,10 @@ export async function loadManagerMonths(range: MonthRange, managerId: string | n
       from === "PROFIT" ? (d.costConfirmed ? salaryProfit(d, terms.currency) : null) : dealRevenue(d, money(terms.currency));
     const lines: SalaryLine[] = tracked
       ? own.map((d) => {
-          if (d.serviceType === "FLIGHTS") {
-            const profit = salaryProfit(d, terms.currency);
+          if (inProfitPool(d)) {
+            const profit = poolProfit(d);
             const s = flightShare({ sellerId: u.id, day: toInputDate(d.paidAt), profit }, workers, poolPct);
-            return line(d, { kind: "FLIGHT", base: profit, from: "PROFIT", pct: round2(s.pct), team: s.team, unit: null, earned: s.share });
+            return line(d, { kind: "FLIGHT", base: d.costConfirmed ? profit : null, from: "PROFIT", pct: round2(s.pct), team: s.team, unit: null, earned: s.share });
           }
           const x = special.find((y) => y.d === d)!;
           if (x.rule) {
