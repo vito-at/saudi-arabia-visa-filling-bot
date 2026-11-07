@@ -1157,6 +1157,7 @@ export const uz: Messages = {
     bdKind: { PCT: "Sotuvdan oddiy foiz", RULE: "Xizmat bo‘yicha alohida foiz (maxsus, sug‘urta 10%)", BONUS: "Sotuv uchun belgilangan to‘lov", FLIGHT: "Aviachiptalar va turlar foydasidan ulush" },
     bdNoCost: "tannarx kiritilmagan — hozircha 0",
     bdProfit: "foydadan",
+    bdSoldBy: "sotgan: {name}",
     bdTeam: "o‘sha kuni ishda: {n}",
     bdPlanMet: "Foyda rejasi bajarildi: {fact} / {plan} — foizga +{pct}% qo‘shildi",
     bdPlanNotMet: "Foyda rejasi: {fact} / {plan} — +{pct}% qo‘shimcha berilmadi",

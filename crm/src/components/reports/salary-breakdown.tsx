@@ -15,6 +15,8 @@ export interface SalaryLineView {
   product: string;
   quantity: number;
   kind: "PCT" | "RULE" | "BONUS" | "FLIGHT";
+  /** продал другой менеджер — доля за то, что этот был в работе в тот день */
+  seller?: string | null;
   amount: number;
   currency: "UZS" | "USD";
   base: number | null;
@@ -96,9 +98,14 @@ export function SalaryBreakdown({ row, monthName, onClose }: { row: PlanRowView;
                         <div className="min-w-0">
                           <div>
                             <span className="text-muted-foreground tabular-nums">{formatDate(l.paidAt)}</span>{" "}
-                            <Link href={`/leads/${l.leadId}`} className="font-medium text-primary hover:underline">
-                              {l.leadName}
-                            </Link>
+                            {l.seller ? (
+                              <span className="font-medium">{l.leadName}</span>
+                            ) : (
+                              <Link href={`/leads/${l.leadId}`} className="font-medium text-primary hover:underline">
+                                {l.leadName}
+                              </Link>
+                            )}
+                            {l.seller && <span className="text-xs text-muted-foreground"> · {t("plans.bdSoldBy", { name: l.seller })}</span>}
                           </div>
                           <div className="text-xs text-muted-foreground">
                             {l.product}

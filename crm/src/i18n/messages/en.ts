@@ -1157,6 +1157,7 @@ export const en: Messages = {
     bdKind: { PCT: "Regular commission on sales", RULE: "Separate rate for the service (special, insurance 10%)", BONUS: "Fixed pay per sale", FLIGHT: "Share of flight and tour profit" },
     bdNoCost: "cost not entered yet — 0 for now",
     bdProfit: "of profit",
+    bdSoldBy: "sold by {name}",
     bdTeam: "on shift that day: {n}",
     bdPlanMet: "Profit plan met: {fact} of {plan} — +{pct}% added to the rate",
     bdPlanNotMet: "Profit plan: {fact} of {plan} — the +{pct}% bonus is not added",
