@@ -11,7 +11,7 @@ describe("сделка без ожидания себестоимости", () =
 });
 
 describe("продукт сделки из списка", () => {
-  const labels = { FLIGHTS: "Авиабилеты", TOUR: "Тур", VISA: "Визовая поддержка", OTHER: "Другое" } as const;
+  const labels = { FLIGHTS: "Авиабилеты", TOUR: "Тур", VISA: "Визовая поддержка", INSURANCE: "Страховка", OTHER: "Другое" } as const;
   it("собирает название из типа услуги и подробностей", () => {
     expect(composeProduct("Тур", " Дубай, 7 ночей ")).toBe("Тур: Дубай, 7 ночей");
     expect(composeProduct("Визовая поддержка", "")).toBe("Визовая поддержка");

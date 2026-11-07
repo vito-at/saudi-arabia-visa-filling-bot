@@ -4,7 +4,7 @@ import type { Currency, LeadSource, Role, ServiceType, StatusKind } from "@prism
 // В интерфейсе подписи берутся из словарей i18n (см. src/i18n/labels.ts).
 
 export const SOURCES: LeadSource[] = ["META_FB", "META_IG", "CALL", "INSTAGRAM_DIRECT", "TELEGRAM", "WALK_IN", "WEBSITE", "OTHER"];
-export const SERVICE_TYPES: ServiceType[] = ["FLIGHTS", "TOUR", "VISA", "OTHER"];
+export const SERVICE_TYPES: ServiceType[] = ["FLIGHTS", "TOUR", "VISA", "INSURANCE", "OTHER"];
 
 export const SOURCE_LABELS: Record<LeadSource, string> = {
   META_FB: "Facebook (реклама)",
@@ -24,6 +24,7 @@ export const SERVICE_LABELS: Record<ServiceType, string> = {
   FLIGHTS: "Авиабилеты",
   TOUR: "Тур",
   VISA: "Визовая поддержка",
+  INSURANCE: "Страховка",
   OTHER: "Другое",
 };
 

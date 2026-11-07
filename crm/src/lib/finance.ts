@@ -169,7 +169,7 @@ export interface ServiceProfit {
   leads: number;
 }
 
-const SERVICE_ORDER: (ServiceType | null)[] = ["FLIGHTS", "TOUR", "VISA", "OTHER", null];
+const SERVICE_ORDER: (ServiceType | null)[] = ["FLIGHTS", "TOUR", "VISA", "INSURANCE", "OTHER", null];
 
 /**
  * Прибыль по продуктам: сколько заработали на авиабилетах, турах, визах и т. д. — по убыванию прибыли.

@@ -23,6 +23,7 @@ export const DEFAULT_REQUIREMENTS: { type: ServiceType; country: string | null; 
   },
   { type: "FLIGHTS", country: null, names: ["Заграничный паспорт", "Авиабилет"] },
   { type: "TOUR", country: null, names: ["Заграничный паспорт", "Свидетельство о рождении (для детей)", "Ваучер", "Авиабилет"] },
+  { type: "INSURANCE", country: null, names: ["Заграничный паспорт"] },
   { type: "OTHER", country: null, names: ["Документ"] },
 ];
 
