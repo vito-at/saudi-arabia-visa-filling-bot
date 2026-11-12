@@ -25,3 +25,13 @@
 		Referrer-Policy "strict-origin-when-cross-origin"
 	}
 }
+
+# Сайт проверки документов по QR-коду для Ипотека-банка — отдельный проект (репозиторий vito-at/qr-code-creator),
+# работает на этом же сервере в своём контейнере, подключённом к сети CRM под именем qr-code-app.
+# Домен — VERIFY_DOMAIN в .env, по умолчанию hujjat-ipotekabank.uz. Нужна A-запись на IP этого сервера.
+# Пока контейнер не запущен, по этому домену будет ошибка 502; на CRM это не влияет.
+{$VERIFY_DOMAIN:hujjat-ipotekabank.uz} {
+	encode zstd gzip
+	reverse_proxy qr-code-app:3000
+	header Strict-Transport-Security "max-age=31536000"
+}

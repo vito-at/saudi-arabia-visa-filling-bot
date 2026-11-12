@@ -48,6 +48,7 @@ services:
     environment:
       DOMAIN: ${DOMAIN:?Укажите DOMAIN в .env}
       LINKS_DOMAIN: ${LINKS_DOMAIN:-link.orienttravel.uz}
+      VERIFY_DOMAIN: ${VERIFY_DOMAIN:-hujjat-ipotekabank.uz}   # сайт проверки документов (отдельный проект qr-code-creator)
     ports:
       - "80:80"
       - "443:443"
