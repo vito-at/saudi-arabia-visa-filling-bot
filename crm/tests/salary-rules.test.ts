@@ -18,6 +18,7 @@ describe("особые проценты", () => {
     expect(dealCountry("Виза: Таиланд, 2 заявл.")).toBe("Таиланд");
     expect(dealCountry("Viza ko‘magi: Tailand, 1 ariza")).toBe("Таиланд");
     expect(dealCountry("Visa support: Thailand")).toBe("Таиланд");
+    expect(dealCountry("Viza ko‘magi: Bahrayn, 2 ariza")).toBe("Бахрейн");
     expect(dealCountry("Виза: Саудовская Аравия")).toBe("Саудовская Аравия");
     expect(dealCountry("Виза: Вьетнам")).toBe("Вьетнам");
     expect(dealCountry("Тур: Дубай")).toBe("ОАЭ");
